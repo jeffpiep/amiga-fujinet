@@ -1,0 +1,6 @@
+[submodule "fujinet-nio"]
+	path = fujinet-nio
+	url = https://github.com/jeffpiep/fujinet-nio.git
+[submodule "fujinet-nio-lib"]
+	path = fujinet-nio-lib
+	url = https://github.com/jeffpiep/fujinet-nio-lib.git
