@@ -92,5 +92,6 @@ between sessions — put the spec in a contract file and reference it by path.
 | `contracts/rs232-hardware.md` | Amiga RS-232 pinout, baud, cable wiring |
 | `contracts/fujibus-protocol.md` | FujiBus + SLIP framing spec summary |
 | `contracts/amiga-transport-api.md` | What to implement in `fujinet-nio-lib/src/platform/amiga/` |
+| `contracts/amiga-coding-conventions.md` | C style, AmigaOS API rules, memory/stack constraints for Amiga code |
 
 When adding new cross-submodule features, write the contract first.
