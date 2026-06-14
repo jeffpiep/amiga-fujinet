@@ -46,17 +46,23 @@ git commit -m "bump nio-lib: my-change"
 ## Build Commands
 
 ```bash
+# One-time: initialize submodules (--recursive required for esp_littlefs sub-submodules)
+git submodule update --init --recursive --force
+
+# Build fujinet-nio for Linux RS-232 (use build.sh — handles venv, cmake, ctest)
+cd fujinet-nio
+./build.sh -p fujibus-rs232-debug      # first build
+./build.sh -cp fujibus-rs232-debug     # clean + build
+
 # Build fujinet-nio-lib for Amiga
 cd fujinet-nio-lib && make TARGET=amiga
-
-# Build fujinet-nio for Linux RS-232
-cd fujinet-nio
-cmake --preset fujibus-rs232-debug
-cmake --build build/fujibus-rs232-debug
 
 # Build Amiga apps
 cd apps/http_get && make
 ```
+
+See `fujinet-nio/docs/developer_onboarding.md` for full build options, ESP32 setup,
+available profiles (`./build.sh -p -S`), and CLI testing tools.
 
 Serial port is configured at runtime via environment variables:
 - `FN_SERIAL_PORT` (default: `/dev/ttyUSB0`)
