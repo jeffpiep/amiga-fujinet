@@ -38,10 +38,31 @@ git add fujinet-nio-lib
 git commit -m "bump nio-lib: my-change"
 ```
 
+### Keeping feature branches current (fetch → rebase)
+
+Before starting new work or before pushing, sync each affected repo:
+
+```bash
+# 1. Fetch upstream
+git -C fujinet-nio-lib fetch origin
+
+# 2. Fast-forward local master
+git -C fujinet-nio-lib checkout master
+git -C fujinet-nio-lib merge --ff-only origin/master
+
+# 3. Rebase feature branch onto master (keeps linear history)
+git -C fujinet-nio-lib checkout feature/my-branch
+git -C fujinet-nio-lib rebase master
+```
+
+Repeat for `fujinet-nio` and the parent repo as needed. Always rebase (not merge)
+to keep the feature branch history linear.
+
 ### Never
 - Edit submodule files without first creating a branch inside that submodule
 - Commit the parent repo without first committing changes inside any modified submodule
 - Use `git add .` or `git add -A` — always stage specific files
+- Merge master into a feature branch — rebase instead
 
 ## Build Commands
 
