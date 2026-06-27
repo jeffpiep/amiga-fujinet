@@ -52,7 +52,11 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    result = fn_open(&handle, FN_METHOD_GET, url, 0);
+    uint8_t open_flags = 0;
+    if (strncmp(url, "https://", 8) == 0 || strncmp(url, "tls://", 6) == 0)
+        open_flags |= FN_OPEN_TLS;
+
+    result = fn_open(&handle, FN_METHOD_GET, url, open_flags);
     if (result != FN_OK) {
         printf("Open failed: %s\n", fn_error_string(result));
         return 1;

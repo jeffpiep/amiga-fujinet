@@ -157,7 +157,7 @@ echo "fujinet-nio PID: $FN_PID"
 ## Step 9 — Wait and collect results
 
 ```bash
-sleep 60   # A500 at 7MHz is slow to boot from floppy; allow plenty of time
+sleep 20   # fn_test boots in ~15s; adjust up for heavier apps
 
 echo "=== fujinet log ===" && cat emu/logs/<appname>/fujinet.log
 echo "=== serial trace ===" && cat emu/logs/<appname>/serial-trace.log

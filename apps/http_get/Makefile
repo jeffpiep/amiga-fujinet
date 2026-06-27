@@ -14,12 +14,11 @@
 # Output: http_get  (AmigaOS executable — copy to Amiga or run in WinUAE)
 
 CC        = m68k-amigaos-gcc
-CFLAGS    = -Wall -O2 -std=c99 -mcpu=68000 -msoft-float
+CFLAGS    = -Wall -O2 -std=c99 -mcpu=68000 -msoft-float -mcrt=nix13
 
 NIO_LIB   = ../../fujinet-nio-lib
 INCLUDES  = -I$(NIO_LIB)/include
-LIBDIR    = $(NIO_LIB)/build/amiga
-LIBS      = -L$(LIBDIR) -lfujinet-nio
+LIBS      = $(NIO_LIB)/build/fujinet-nio-amiga.a
 
 TARGET    = http_get
 SRCS      = http_get.c

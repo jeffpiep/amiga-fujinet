@@ -1,0 +1,9 @@
+[fs-uae]
+amiga_model = A500
+kickstart_file = /home/jeffp/Downloads/amiga-os-130.rom
+floppy_drive_0 = http_get.adf
+console_debugger = 0
+ntsc_mode = 1
+# serial_port is passed on command line as --serial_port=<PTY device>
+# DO NOT use serial_port = tcp://... here: TCP mode holds serial.device
+# open inside the Amiga, causing IOERR_OPENFAIL for guest software.
