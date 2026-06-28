@@ -12,57 +12,110 @@ via RS-232 serial to an Amiga computer.
 
 ## Git Workflow
 
-**Always follow this order:**
-1. Before making any changes, ensure the working tree is clean (`git status`)
-2. Create a feature branch in each affected submodule before editing it
-3. Make changes and commit inside the submodule(s)
-4. Update the parent repo's submodule pointer(s) with `git add <submodule-dir>`
-5. Commit the parent repo
+### Repo roles
 
-### Feature branch naming
+| Repo | Your fork (origin) | Upstream |
+|------|--------------------|----------|
+| `amiga-fujinet` (this repo) | jeffpiep/amiga-fujinet | — (not contributed upstream) |
+| `fujinet-nio/` | jeffpiep/fujinet-nio | markjfisher/fujinet-nio |
+| `fujinet-nio-lib/` | jeffpiep/fujinet-nio-lib | markjfisher/fujinet-nio-lib |
+| `battleship/` | jeffpiep/battleship | FujiNetWIFI/battleship |
+
+Each submodule has two remotes:
+- `origin` — your fork (push feature branches here)
+- `upstream` — the authoritative repo (fetch/rebase from here, never push)
+
+```bash
+# One-time remote setup per submodule
+git -C fujinet-nio remote add upstream https://github.com/markjfisher/fujinet-nio.git
+git -C fujinet-nio-lib remote add upstream https://github.com/markjfisher/fujinet-nio-lib.git
+# (battleship, when added)
+# git -C battleship remote add upstream https://github.com/FujiNetWIFI/battleship.git
+```
+
+### Branch naming
+
 ```
 feature/<short-description>
 ```
 
-### Submodule commit workflow
+Feature branches are short-lived and focused. `main`/`master` is never committed
+to directly — all changes arrive via squash-merge PR. No `dev` branch.
+
+### Commit message style
+
+Subject in imperative present tense ("Add X", not "Added X"), ≤72 chars.
+Body optional, separated by a blank line.
+
+```
+Add Amiga serial transport to fujinet-nio-lib
+```
+
+### Daily submodule development
+
 ```bash
-# 1. Branch inside submodule
+# 1. Sync master to upstream before starting new work
+git -C fujinet-nio-lib checkout master
+git -C fujinet-nio-lib fetch upstream
+git -C fujinet-nio-lib merge --ff-only upstream/master
+
+# 2. Create a feature branch from the clean master
 git -C fujinet-nio-lib checkout -b feature/my-change
 
-# 2. Edit, then commit inside submodule
+# 3. Edit and commit (keep commits clean — they may become an upstream PR)
 git -C fujinet-nio-lib add <files>
-git -C fujinet-nio-lib commit -m "description"
+git -C fujinet-nio-lib commit -m "Add X to Y"
 
-# 3. Update parent pointer
+# 4. Keep branch current while working (rebase, never merge)
+git -C fujinet-nio-lib fetch upstream
+git -C fujinet-nio-lib rebase upstream/master
+
+# 5. Update parent repo pointer
 git add fujinet-nio-lib
 git commit -m "bump nio-lib: my-change"
 ```
 
-### Keeping feature branches current (fetch → rebase)
+### Contributing a submodule feature upstream
 
-Before starting new work or before pushing, sync each affected repo:
+When a submodule feature is ready to share:
 
 ```bash
-# 1. Fetch upstream
-git -C fujinet-nio-lib fetch origin
+# Push the feature branch to your fork
+git -C fujinet-nio-lib push -u origin feature/my-change
+# Open a PR on GitHub: jeffpiep/fujinet-nio-lib feature/my-change → markjfisher/fujinet-nio-lib master
+# Upstream squash-merges it.
 
-# 2. Fast-forward local master
+# After merge, clean up
 git -C fujinet-nio-lib checkout master
-git -C fujinet-nio-lib merge --ff-only origin/master
-
-# 3. Rebase feature branch onto master (keeps linear history)
-git -C fujinet-nio-lib checkout feature/my-branch
-git -C fujinet-nio-lib rebase master
+git -C fujinet-nio-lib fetch upstream
+git -C fujinet-nio-lib merge --ff-only upstream/master
+git -C fujinet-nio-lib branch -D feature/my-change
 ```
 
-Repeat for `fujinet-nio` and the parent repo as needed. Always rebase (not merge)
-to keep the feature branch history linear.
+### Parent repo (amiga-fujinet) workflow
+
+Same feature-branch model; no upstream to contribute to.
+
+```bash
+# Start work
+git checkout main
+git checkout -b feature/my-topic
+
+# Commit (bump submodule pointers as needed)
+git add contracts/foo.md apps/bar/main.c fujinet-nio-lib
+git commit -m "Add foo contract and bar app"
+
+# Merge to main via squash PR, then delete branch
+git switch main && git pull
+git branch -D feature/my-topic
+```
 
 ### Never
 - Edit submodule files without first creating a branch inside that submodule
-- Commit the parent repo without first committing changes inside any modified submodule
+- Commit the parent repo without first committing inside any modified submodule
+- Commit directly to `main` or `master` — always use a feature branch + PR
+- Merge `master`/`main` into a feature branch — rebase instead
 - Use `git add .` or `git add -A` — always stage specific files
-- Merge master into a feature branch — rebase instead
 
 ## Reference Apps
 
