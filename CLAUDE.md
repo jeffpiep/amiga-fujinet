@@ -64,6 +64,15 @@ to keep the feature branch history linear.
 - Use `git add .` or `git add -A` — always stage specific files
 - Merge master into a feature branch — rebase instead
 
+## Reference Apps
+
+| App | Path | What it tests |
+|-----|------|---------------|
+| `fn_test` | `apps/fn_test/` | `fn_init()` + `fn_is_ready()` — baseline serial transport check |
+| `http_get` | `apps/http_get/` | HTTP and HTTPS GET — curl-like tool, auto-detects `https://` scheme |
+
+Copy either app's `Makefile` as a starting point for new apps.
+
 ## Build Commands
 
 ```bash
@@ -80,10 +89,26 @@ cd fujinet-nio-lib && make TARGET=amiga
 
 # Build Amiga apps
 cd apps/http_get && make
+cd apps/fn_test && make
 ```
 
 See `fujinet-nio/docs/developer_onboarding.md` for full build options, ESP32 setup,
 available profiles (`./build.sh -p -S`), and CLI testing tools.
+
+## Emulator Testing
+
+Use the `/emu-build-and-boot` skill to build an ADF, boot it in FS-UAE, and
+capture a screenshot automatically. See `.claude/commands/emu-build-and-boot.md`
+for the full workflow.
+
+Quick setup:
+```bash
+cp emu/config/paths.env.example emu/config/paths.env
+# edit paths.env: set KICKSTART_ROM to your KS 1.3 ROM path
+```
+
+Every ADF requires `Devs/serial.device` extracted from a Workbench 1.3.4 disk image —
+see `contracts/amiga-adf-bootstrap.md`. ADFs are gitignored (copyright).
 
 Serial port is configured at runtime via environment variables:
 - `FN_SERIAL_PORT` (default: `/dev/ttyUSB0`)
@@ -114,5 +139,7 @@ between sessions — put the spec in a contract file and reference it by path.
 | `contracts/fujibus-protocol.md` | FujiBus + SLIP framing spec summary |
 | `contracts/amiga-transport-api.md` | What to implement in `fujinet-nio-lib/src/platform/amiga/` |
 | `contracts/amiga-coding-conventions.md` | C style, AmigaOS API rules, memory/stack constraints for Amiga code |
+| `contracts/amiga-app-api.md` | Public fujinet-nio-lib API for writing Amiga apps (fn_open, fn_read, HTTPS, etc.) |
+| `contracts/amiga-adf-bootstrap.md` | ADF build recipe, serial.device requirement, startup-sequence rules |
 
 When adding new cross-submodule features, write the contract first.
