@@ -135,8 +135,12 @@ if [ ! -x "$FN_BIN" ]; then
     exit 1
 fi
 
+# stdbuf -oL forces line-buffered stdout so each log line is flushed immediately.
+# Without this, fujinet-nio uses full buffering (block-buffered) when stdout is
+# not a TTY — small apps like fn_test never fill the buffer, so grep never sees
+# the pattern during the poll window.
 FN_SERIAL_PORT=/tmp/fn-pty FN_SERIAL_BAUD=19200 \
-    "$FN_BIN" >"$LOG_DIR/fujinet.log" 2>&1 &
+    stdbuf -oL -eL "$FN_BIN" >"$LOG_DIR/fujinet.log" 2>&1 &
 FN_PID=$!
 echo "fujinet-nio PID: $FN_PID"
 
