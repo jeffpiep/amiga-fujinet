@@ -59,12 +59,21 @@ echo "Logs:    $LOG_DIR"
 echo "Pass:    $PASS_PATTERN"
 echo "Timeout: ${TIMEOUT_S}s"
 
+# FS-UAE writes its own diagnostic log here (independent of our log dir)
+FSUAE_SYS_LOG="$HOME/Documents/FS-UAE/Cache/Logs/fs-uae.log.txt"
+
 # --- Kill stale processes ---
 killall fs-uae    2>/dev/null || true
 killall socat     2>/dev/null || true
 killall fujinet-nio 2>/dev/null || true
 rm -f /tmp/amiga-serial /tmp/fn-pty
 sleep 2   # let previous FS-UAE die fully before starting a new one
+
+# Truncate the FS-UAE system log so grep only sees output from THIS run.
+# (FS-UAE appends across runs; without truncation the pass pattern could
+#  match leftover lines from a previous test.)
+mkdir -p "$(dirname "$FSUAE_SYS_LOG")"
+> "$FSUAE_SYS_LOG" 2>/dev/null || true
 
 # --- Copy ADF to FS-UAE Floppies directory ---
 # floppy_drive_0 must be a short filename; absolute paths are silently ignored.
@@ -137,7 +146,8 @@ echo "FS-UAE PID: $FSUAE_PID"
 sleep 5   # give FS-UAE time to open serial hardware before fujinet-nio connects
 
 # --- Start fujinet-nio ---
-FN_BIN="$PROJECT_ROOT/fujinet-nio/build/fujibus-rs232-debug/fujinet-nio"
+# FN_BIN can be overridden by the caller; defaults to the build in this repo
+FN_BIN="${FN_BIN:-$PROJECT_ROOT/fujinet-nio/build/fujibus-rs232-debug/fujinet-nio}"
 if [ ! -x "$FN_BIN" ]; then
     echo "ERROR: fujinet-nio binary not found: $FN_BIN" >&2
     echo "Build with: cd fujinet-nio && ./build.sh -p fujibus-rs232-debug" >&2
@@ -182,7 +192,8 @@ while [ $((SECONDS - START_TIME)) -lt "$TIMEOUT_S" ]; do
         fi
     fi
 
-    # PASS pattern
+    # PASS pattern (check our flushed log files; FS-UAE's own log is checked
+    # post-teardown because it uses buffered I/O and won't flush mid-run)
     if grep -qsF "$PASS_PATTERN" "$LOG_DIR/fujinet.log" "$LOG_DIR/serial-trace.log" 2>/dev/null; then
         RESULT=PASS
         REASON="matched '${PASS_PATTERN}' in logs"
@@ -192,14 +203,31 @@ done
 
 DURATION=$((SECONDS - START_TIME))
 
+# --- Tear down ---
+kill "$FN_PID" "$SOCAT_PID" "$FSUAE_PID" "$XVFB_PID" 2>/dev/null || true
+# Wait for FS-UAE to fully exit and flush its internal log file before copying.
+# FS-UAE buffers its log with stdio; the data only reaches disk on flush/exit.
+# Patterns that only appear in the FS-UAE log (e.g. "serial: setbaud: 19200"
+# for apps that don't send FujiBus traffic) require this post-teardown check.
+sleep 2
+cp "$FSUAE_SYS_LOG" "$LOG_DIR/fsuae-sys.log" 2>/dev/null || true
+
+# Post-teardown pass check: re-run the grep against the now-flushed logs.
+# This catches patterns that FS-UAE buffered internally during the test.
+if [ -z "$RESULT" ] || [ "$REASON" = "timeout" ]; then
+    if grep -qsF "$PASS_PATTERN" \
+            "$LOG_DIR/fujinet.log" \
+            "$LOG_DIR/serial-trace.log" \
+            "$LOG_DIR/fsuae-sys.log" 2>/dev/null; then
+        RESULT=PASS
+        REASON="matched '${PASS_PATTERN}' in post-teardown logs"
+    fi
+fi
+
 if [ -z "$RESULT" ]; then
     RESULT=FAIL
     REASON=timeout
 fi
-
-# --- Tear down ---
-kill "$FN_PID" "$SOCAT_PID" "$FSUAE_PID" "$XVFB_PID" 2>/dev/null || true
-sleep 1
 
 # --- Write result.json ---
 if [ "$REASON" = "timeout" ] || [ "$REASON" = "emulator_crash" ] || [ "$REASON" = "server_crash" ]; then

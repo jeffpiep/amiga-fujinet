@@ -24,7 +24,10 @@ SRCS    = fn_test.c
 # ── Emulator test config ──────────────────────────────────────────────────
 APP_NAME         = fn_test
 APP_BINARY       = $(TARGET)
-EMU_PASS_PATTERN = fujibus: receive:
+# fn_test only opens and configures serial.device (fn_init + fn_is_ready).
+# It never sends FujiBus data. The observable signal is FS-UAE's own log
+# line confirming it applied the baud-rate change from SDCMD_SETPARAMS.
+EMU_PASS_PATTERN = serial: setbaud: 19200
 EMU_TIMEOUT      = 60
 
 include ../../emu/template/emu.mk
