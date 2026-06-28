@@ -4,3 +4,6 @@
 [submodule "fujinet-nio-lib"]
 	path = fujinet-nio-lib
 	url = https://github.com/jeffpiep/fujinet-nio-lib.git
+[submodule "apps/battleship/upstream"]
+	path = apps/battleship/upstream
+	url = https://github.com/FujiNetWIFI/fujinet-battleship
