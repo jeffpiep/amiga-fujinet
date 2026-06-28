@@ -1,0 +1,8 @@
+emu/config/paths.env
+emu/logs/
+fujinet-data/
+
+# Build artifacts
+apps/*/fn_test
+apps/*/http_get
+apps/**/*.adf

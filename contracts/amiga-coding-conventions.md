@@ -110,6 +110,19 @@ static uint8_t buf[BUFFER_SIZE];
 - Link against: `fujinet-nio-lib/build/fujinet-nio-amiga.a`
 - No linking against `libc` dynamic — static link everything
 
+### CRT / Kickstart compatibility
+
+The amiga-gcc toolchain defaults to **newlib**, which requires Kickstart 2.0+. Since we
+target AmigaOS 1.3+ (A500 with Kickstart 1.3), always add `-mcrt=nix13` to `CFLAGS`
+in app Makefiles:
+
+```makefile
+CFLAGS = -Wall -O2 -std=c99 -mcpu=68000 -msoft-float -mcrt=nix13
+```
+
+`-mcrt=nix13` selects libnix tuned for Kickstart 1.3. Omitting it produces binaries
+that will crash or refuse to run on a stock A500.
+
 ---
 
 ## File Header Template
