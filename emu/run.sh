@@ -64,7 +64,7 @@ killall fs-uae    2>/dev/null || true
 killall socat     2>/dev/null || true
 killall fujinet-nio 2>/dev/null || true
 rm -f /tmp/amiga-serial /tmp/fn-pty
-sleep 1
+sleep 2   # let previous FS-UAE die fully before starting a new one
 
 # --- Copy ADF to FS-UAE Floppies directory ---
 # floppy_drive_0 must be a short filename; absolute paths are silently ignored.
@@ -117,9 +117,20 @@ fi
 AMIGA_DEV=$(readlink /tmp/amiga-serial)
 echo "Amiga serial PTY: $AMIGA_DEV"
 
+# --- Launch Xvfb on a dedicated display ---
+# Use a virtual framebuffer so FS-UAE has no visible window that can receive
+# SDL_QUIT from user interaction or the window manager.
+# (xvfb-run wraps a single command; here we need a persistent display for
+#  the full test duration, so we start Xvfb directly.)
+EMU_DISPLAY=:99
+killall -q Xvfb 2>/dev/null || true
+sleep 1
+Xvfb "$EMU_DISPLAY" -screen 0 800x600x24 &
+XVFB_PID=$!
+sleep 1   # give Xvfb time to start
+
 # --- Launch FS-UAE ---
-# Use DISPLAY=:0 (not xvfb-run): xvfb-run fails in background sessions
-DISPLAY=:0 fs-uae "$FSUAE_CONFIG" --serial_port="$AMIGA_DEV" \
+DISPLAY="$EMU_DISPLAY" fs-uae "$FSUAE_CONFIG" --serial_port="$AMIGA_DEV" \
     >"$LOG_DIR/emulator.log" 2>&1 &
 FSUAE_PID=$!
 echo "FS-UAE PID: $FSUAE_PID"
@@ -153,11 +164,14 @@ echo "Polling logs (timeout ${TIMEOUT_S}s)..."
 while [ $((SECONDS - START_TIME)) -lt "$TIMEOUT_S" ]; do
     sleep 2
 
-    # Crash detection
-    if ! kill -0 "$FN_PID" 2>/dev/null; then
+    # Crash detection — check /proc to distinguish live vs zombie processes
+    # (kill -0 returns 0 for zombies, so we must check the state explicitly)
+    _fn_state=$(grep "^State:" /proc/$FN_PID/status 2>/dev/null | awk '{print $2}')
+    if [ -z "$_fn_state" ] || [ "$_fn_state" = "Z" ]; then
         RESULT=FAIL; REASON=server_crash; break
     fi
-    if ! kill -0 "$FSUAE_PID" 2>/dev/null; then
+    _fsuae_state=$(grep "^State:" /proc/$FSUAE_PID/status 2>/dev/null | awk '{print $2}')
+    if [ -z "$_fsuae_state" ] || [ "$_fsuae_state" = "Z" ]; then
         RESULT=FAIL; REASON=emulator_crash; break
     fi
 
@@ -184,7 +198,7 @@ if [ -z "$RESULT" ]; then
 fi
 
 # --- Tear down ---
-kill "$FN_PID" "$SOCAT_PID" "$FSUAE_PID" 2>/dev/null || true
+kill "$FN_PID" "$SOCAT_PID" "$FSUAE_PID" "$XVFB_PID" 2>/dev/null || true
 sleep 1
 
 # --- Write result.json ---
