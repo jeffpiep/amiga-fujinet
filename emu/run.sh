@@ -203,6 +203,31 @@ done
 
 DURATION=$((SECONDS - START_TIME))
 
+# --- Screenshot ---
+# Capture the virtual framebuffer before killing FS-UAE. Uses xwd -root on the
+# Xvfb display (no window ID needed — it's the only app on the virtual screen).
+XWD_TMP="$LOG_DIR/screenshot.xwd"
+SCREENSHOT="$LOG_DIR/screenshot.png"
+DISPLAY="$EMU_DISPLAY" xwd -root -silent > "$XWD_TMP" 2>/dev/null && \
+python3 - "$XWD_TMP" "$SCREENSHOT" <<'PYEOF'
+import sys, struct
+from PIL import Image
+
+xwd_path, png_path = sys.argv[1], sys.argv[2]
+with open(xwd_path, 'rb') as f:
+    data = f.read()
+
+fields = struct.unpack('>20I', data[:80])
+header_size, _, _, depth, w, h, _, byte_order, _, _, _, bpp, bpl = fields[:13]
+ncolors = struct.unpack('>I', data[76:80])[0]
+pixel_offset = header_size + ncolors * 12
+pixels = data[pixel_offset:pixel_offset + bpl * h]
+img = Image.frombytes('RGBA', (w, h), pixels, 'raw', 'BGRA', bpl, 1).convert('RGB')
+img.save(png_path)
+print(f"screenshot: {png_path} ({w}x{h})")
+PYEOF
+rm -f "$XWD_TMP"
+
 # --- Tear down ---
 kill "$FN_PID" "$SOCAT_PID" "$FSUAE_PID" "$XVFB_PID" 2>/dev/null || true
 # Wait for FS-UAE to fully exit and flush its internal log file before copying.
