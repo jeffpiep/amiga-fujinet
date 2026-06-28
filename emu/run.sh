@@ -87,8 +87,9 @@ ntsc_mode = 1
 EOF
 
 # --- Start socat PTY pair ---
-# -v enables hex dump of all bytes in both directions (goes to stderr / serial-trace.log)
-socat -d -d -v \
+# -x enables hex dump of all bytes in both directions (goes to stderr / serial-trace.log)
+# Use -x (hex), not -v (printable): extract-serial-text.sh expects hex format
+socat -d -d -x \
     pty,raw,echo=0,link=/tmp/amiga-serial \
     pty,raw,echo=0,link=/tmp/fn-pty \
     2>"$LOG_DIR/serial-trace.log" &
