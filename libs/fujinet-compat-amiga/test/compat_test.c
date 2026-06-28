@@ -12,7 +12,9 @@
 #include <stdint.h>
 
 #include "fujinet-network.h"
+#include "amiga_compat.h"   /* NewDisk for Amiga before fujinet-fuji.h */
 #include "fujinet-fuji.h"
+#undef FN_ERR_UNKNOWN
 #include "fujinet-nio.h"
 
 #define TEST_URL "N:HTTP://httpbin.org/get"
