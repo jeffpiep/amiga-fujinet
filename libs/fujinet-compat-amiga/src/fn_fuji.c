@@ -138,7 +138,25 @@ bool fuji_read_appkey(uint8_t key_id, uint16_t *count, uint8_t *data)
 
     fh = Open(path, MODE_OLDFILE);
     if (!fh) {
-        /* File doesn't exist — first run, not an error per spec */
+        /* File doesn't exist or ENVARC: not mounted.
+         * Provide built-in defaults for known keys so the game can start
+         * in a bare KS 1.3 environment without a full Workbench ENVARC. */
+        if (s_creator_id == 1 && s_app_id == 1 && key_id == 0) {
+            /* Lobby player name: default to "amiga" */
+            static const uint8_t def[] = "amiga";
+            *count = sizeof(def) - 1;
+            memcpy(data, def, *count);
+            s_last_error = 0;
+            return true;
+        }
+        if (s_creator_id == 0xE41C && s_app_id == 5 && key_id == 0) {
+            /* Prefs: byte 1 = seenHelp = 1 so help screen is skipped */
+            static const uint8_t def[24] = { 0x00, 0x01, 0x00, 0x00 };
+            *count = sizeof(def);
+            memcpy(data, def, *count);
+            s_last_error = 0;
+            return true;
+        }
         *count = 0;
         s_last_error = 1;
         return false;

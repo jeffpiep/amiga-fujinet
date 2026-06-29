@@ -35,22 +35,30 @@ APP_BINARY       = $(TARGET)
 EMU_PASS_PATTERN = fujibus: receive:
 EMU_TIMEOUT      = 90
 
-# Create ENVARC: assign and player name appkey before the app runs.
-# fuji_read_appkey() reads ENVARC:fujinet/0001/01/00 (creator=1,app=1,key=0).
-# Without a player name the app blocks on an interactive name-entry screen.
-define EMU_STARTUP_PREFIX
-MakDir RAM:fujinet
-MakDir RAM:fujinet/0001
-MakDir RAM:fujinet/0001/01
-MakDir RAM:fujinet/E41C
-MakDir RAM:fujinet/E41C/05
-Assign ENVARC: RAM:
-Echo AMIGA NOLINE > RAM:fujinet/0001/01/00
-Echo AX NOLINE > RAM:fujinet/E41C/05/00
-endef
-export EMU_STARTUP_PREFIX
+# Pre-populate ENVARC: on the ADF so fn_fuji.c's appkey reads succeed
+# without runtime shell scripting (which is brittle under KS 1.3).
+# Files are built into the ADF via build-adf.sh's ADF_STATIC_DIR feature.
+ADF_STATIC_DIR = $(CURDIR)/envarc
+
+# No startup prefix needed: fn_fuji.c uses SYS: (boot disk) for appkey paths,
+# and the fujinet/ directory tree is baked into the ADF via ADF_STATIC_DIR.
+
+# Appkey files for the ADF:
+#   fujinet/0001/01/00 — player name (creator=1, app=1, key=0)
+#   fujinet/E41C/05/00 — prefs: byte0=debugFlag, byte1=seenHelp (1=skip help screen)
+ENVARC_PLAYER = $(ADF_STATIC_DIR)/fujinet/0001/01/00
+ENVARC_PREFS  = $(ADF_STATIC_DIR)/fujinet/E41C/05/00
+
+$(ENVARC_PLAYER):
+	mkdir -p $(@D) && printf 'AMIGA' > $@
+
+$(ENVARC_PREFS):
+	mkdir -p $(@D) && printf '\000\001\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000' > $@
 
 include ../../../emu/template/emu.mk
+
+# Ensure envarc appkey files exist before building the ADF
+emu-adf: $(ENVARC_PLAYER) $(ENVARC_PREFS)
 
 all: $(TARGET)
 
