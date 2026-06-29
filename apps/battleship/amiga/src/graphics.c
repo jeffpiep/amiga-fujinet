@@ -1,6 +1,10 @@
 #include "misc.h"
 #include <stdio.h>
 #include <string.h>
+#undef FN_ERR_UNKNOWN
+#include "fujinet-nio.h"
+
+extern char playerName[12];
 
 static uint8_t playerCount_g = 0;
 static uint8_t quadrant_offset[4][2];
@@ -13,6 +17,17 @@ static void goto_xy(uint8_t x, uint8_t y)
 void initGraphics(void)
 {
     setbuf(stdout, NULL);
+
+    /* Open serial.device and set baud = 19200 before game logic starts.
+     * If ENVARC isn't available, the upstream init path blocks waiting
+     * for keyboard input; ensure fallbacks are in place first. */
+    fn_init();
+
+    if (playerName[0] == '\0')
+        strncpy(playerName, "amiga", 11);
+
+    if (!prefs.seenHelp)
+        prefs.seenHelp = 1;
 }
 
 void resetGraphics(void) {}

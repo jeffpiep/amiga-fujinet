@@ -125,6 +125,9 @@ uint8_t network_open(const char *devicespec, uint8_t mode, uint8_t trans)
 
     (void)trans; /* translation modes not applicable on Amiga */
 
+    /* Lazy init: battleship never calls network_init() explicitly */
+    fn_init();
+
     slot = slot_find(devicespec);
     if (slot) {
         /* already open — close and reopen */

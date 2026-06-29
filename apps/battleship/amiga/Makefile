@@ -30,6 +30,28 @@ SRCS = $(COMMON_SRCS) $(AMIGA_SRCS)
 
 TARGET = battleship
 
+APP_NAME         = battleship
+APP_BINARY       = $(TARGET)
+EMU_PASS_PATTERN = fujibus: receive:
+EMU_TIMEOUT      = 90
+
+# Create ENVARC: assign and player name appkey before the app runs.
+# fuji_read_appkey() reads ENVARC:fujinet/0001/01/00 (creator=1,app=1,key=0).
+# Without a player name the app blocks on an interactive name-entry screen.
+define EMU_STARTUP_PREFIX
+MakDir RAM:fujinet
+MakDir RAM:fujinet/0001
+MakDir RAM:fujinet/0001/01
+MakDir RAM:fujinet/E41C
+MakDir RAM:fujinet/E41C/05
+Assign ENVARC: RAM:
+Echo AMIGA NOLINE > RAM:fujinet/0001/01/00
+Echo AX NOLINE > RAM:fujinet/E41C/05/00
+endef
+export EMU_STARTUP_PREFIX
+
+include ../../../emu/template/emu.mk
+
 all: $(TARGET)
 
 $(TARGET): $(SRCS) $(COMPAT_LIB) $(NIO_ALIB)

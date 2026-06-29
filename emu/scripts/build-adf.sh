@@ -6,8 +6,9 @@
 #   APP_BINARY    — path to the compiled AmigaOS binary
 #
 # Optional env vars:
-#   EMU_STARTUP_ARGS — extra args appended to the app in startup-sequence
-#   ADF_OUT          — output path (default: <dir of APP_BINARY>/<APP_NAME>.adf)
+#   EMU_STARTUP_ARGS   — extra args appended to the app in startup-sequence
+#   EMU_STARTUP_PREFIX — AmigaDOS commands to run before the app (multi-line OK)
+#   ADF_OUT            — output path (default: <dir of APP_BINARY>/<APP_NAME>.adf)
 #
 # Reads from emu/config/paths.env:
 #   WB_ADF        — path to a Workbench 1.3.x ADF (source of serial.device)
@@ -34,6 +35,7 @@ if [ ! -f "$WB_ADF" ]; then
 fi
 
 EMU_STARTUP_ARGS="${EMU_STARTUP_ARGS:-}"
+EMU_STARTUP_PREFIX="${EMU_STARTUP_PREFIX:-}"
 ADF_OUT="${ADF_OUT:-$(dirname "$APP_BINARY")/$APP_NAME.adf}"
 # Volume label: uppercase, max 30 chars
 ADF_LABEL="${APP_NAME^^}"
@@ -50,12 +52,23 @@ trap 'rm -rf "$TMPWORK"' EXIT
 # serial.device is not ROM-resident in KS 1.3 — must be on boot disk
 xdftool "$WB_ADF" read DEVS/serial.device "$TMPWORK/serial.device"
 
+# Extract external commands needed by EMU_STARTUP_PREFIX scripts.
+# The ROM assigns C: to the boot disk's C/ dir; without these, MakDir/Assign/Echo fail.
+mkdir -p "$TMPWORK/c"
+for CMD in Makedir Assign Echo; do
+    xdftool "$WB_ADF" read "C/$CMD" "$TMPWORK/c/$CMD" 2>/dev/null || \
+        echo "  note: $CMD not found in WB_ADF (skipping)"
+done
+
 # Write startup-sequence
-if [ -n "$EMU_STARTUP_ARGS" ]; then
-    printf '%s %s\n' "$APP_NAME" "$EMU_STARTUP_ARGS" > "$TMPWORK/startup-sequence"
-else
-    printf '%s\n' "$APP_NAME" > "$TMPWORK/startup-sequence"
-fi
+{
+    [ -n "$EMU_STARTUP_PREFIX" ] && printf '%s\n' "$EMU_STARTUP_PREFIX"
+    if [ -n "$EMU_STARTUP_ARGS" ]; then
+        printf '%s %s\n' "$APP_NAME" "$EMU_STARTUP_ARGS"
+    else
+        printf '%s\n' "$APP_NAME"
+    fi
+} > "$TMPWORK/startup-sequence"
 
 # Build the ADF
 rm -f "$ADF_OUT"
@@ -65,6 +78,13 @@ xdftool "$ADF_OUT" write "$TMPWORK/startup-sequence" s/startup-sequence
 xdftool "$ADF_OUT" makedir Devs
 xdftool "$ADF_OUT" write "$TMPWORK/serial.device" Devs/serial.device
 xdftool "$ADF_OUT" write "$APP_BINARY" "$APP_NAME"
+# Include external commands so EMU_STARTUP_PREFIX scripts can use MakDir/Assign/Echo
+if [ -d "$TMPWORK/c" ] && [ "$(ls -A "$TMPWORK/c" 2>/dev/null)" ]; then
+    xdftool "$ADF_OUT" makedir c
+    for f in "$TMPWORK/c"/*; do
+        xdftool "$ADF_OUT" write "$f" "c/$(basename "$f")"
+    done
+fi
 
 # Install bootblock (xdftool formats with zero checksum — not bootable without this)
 xdftool "$ADF_OUT" boot install
