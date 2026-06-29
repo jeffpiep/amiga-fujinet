@@ -36,6 +36,7 @@ fi
 
 EMU_STARTUP_ARGS="${EMU_STARTUP_ARGS:-}"
 EMU_STARTUP_PREFIX="${EMU_STARTUP_PREFIX:-}"
+ADF_STATIC_DIR="${ADF_STATIC_DIR:-}"
 ADF_OUT="${ADF_OUT:-$(dirname "$APP_BINARY")/$APP_NAME.adf}"
 # Volume label: uppercase, max 30 chars
 ADF_LABEL="${APP_NAME^^}"
@@ -83,6 +84,23 @@ if [ -d "$TMPWORK/c" ] && [ "$(ls -A "$TMPWORK/c" 2>/dev/null)" ]; then
     xdftool "$ADF_OUT" makedir c
     for f in "$TMPWORK/c"/*; do
         xdftool "$ADF_OUT" write "$f" "c/$(basename "$f")"
+    done
+fi
+
+# Optional: add a static directory tree to the ADF root.
+# Files are placed at their path relative to ADF_STATIC_DIR.
+# Useful for pre-populating ENVARC: appkey files without runtime shell scripting.
+if [ -n "$ADF_STATIC_DIR" ] && [ -d "$ADF_STATIC_DIR" ]; then
+    echo "Adding static files from $ADF_STATIC_DIR"
+    # Create directories first (sorted so parents come before children)
+    find "$ADF_STATIC_DIR" -type d -mindepth 1 | sort | while read -r dir; do
+        rel="${dir#"$ADF_STATIC_DIR"/}"
+        xdftool "$ADF_OUT" makedir "$rel" 2>/dev/null || true
+    done
+    # Write files
+    find "$ADF_STATIC_DIR" -type f | sort | while read -r file; do
+        rel="${file#"$ADF_STATIC_DIR"/}"
+        xdftool "$ADF_OUT" write "$file" "$rel"
     done
 fi
 

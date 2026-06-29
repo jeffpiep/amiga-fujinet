@@ -23,6 +23,7 @@ APP_BINARY       ?= $(TARGET)
 EMU_FAIL_PATTERN ?=
 EMU_TIMEOUT      ?= 60
 EMU_STARTUP_ARGS ?=
+ADF_STATIC_DIR   ?=
 
 .PHONY: emu-adf emu-test emu-clean
 
@@ -30,6 +31,7 @@ emu-adf: $(APP_BINARY)
 	APP_NAME=$(APP_NAME) \
 	APP_BINARY=$(abspath $(APP_BINARY)) \
 	EMU_STARTUP_ARGS="$(EMU_STARTUP_ARGS)" \
+	ADF_STATIC_DIR="$(ADF_STATIC_DIR)" \
 	ADF_OUT=$(_APP_ADF) \
 	$(_EMU_DIR)/scripts/build-adf.sh
 
