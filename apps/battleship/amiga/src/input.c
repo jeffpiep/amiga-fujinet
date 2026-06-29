@@ -1,19 +1,21 @@
 #include "misc.h"
-#include <stdio.h>
+#include <dos/dos.h>
+#include <proto/dos.h>
 
-/* Phase 1 stubs — keyboard and joystick input */
+/* FGetC is not prototyped in all versions of the bebbo toolchain headers */
+extern LONG FGetC(BPTR fh);
 
 unsigned char kbhit(void)
 {
-    return 0; /* no key pending */
+    return (unsigned char)WaitForChar(Input(), 0);
 }
 
 char cgetc(void)
 {
-    return (char)getchar(); /* blocking read; only called when kbhit() != 0 */
+    return (char)FGetC(Input());
 }
 
 uint8_t readJoystick(void)
 {
-    return 0; /* no joystick input */
+    return 0;
 }
