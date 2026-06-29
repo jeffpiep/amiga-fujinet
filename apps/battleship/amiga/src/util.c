@@ -2,6 +2,8 @@
 #include <proto/exec.h>
 #include <devices/timer.h>
 
+unsigned long __stack = 32768;
+
 static uint32_t timer_base = 0;
 
 void resetTimer(void)

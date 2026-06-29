@@ -104,6 +104,8 @@ http_get "https://example.com/"
 | `fn_init()` → `FN_ERR_NOT_FOUND` | `Devs/serial.device` missing from ADF | Extract from WB 1.3.4 and add to ADF |
 | "Software error — task held" on boot | V36+ exec API used, or binary built without `-mcrt=nix13` | See `contracts/amiga-coding-conventions.md` |
 | CLI error on startup-sequence line | Redirect to `SER:` or unsupported shell syntax | Remove redirects |
+| Error 121 with known-good binary | FS-UAE `.sdf` save-state caching old disk | Delete `~/Documents/FS-UAE/Save States/run/<name>.sdf`; `run.sh` now does this automatically |
+| Guru Meditation after `m68k-amigaos-strip` | `strip` corrupts Amiga hunk binaries | Never use `m68k-amigaos-strip`; use `emu/scripts/strip-hunk-symbols.py` if needed |
 
 ---
 

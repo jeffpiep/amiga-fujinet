@@ -4,6 +4,9 @@
 #
 #   include ../../emu/template/emu.mk
 #
+# IMPORTANT: Define your default target (e.g. `all:`) BEFORE this include,
+# otherwise emu-adf becomes the default target and `make` alone won't build.
+#
 # Required variables (set before the include):
 #   APP_NAME          — e.g. fn_test
 #   APP_BINARY        — compiled binary path relative to app dir (default: $(TARGET))

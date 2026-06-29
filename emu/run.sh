@@ -82,6 +82,14 @@ mkdir -p "$FLOPPIES_DIR"
 ADF_BASENAME=$(basename "$ADF_PATH")
 cp "$ADF_PATH" "$FLOPPIES_DIR/$ADF_BASENAME"
 
+# Remove stale FS-UAE save-disk files — they cache old ADF contents and
+# cause the emulator to boot an outdated floppy image.
+SAVE_DIR="$HOME/Documents/FS-UAE/Save States/run"
+SDF_NAME="${ADF_BASENAME%.adf}.sdf"
+if [ -f "$SAVE_DIR/$SDF_NAME" ]; then
+    rm -f "$SAVE_DIR/$SDF_NAME"
+fi
+
 # --- Generate FS-UAE config for this run ---
 FSUAE_CONFIG="$LOG_DIR/run.fs-uae"
 cat > "$FSUAE_CONFIG" <<EOF

@@ -109,6 +109,9 @@ static uint8_t buf[BUFFER_SIZE];
 - Include path: `fujinet-nio-lib/include/`
 - Link against: `fujinet-nio-lib/build/fujinet-nio-amiga.a`
 - No linking against `libc` dynamic — static link everything
+- **Never use `m68k-amigaos-strip`** — it corrupts Amiga hunk binaries (Guru Meditation
+  on load). The `-s` linker flag also produces bad output. If you need to strip symbols,
+  use `emu/scripts/strip-hunk-symbols.py` instead
 
 ### CRT / Kickstart compatibility
 
@@ -148,5 +151,6 @@ that will crash or refuse to run on a stock A500.
 - No floating point (no FPU on 68000; `-msoft-float` is slow — avoid entirely)
 - No `long long` / 64-bit arithmetic (no native support on 68000)
 - No POSIX headers (`<unistd.h>`, `<termios.h>`, `<fcntl.h>`) in Amiga platform code
+- No KS 2.0+ dos.library calls (`FGetC`, `FPutC`, `SetVBuf`) — use `Read()`/`Write()` or `getchar()`/`printf()` via libnix
 - No C++ (`//` comments are fine in C99, but no classes, templates, references)
 - No `#ifdef AMIGA` spaghetti — platform isolation is enforced by the build system; Amiga code lives in `src/platform/amiga/` only

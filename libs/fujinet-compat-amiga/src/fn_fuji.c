@@ -2,7 +2,7 @@
  * fujinet-fuji.h implementation for Amiga via dos.library file I/O.
  *
  * AppKeys are stored as flat binary files:
- *   ENVARC:fujinet/<creator_hex>/<app_hex>/<key_hex>
+ *   SYS:fujinet/<creator_hex>/<app_hex>/<key_hex>
  *
  * dos.library Open/Read/Write/Close are KS 1.3 safe.
  * CreateDir is used to create parent directories as needed.
@@ -33,33 +33,33 @@ FNStatus _fuji_status;
 /* Path construction                                                  */
 /* ------------------------------------------------------------------ */
 
-/* Build ENVARC:fujinet/<creator_hex>/<app_hex>/<key_hex> into buf.   */
+/* Build SYS:fujinet/<creator_hex>/<app_hex>/<key_hex> into buf.   */
 static void build_appkey_path(char *buf, size_t buflen,
                                uint8_t key_id)
 {
     snprintf(buf, buflen,
-             "ENVARC:fujinet/%04X/%02X/%02X",
+             "SYS:fujinet/%04X/%02X/%02X",
              (unsigned)s_creator_id,
              (unsigned)s_app_id,
              (unsigned)key_id);
 }
 
-/* Build parent dir path (ENVARC:fujinet/<creator>/<app>) into buf.   */
+/* Build parent dir path (SYS:fujinet/<creator>/<app>) into buf.   */
 static void build_appkey_dir(char *buf, size_t buflen)
 {
     snprintf(buf, buflen,
-             "ENVARC:fujinet/%04X/%02X",
+             "SYS:fujinet/%04X/%02X",
              (unsigned)s_creator_id,
              (unsigned)s_app_id);
 }
 
-/* Ensure ENVARC:fujinet/<creator>/<app> exists, creating as needed.  */
+/* Ensure SYS:fujinet/<creator>/<app> exists, creating as needed.  */
 static bool ensure_appkey_dir(void)
 {
     char base[64];
     char dir[80];
 
-    snprintf(base, sizeof(base), "ENVARC:fujinet/%04X",
+    snprintf(base, sizeof(base), "SYS:fujinet/%04X",
              (unsigned)s_creator_id);
     build_appkey_dir(dir, sizeof(dir));
 
@@ -143,7 +143,7 @@ bool fuji_read_appkey(uint8_t key_id, uint16_t *count, uint8_t *data)
          * in a bare KS 1.3 environment without a full Workbench ENVARC. */
         if (s_creator_id == 1 && s_app_id == 1 && key_id == 0) {
             /* Lobby player name: default to "amiga" */
-            static const uint8_t def[] = "amiga";
+            const uint8_t def[] = "amiga";
             *count = sizeof(def) - 1;
             memcpy(data, def, *count);
             s_last_error = 0;
@@ -151,7 +151,7 @@ bool fuji_read_appkey(uint8_t key_id, uint16_t *count, uint8_t *data)
         }
         if (s_creator_id == 0xE41C && s_app_id == 5 && key_id == 0) {
             /* Prefs: byte 1 = seenHelp = 1 so help screen is skipped */
-            static const uint8_t def[24] = { 0x00, 0x01, 0x00, 0x00 };
+            const uint8_t def[24] = { 0x00, 0x01, 0x00, 0x00 };
             *count = sizeof(def);
             memcpy(data, def, *count);
             s_last_error = 0;

@@ -126,6 +126,7 @@ Each run creates `emu/logs/<appname>/<timestamp>/`:
 | FAIL reason `emulator_crash` | FS-UAE exited before timeout | Check `emulator.log` and `fsuae-sys.log` |
 | FAIL reason `server_crash` | fujinet-nio exited early | Check `fujinet.log` for startup errors |
 | FAIL reason `timeout`, screenshot shows CLI prompt | Pass pattern wrong for app | See pass pattern guidance above |
+| Error 121 but binary was rebuilt | FS-UAE `.sdf` save-state caching old disk contents | `run.sh` auto-deletes stale `.sdf` files; if manually running FS-UAE, delete `~/Documents/FS-UAE/Save States/run/<name>.sdf` |
 | FAIL reason `timeout`, screenshot shows boot screen | ADF didn't boot | Verify `bootable: True` in build-adf.sh output; check `WB_ADF` |
 | FAIL reason `timeout`, screenshot is black | Xvfb or FS-UAE didn't start | Check `emulator.log`; ensure `xvfb` package is installed |
 | FAIL reason `socat_pty_timeout` | socat didn't create PTYs within 10s | Check socat is installed; look for stale symlinks at /tmp/amiga-serial |

@@ -40,8 +40,7 @@ EMU_TIMEOUT      = 90
 # Files are built into the ADF via build-adf.sh's ADF_STATIC_DIR feature.
 ADF_STATIC_DIR = $(CURDIR)/envarc
 
-# No startup prefix needed: fn_fuji.c uses SYS: (boot disk) for appkey paths,
-# and the fujinet/ directory tree is baked into the ADF via ADF_STATIC_DIR.
+# Stack size is set via __stack symbol in platform_init.c
 
 # Appkey files for the ADF:
 #   fujinet/0001/01/00 — player name (creator=1, app=1, key=0)
@@ -55,17 +54,22 @@ $(ENVARC_PLAYER):
 $(ENVARC_PREFS):
 	mkdir -p $(@D) && printf '\000\001\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000' > $@
 
+STRIP_SYMS = ../../../emu/scripts/strip-hunk-symbols.py
+
+all: $(TARGET)
+
+$(TARGET): $(SRCS) $(COMPAT_LIB) $(NIO_ALIB)
+	$(CC) $(CFLAGS) $(INCLUDES) -Wl,-x -o $@ $(SRCS) $(COMPAT_LIB) $(NIO_ALIB)
+
+strip: $(TARGET)
+	python3 $(STRIP_SYMS) $<
+
 include ../../../emu/template/emu.mk
 
 # Ensure envarc appkey files exist before building the ADF
 emu-adf: $(ENVARC_PLAYER) $(ENVARC_PREFS)
 
-all: $(TARGET)
-
-$(TARGET): $(SRCS) $(COMPAT_LIB) $(NIO_ALIB)
-	$(CC) $(CFLAGS) $(INCLUDES) -o $@ $(SRCS) $(COMPAT_LIB) $(NIO_ALIB)
-
 clean:
 	rm -f $(TARGET)
 
-.PHONY: all clean
+.PHONY: all clean strip

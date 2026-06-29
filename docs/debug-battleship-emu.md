@@ -168,3 +168,42 @@ And in `fujinet.log`:
 ```
 fujibus: receive: ...
 ```
+
+---
+
+## Resolution (2026-06-29)
+
+**Root cause: Stale FS-UAE save-disk file (`battleship.sdf`)**
+
+FS-UAE saves floppy disk state to `~/Documents/FS-UAE/Save States/run/<name>.sdf`.
+On subsequent runs, it restores the .sdf instead of reading the fresh ADF. When
+the binary was updated (bug fixes, recompilation), the emulator kept booting the
+old cached disk image — which contained either the original unstripped binary or
+an earlier broken version.
+
+**Fix applied to `emu/run.sh`:** Delete any stale `.sdf` file matching the ADF
+name before launching FS-UAE.
+
+### Lessons Learned
+
+1. **FS-UAE .sdf save-state files override ADF content.** This is the #1
+   thing to check when "same binary, different results" appears. The fix is
+   now automated in run.sh.
+
+2. **HUNK_SYMBOL data is NOT the cause of error 121.** Large symbol tables
+   (8KB+, 350 symbols) load fine on KS 1.3. The symbol-stripping script
+   (`emu/scripts/strip-hunk-symbols.py`) was added to the Makefile as a
+   nice-to-have (smaller binary) but is not required for correctness.
+
+3. **`m68k-amigaos-strip` corrupts Amiga hunk binaries.** Stripped binaries
+   crash with Guru Meditation. Do NOT use it. The `-s` linker flag also
+   produces bad output. Use the Python strip script instead if needed.
+
+4. **Makefile default target ordering matters.** `include emu.mk` before
+   `all:` makes emu.mk's first target the default. Fixed by moving `all:`
+   before the include.
+
+5. **`fn_fuji.c` ENVARC: paths work via ADF_STATIC_DIR.** Pre-populating
+   `SYS:fujinet/` directories on the ADF lets appkey reads succeed without
+   runtime Assign commands. The fallback defaults in fn_fuji.c are belt-and-
+   suspenders redundancy.
