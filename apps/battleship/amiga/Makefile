@@ -40,7 +40,7 @@ EMU_TIMEOUT      = 90
 # Files are built into the ADF via build-adf.sh's ADF_STATIC_DIR feature.
 ADF_STATIC_DIR = $(CURDIR)/envarc
 
-# Stack size is set via __stack symbol in platform_init.c
+# Stack size is set via __stack in util.c
 
 # Appkey files for the ADF:
 #   fujinet/0001/01/00 — player name (creator=1, app=1, key=0)

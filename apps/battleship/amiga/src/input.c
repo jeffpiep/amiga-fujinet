@@ -2,9 +2,6 @@
 #include <dos/dos.h>
 #include <proto/dos.h>
 
-/* FGetC is not prototyped in all versions of the bebbo toolchain headers */
-extern LONG FGetC(BPTR fh);
-
 unsigned char kbhit(void)
 {
     return (unsigned char)WaitForChar(Input(), 0);
@@ -12,7 +9,9 @@ unsigned char kbhit(void)
 
 char cgetc(void)
 {
-    return (char)FGetC(Input());
+    char ch;
+    Read(Input(), &ch, 1);
+    return ch;
 }
 
 uint8_t readJoystick(void)
