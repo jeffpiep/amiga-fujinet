@@ -151,6 +151,26 @@ that will crash or refuse to run on a stock A500.
 - No floating point (no FPU on 68000; `-msoft-float` is slow — avoid entirely)
 - No `long long` / 64-bit arithmetic (no native support on 68000)
 - No POSIX headers (`<unistd.h>`, `<termios.h>`, `<fcntl.h>`) in Amiga platform code
-- No KS 2.0+ dos.library calls (`FGetC`, `FPutC`, `SetVBuf`) — use `Read()`/`Write()` or `getchar()`/`printf()` via libnix
+- No KS 2.0+ dos.library calls — use V33 (KS 1.2+) equivalents. Confirmed
+  V36-only traps that **link without error but Guru on KS 1.3**:
+
+  | Function | Why it's unsafe on KS 1.3 | Safe V33 alternative |
+  |----------|---------------------------|----------------------|
+  | `FGetC` / `FPutC` | V36 LVO | `Read()` / `Write()` one byte |
+  | `SetVBuf` | V36 LVO | `setbuf()` via libnix |
+  | `SetMode` | V36 LVO (raw/cooked toggle) | Open `RAW:` window (see below) |
+  | `SelectInput` / `SelectOutput` | Not in the ndk13 headers; resolve to a compat lib stub, not a V33 dos.library call | Write to / Read from the file handle directly |
+
+  Rule of thumb: if a function is absent from `ndk13-include/clib/dos_protos.h`
+  it is **not** safe on KS 1.3, even if the linker resolves it.
+
+- **Raw, no-echo keyboard on KS 1.3**: CON: opens in cooked mode (line-buffered
+  + echo); per-keypress input needs raw mode. Since `SetMode()` is V36-only,
+  open a `RAW:` window instead — `Open("RAW:0/0/640/200/Title", MODE_NEWFILE)`
+  uses only V33 calls. Read keys with `Read(handle, &ch, 1)` and write output
+  with `Write(handle, ...)`. Do **not** rely on `SelectInput`/`SelectOutput` to
+  redirect `printf`/`stdin`: the nix13 CRT binds stdio to the boot CLI handle at
+  startup, so write to the RAW: handle directly. (See
+  `apps/battleship/amiga/src/graphics.c` + `input.c`.)
 - No C++ (`//` comments are fine in C99, but no classes, templates, references)
 - No `#ifdef AMIGA` spaghetti — platform isolation is enforced by the build system; Amiga code lives in `src/platform/amiga/` only

@@ -239,8 +239,51 @@ Both were confirmed by Guru Meditation crashes on KS 1.3 in FS-UAE. Update
 Phase 2 is complete when:
 
 - [x] `cgetc()` uses `Read()` instead of `FGetC()` (commit e9e098d)
-- [x] `make emu-test` still PASSES (15s, fujibus: receive:)
+- [x] `make emu-test` still PASSES (12s, fujibus: receive:)
 - [x] `platform_init.c` deleted (was never compiled; dead code)
-- [ ] **Raw mode working** — keyboard navigates without requiring Enter
-- [ ] Interactive test: can navigate table selection with keyboard
-- [ ] Interactive test: can place ships and play at least one turn
+- [x] **Raw mode working** — keyboard navigates without requiring Enter
+- [x] Interactive test: can navigate table selection with keyboard
+- [x] Interactive test: can place ships and play at least one turn
+
+---
+
+## RESOLVED — Raw mode via RAW: console (Option B)
+
+The CON: cooked-mode blocker is fixed using **Option B** from the plan above.
+
+`graphics.c` `initGraphics()` opens a `RAW:0/0/640/200/Battleship` window
+(NTSC, V33-safe). All game output is written directly to that handle
+(`conPrintf`, which `vsnprintf`s then `Write()`s) and `input.c` reads keys from
+the same handle (`Read(handle, &ch, 1)` / `WaitForChar`). This sidesteps the
+"does `printf` follow `SelectOutput`" unknown entirely — we never touch stdout.
+
+`SelectInput`/`SelectOutput` were tried first but are **not** in the ndk13
+headers (they link to a compat stub, not V33 dos.library) — same V36 trap class
+as `SetMode`. They were removed; we read/write the handle directly instead.
+
+### Verified interactively in FS-UAE (KS 1.3, A500, NTSC)
+
+Drove the emulator with synthetic keystrokes (XTEST). Full happy path:
+
+1. Lobby renders in the RAW: window; game list populates from the server.
+2. `s` (down) walks the table cursor — **no `s` echoed, no Enter needed**.
+3. `Return` joins "ai – 1 on 1"; AI opponent "clyd bot" auto-readies.
+4. `space` readies up → "starting in 1" → ship placement screen.
+5. WASD moves the placement cursor, `space` drops ships — all 5 placed.
+6. Game enters play; fired shots register on the opponent board (`@`/`O`),
+   bot fires back (`X` on our board). fujinet.log shows live send/receive
+   for every move.
+
+### Known follow-ups for Phase 3 (not blockers)
+
+- **Screen-clear bleed-through**: the lobby → waiting-room sub-screens overlay
+  without a full clear, so stale text shows during those transitions. The
+  in-game board and ship-placement screens clear cleanly. Likely upstream
+  redraw behavior on an 80x25 scrolling console; investigate `resetScreen()`
+  vs the waiting-room draw path.
+- **`s` key collision**: `amiga_vars.h` maps `s` to DOWN, but upstream
+  `screens.c` also treats `s` as the sound-mute shortcut in the lobby. Both
+  fire on one press. Harmless today (sound is a no-op) but should be
+  de-conflicted (e.g. drop `s` as the sound key on Amiga).
+- Synthetic key injection (XTEST → FS-UAE) is mildly lossy on rapid bursts;
+  space presses ~0.45s apart when scripting tests.
