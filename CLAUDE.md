@@ -110,12 +110,37 @@ git switch main && git pull
 git branch -D feature/my-topic
 ```
 
+### Worktrees
+
+Worktrees isolate parallel workstreams (e.g., two background Claude Code jobs
+running at the same time). Each worktree lives under `.claude/worktrees/<name>/`
+on a branch named `worktree-<name>`.
+
+**Background Claude Code agents** call `EnterWorktree` before their first file
+edit; edits in the shared checkout are rejected until that isolation step runs.
+
+```bash
+# See all active worktrees
+git worktree list
+
+# Create a worktree manually (rarely needed — the harness does this automatically)
+git worktree add .claude/worktrees/my-track -b worktree-my-track
+
+# Remove when done (harness prompts at session exit; or remove manually)
+git worktree remove .claude/worktrees/my-track
+git branch -D worktree-my-track
+```
+
+Worktree branches follow the same rules as feature branches: commits land there
+first, then get merged/squash-merged to `main` via PR.
+
 ### Never
 - Edit submodule files without first creating a branch inside that submodule
 - Commit the parent repo without first committing inside any modified submodule
 - Commit directly to `main` or `master` — always use a feature branch + PR
 - Merge `master`/`main` into a feature branch — rebase instead
 - Use `git add .` or `git add -A` — always stage specific files
+- Edit files in the shared checkout from a background Claude Code job — use `EnterWorktree` first
 
 ## Reference Apps
 
