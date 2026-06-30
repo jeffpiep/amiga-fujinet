@@ -244,6 +244,20 @@ Phase 2 is complete when:
 - [x] **Raw mode working** — keyboard navigates without requiring Enter
 - [x] Interactive test: can navigate table selection with keyboard
 - [x] Interactive test: can place ships and play at least one turn
+- [x] **Full game to completion** — played end-to-end; playable and fun
+
+## Phase 2 — COMPLETE
+
+Console game loop done: lobby, ship placement, and full keyboard-controlled
+games (2-player vs AI and 4-player) all verified on KS 1.3 / NTSC. Rendering
+bugs found during playtesting were fixed (commits 170e047, 6fd87af, fa7b421):
+empty-water dot grid, ship-erase, cursor trail, console scroll/drift, and the
+3-4 player 4-column layout.
+
+Known Phase 3 follow-ups (non-blocking): the per-turn forced redraw (the
+console-scroll workaround) flickers more in multiplayer; the ASCII renderer is
+slated to be replaced by a graphical Workbench app in Phase 3 (after sound and
+joystick), which supersedes these text-console workarounds.
 
 ---
 
