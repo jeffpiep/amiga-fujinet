@@ -183,17 +183,25 @@ void drawBox(uint8_t x, uint8_t y, uint8_t w, uint8_t h)
 }
 
 /*
- * Quadrant layout (x,y = top-left of 10x10 grid):
- *   2-player: both grids at the same row, left and right halves of 80 cols
- *   4-player: 2x2 arrangement, player 0 bottom-left clockwise
+ * Board layout (x,y = top-left of each 10x10 grid).
  *
- *   Row budget (2-player, grid at y=4) — must fit in HEIGHT (22) rows so the
- *   bottom status line stays on-screen on an NTSC console:
+ * Every board sits on the SAME row (y=4) in a single horizontal strip — 2
+ * columns for 1-2 players, up to 4 columns for 3-4 players. A 2x2 arrangement
+ * does not fit: two stacked rows of 10-tall grids span rows 2..22, overflowing
+ * the ~22-row NTSC console. One row of grids keeps the whole vertical budget
+ * identical regardless of player count.
+ *
+ *   Row budget (grid at y=4) — must fit in HEIGHT (22) rows:
  *     y=3:      player name
  *     y=4..13:  10x10 gamefield
  *     y=15..19: ship legend (5 slots, index 0-4)  (grid top + 11)
  *     y=20:     game-over message (HEIGHT-2)
  *     y=21:     status bar (HEIGHT-1)
+ *
+ *   Columns: 2-player uses wide left/right halves (x=4, 44). 3-4 players use
+ *   four 14-wide slots (x=2, 16, 30, 44) — board is 10 wide, name above and
+ *   legend below fit within each slot. The rightmost board ends at col 53
+ *   because the usable window width is < 80 cols (KS 1.3 window borders).
  */
 /* Pre-paint one empty 10x10 board as a grid of '.' (water). The reference
  * (graphical) ports rely on a tiled backdrop for empty water; the text port
@@ -220,10 +228,14 @@ void drawBoard(uint8_t playerCount)
         quadrant_offset[2][0] = 44; quadrant_offset[2][1] = 4;
         quadrant_offset[3][0] = 4;  quadrant_offset[3][1] = 4;
     } else {
-        quadrant_offset[0][0] = 4;  quadrant_offset[0][1] = 13;
-        quadrant_offset[1][0] = 4;  quadrant_offset[1][1] = 2;
-        quadrant_offset[2][0] = 44; quadrant_offset[2][1] = 2;
-        quadrant_offset[3][0] = 44; quadrant_offset[3][1] = 13;
+        /* 3-4 players: one horizontal row of boards in four 14-wide columns.
+         * The usable window width is narrower than 80 cols (title-bar window
+         * borders), so the rightmost board must end by ~col 53 (where the
+         * 2-player right board sits) or it clips off-screen and its name wraps. */
+        quadrant_offset[0][0] = 2;  quadrant_offset[0][1] = 4;
+        quadrant_offset[1][0] = 16; quadrant_offset[1][1] = 4;
+        quadrant_offset[2][0] = 30; quadrant_offset[2][1] = 4;
+        quadrant_offset[3][0] = 44; quadrant_offset[3][1] = 4;
     }
     resetScreen();
 
