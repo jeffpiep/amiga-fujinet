@@ -1,5 +1,9 @@
 # Handoff: Sync fujinet-nio with Mark's merged PR + fix serial config
 
+> **Status: ARCHIVED — completed 2026-07-01.** This handoff was consumed; the
+> nio sync landed (see commit "Sync fujinet-nio to merged RS-232 PR"). Kept as
+> a historical record.
+
 Kicks off a fresh session. Our `fujinet-nio` RS-232 PR was merged upstream by
 Mark Fisher, who made alignment changes — most importantly, **serial settings now
 come from the config system**, so our 19200 8N1 link needs explicit config or it

@@ -1,5 +1,10 @@
 # Battleship Emulator Test Debug Plan
 
+> **Status: ARCHIVED — superseded 2026-07-01.** The Error 121 bug this plan
+> tracks is fixed; `make emu-test` passes. Durable build steps have been
+> rehomed to `CLAUDE.md` (Build Commands → battleship). Kept as a historical
+> record of the debug session.
+
 Branch: `worktree-track1b`  
 Goal: `make emu-test` PASS — `fujibus: receive:` appears in fujinet.log
 

@@ -2,7 +2,7 @@
 
 **Depends on:** Track 1A (`libfn_compat_amiga.a`) must be complete and tested  
 **Blocks:** nothing  
-**Status:** Not started
+**Status:** In progress (2026-07-01) — Phases 1–2 complete (links, joins a table, sees the lobby, plays a full game). Phases 3–4 open: sound, joystick, ADF/real-hardware testing (see Verification Checklist).
 
 ---
 

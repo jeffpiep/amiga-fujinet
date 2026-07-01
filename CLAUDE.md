@@ -148,8 +148,9 @@ first, then get merged/squash-merged to `main` via PR.
 |-----|------|---------------|
 | `fn_test` | `apps/fn_test/` | `fn_init()` + `fn_is_ready()` — baseline serial transport check |
 | `http_get` | `apps/http_get/` | HTTP and HTTPS GET — curl-like tool, auto-detects `https://` scheme |
+| `battleship` | `apps/battleship/amiga/` | Full FujiNet game — lobby + gameplay over FujiBus. Sources in `apps/battleship/upstream/` submodule; links `libs/fujinet-compat-amiga`. |
 
-Copy either app's `Makefile` as a starting point for new apps.
+Copy `fn_test` or `http_get`'s `Makefile` as a starting point for new apps.
 
 ## Build Commands
 
@@ -168,6 +169,11 @@ cd fujinet-nio-lib && make TARGET=amiga
 # Build Amiga apps
 cd apps/http_get && make
 cd apps/fn_test && make
+
+# Build battleship (extra deps beyond the standard apps)
+git submodule update --init apps/battleship/upstream   # game sources (not initialized by default)
+make -C libs/fujinet-compat-amiga                       # compat shim battleship links against
+make -C apps/battleship/amiga battleship                # note: explicit target; bare `make` builds the ADF
 ```
 
 See `fujinet-nio/docs/developer_onboarding.md` for full build options, ESP32 setup,
@@ -221,3 +227,17 @@ between sessions — put the spec in a contract file and reference it by path.
 | `contracts/amiga-adf-bootstrap.md` | ADF build recipe, serial.device requirement, startup-sequence rules |
 
 When adding new cross-submodule features, write the contract first.
+
+## Documentation
+
+`docs/` follows a defined process — see **`docs/README.md`** for the full rules.
+In short:
+
+- **Evergreen docs** (procedures, references, strategy) are edited in place;
+  git history is their archive. Never move them aside.
+- **Point-in-time artifacts** (handoffs, debug/impl plans) are snapshots. Don't
+  mutate them to stay current — rehome their durable facts into the owning
+  evergreen doc (usually this file), then `git mv` the snapshot to
+  `docs/archive/` with an `ARCHIVED` status banner.
+
+Canonical build/run steps live here in `CLAUDE.md`, not in `docs/`.

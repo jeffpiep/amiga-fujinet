@@ -1,5 +1,10 @@
 # Handoff: Complete Battleship Phase 2
 
+> **Status: ARCHIVED — completed 2026-07-01.** Phase 2 is done (console game
+> loop: join a table, see the lobby, place ships, play a full game). Remaining
+> work is tracked in `docs/plan-track1b-battleship.md` (Phases 3–4). Kept as a
+> historical record.
+
 Branch: `worktree-track1b`
 Goal: Phase 2 = "Console game loop — join a table, see the lobby, place ships,
 play a full game — text-only, keyboard-controlled."
