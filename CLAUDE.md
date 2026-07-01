@@ -148,8 +148,9 @@ first, then get merged/squash-merged to `main` via PR.
 |-----|------|---------------|
 | `fn_test` | `apps/fn_test/` | `fn_init()` + `fn_is_ready()` — baseline serial transport check |
 | `http_get` | `apps/http_get/` | HTTP and HTTPS GET — curl-like tool, auto-detects `https://` scheme |
+| `battleship` | `apps/battleship/amiga/` | Full FujiNet game — lobby + gameplay over FujiBus. Sources in `apps/battleship/upstream/` submodule; links `libs/fujinet-compat-amiga`. |
 
-Copy either app's `Makefile` as a starting point for new apps.
+Copy `fn_test` or `http_get`'s `Makefile` as a starting point for new apps.
 
 ## Build Commands
 
@@ -168,6 +169,11 @@ cd fujinet-nio-lib && make TARGET=amiga
 # Build Amiga apps
 cd apps/http_get && make
 cd apps/fn_test && make
+
+# Build battleship (extra deps beyond the standard apps)
+git submodule update --init apps/battleship/upstream   # game sources (not initialized by default)
+make -C libs/fujinet-compat-amiga                       # compat shim battleship links against
+make -C apps/battleship/amiga battleship                # note: explicit target; bare `make` builds the ADF
 ```
 
 See `fujinet-nio/docs/developer_onboarding.md` for full build options, ESP32 setup,
