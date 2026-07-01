@@ -190,11 +190,13 @@ keyboard-controlled.
 
 ## Verification Checklist
 
-- [ ] Binary links without errors (Phase 1)
-- [ ] Can join a table and see lobby (Phase 2)
-- [ ] Can place ships and play a full game to completion (Phase 2)
+- [x] Binary links without errors (Phase 1)
+- [x] Can join a table and see lobby (Phase 2)
+- [x] Can place ships and play a full game to completion (Phase 2) — confirmed
+      end-to-end on KS 1.3 / NTSC (2-player vs AI and 4-player)
 - [ ] Sound effects play on hit/miss/sink (Phase 3)
 - [ ] Joystick moves cursor (Phase 3)
 - [ ] Boots from ADF in emulator, plays full game (Phase 4)
 - [ ] Tested on real Amiga 500 + PiStorm (Phase 4)
-- [ ] Player name and server URL persisted via AppKey/ENVARC: across reboots
+- [~] Player name persisted via AppKey/ENVARC: (name loads each boot from a
+      pre-populated appkey; full write→reboot→read cycle not yet retested)

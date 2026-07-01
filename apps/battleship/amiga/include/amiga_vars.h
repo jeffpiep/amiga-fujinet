@@ -1,9 +1,12 @@
 #ifndef AMIGA_VARS_H
 #define AMIGA_VARS_H
 
-/* Screen dimensions for 80x25 Amiga console */
+/* Console dimensions. A KS 1.3 titled RAW: window on an NTSC 640x200 Workbench
+ * screen only exposes ~22 text rows (the title bar/borders eat the rest), so
+ * the playfield must fit in 22 rows or the bottom lines clamp/scroll. 22 also
+ * fits comfortably on the taller PAL (640x256) screen. */
 #define WIDTH  80
-#define HEIGHT 25
+#define HEIGHT 22
 
 /* Icon characters (ASCII) */
 #define ICON_TEXT_CURSOR '>'
