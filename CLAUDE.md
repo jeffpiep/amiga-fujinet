@@ -138,7 +138,7 @@ first, then get merged/squash-merged to `main` via PR.
 - Edit submodule files without first creating a branch inside that submodule
 - Commit the parent repo without first committing inside any modified submodule
 - Commit directly to `main` or `master` — always use a feature branch + PR
-- Merge `master`/`main` into a feature branch — rebase instead
+- Merge `master`/`main` into a **submodule** feature branch — rebase instead (upstream requires linear history). For the parent repo, rebase is preferred but not required.
 - Use `git add .` or `git add -A` — always stage specific files
 - Edit files in the shared checkout from a background Claude Code job — use `EnterWorktree` first
 
