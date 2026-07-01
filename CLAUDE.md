@@ -227,3 +227,17 @@ between sessions — put the spec in a contract file and reference it by path.
 | `contracts/amiga-adf-bootstrap.md` | ADF build recipe, serial.device requirement, startup-sequence rules |
 
 When adding new cross-submodule features, write the contract first.
+
+## Documentation
+
+`docs/` follows a defined process — see **`docs/README.md`** for the full rules.
+In short:
+
+- **Evergreen docs** (procedures, references, strategy) are edited in place;
+  git history is their archive. Never move them aside.
+- **Point-in-time artifacts** (handoffs, debug/impl plans) are snapshots. Don't
+  mutate them to stay current — rehome their durable facts into the owning
+  evergreen doc (usually this file), then `git mv` the snapshot to
+  `docs/archive/` with an `ARCHIVED` status banner.
+
+Canonical build/run steps live here in `CLAUDE.md`, not in `docs/`.
