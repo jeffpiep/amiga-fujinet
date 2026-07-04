@@ -7,3 +7,6 @@
 [submodule "apps/battleship/upstream"]
 	path = apps/battleship/upstream
 	url = https://github.com/FujiNetWIFI/fujinet-battleship
+[submodule "apps/pacmantests/amiga-pac-man"]
+	path = apps/pacmantests/amiga-pac-man
+	url = https://github.com/tschak909/amiga-pac-man.git
