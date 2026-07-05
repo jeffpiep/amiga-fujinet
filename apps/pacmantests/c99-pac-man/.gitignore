@@ -1,0 +1,5 @@
+# Build artifacts
+*/Ghosts
+*.adf
+# fujinet-nio runtime scratch (created when run.sh launches the server in-cwd)
+*/fujinet-data/
