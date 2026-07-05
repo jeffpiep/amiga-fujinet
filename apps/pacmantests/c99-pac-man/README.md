@@ -11,6 +11,7 @@ same emulator workflow as the other `apps/` (see the project `CLAUDE.md`).
 | Harness | Status | Teaches |
 |---------|--------|---------|
 | `Ghosts/` | ✅ ported | Bitplanes — draws each plane of a ghost separately, then composited |
+| `DrawMaze/` | ✅ ported | Vector graphics — the maze as a chain of Intuition `Border` objects |
 
 ## Build & run a harness
 
@@ -28,6 +29,18 @@ screenshot:
 ```bash
 ls -t ../../../emu/logs/ghosts/*/screenshot.png | head -1   # Read this in Claude
 ```
+
+## Per-harness notes
+
+- **`DrawMaze/`** draws with Intuition `Border` (vector) objects via
+  `DrawBorder()`, not the blitter, so the coordinate tables have **no Chip-RAM
+  requirement** (contrast Ghosts below). Its window is `BORDERLESS|BACKDROP`
+  with no IDCMP, so it can't `Wait()` on a close gadget — the original used
+  `Delay(600)` (~10s) then exited. The port holds longer (`Delay(3000)`) so the
+  maze is still on screen when the headless workflow screenshots at
+  `EMU_TIMEOUT`; it still exits cleanly on real hardware. It also uses
+  `Delay()` from dos.library — `proto/dos.h` plus the `nix13` CRT (which opens
+  DOSBase) is all that's needed.
 
 ## Porting notes (Lattice C → amiga-gcc C99)
 
