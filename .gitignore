@@ -5,6 +5,7 @@ fujinet-data/
 # Build artifacts
 apps/*/fn_test
 apps/*/http_get
+apps/*/compat_test
 apps/**/*.adf
 
 # T1 host unit-test binaries (native cc)

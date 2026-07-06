@@ -8,15 +8,13 @@
 #
 # Prerequisites:
 #   - amiga-gcc toolchain on PATH (https://codeberg.org/bebbo/amiga-gcc)
-#   - fujinet-nio-lib built: cd ../../fujinet-nio-lib && make TARGET=amiga
+#   - fujinet-nio-lib built: cd ../../fujinet-nio-lib && make amiga
 #   - emu/config/paths.env filled in (copy from paths.env.example)
 
-CC      = m68k-amigaos-gcc
-CFLAGS  = -Wall -O2 -std=c99 -mcpu=68000 -msoft-float -mcrt=nix13
+include ../../make/amiga.mk
 
-NIO_LIB  = ../../fujinet-nio-lib
-INCLUDES = -I$(NIO_LIB)/include
-LIBS     = $(NIO_LIB)/build/fujinet-nio-amiga.a
+INCLUDES = -I$(NIO_INC)
+LIBS     = $(NIO_ALIB)
 
 TARGET  = fn_test
 SRCS    = fn_test.c

@@ -1,10 +1,6 @@
-CC      = m68k-amigaos-gcc
-AR      = m68k-amigaos-ar
-CFLAGS  = -Wall -Wextra -O2 -std=c99 -mcpu=68000 -msoft-float -mcrt=nix13 -DNO_INLINE_MULDIV \
-          -Wno-pointer-sign
+include ../../make/amiga.mk
 
-NIOINC  = ../../fujinet-nio-lib/include
-INCLUDES = -I$(NIOINC) -Iinclude
+INCLUDES = -I$(NIO_INC) -Iinclude
 
 SRCS = src/fn_network.c src/fn_fuji.c
 OBJS = $(SRCS:.c=.o)
@@ -32,7 +28,7 @@ test: test/compat_test
 # Each test .c #includes the module .c to reach static helpers. See docs/testing.md.
 HOST_CC     = cc
 HOST_CFLAGS = -std=c99 -Wall -Wextra -g -O0
-HOST_INC    = -Iinclude -I$(NIOINC) -Itest/host
+HOST_INC    = -Iinclude -I$(NIO_INC) -Itest/host
 HOST_TESTS  = test/host/test_network.test
 
 test/host/%.test: test/host/%.c test/host/fn_test.h

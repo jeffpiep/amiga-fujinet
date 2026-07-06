@@ -1,21 +1,15 @@
-CC     = m68k-amigaos-gcc
-CFLAGS = -Wall -O2 -std=c99 -mcpu=68000 -msoft-float -mcrt=nix13 \
-         -DNO_INLINE_MULDIV -Wno-pointer-sign \
-         -DPLATFORM_VARS='"amiga_vars.h"'
+include ../../../make/amiga.mk
+
+CFLAGS += -DPLATFORM_VARS='"amiga_vars.h"'
 
 UPSTREAM = ../upstream/src
-COMPAT   = ../../../libs/fujinet-compat-amiga
-NIO_LIB  = ../../../fujinet-nio-lib
 
 INCLUDES = \
     -Iinclude \
     -I$(UPSTREAM) \
     -I$(UPSTREAM)/platform-specific \
-    -I$(COMPAT)/include \
-    -I$(NIO_LIB)/include
-
-COMPAT_LIB = $(COMPAT)/libfn_compat_amiga.a
-NIO_ALIB   = $(NIO_LIB)/build/fujinet-nio-amiga.a
+    -I$(COMPAT_INC) \
+    -I$(NIO_INC)
 
 COMMON_SRCS = \
     $(UPSTREAM)/main.c \
