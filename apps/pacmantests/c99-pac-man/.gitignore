@@ -1,0 +1,6 @@
+# Build artifacts (compiled harness binaries — one per subdirectory)
+*/Ghosts
+*/DrawMaze
+*.adf
+# fujinet-nio runtime scratch (created when run.sh launches the server in-cwd)
+*/fujinet-data/
