@@ -49,6 +49,21 @@ work) carry a `**Status:**` line near the top:
 A plan whose work is fully done and has no residual reference value should be
 archived per §2 instead of left with a `Complete` header.
 
+## Current inventory (evergreen docs)
+
+| Doc | Owns |
+|-----|------|
+| `strategic-plan.md` | Vision, constraints, track status table, lessons learned |
+| `syncing-upstream-submodules.md` | Submodule pointer states, squash-merge recovery, drift checks |
+| `updating-fujinet-compat-headers.md` | Refreshing compat-layer headers from `FujiNetWIFI/fujinet-lib` |
+| `audit-track1a-gap-table.md` | Symbol-by-symbol map: fujinet-lib headers → nio-lib |
+| `upstreaming-battleship.md` | Plan + blockers for contributing the Amiga port upstream |
+| `plan-track1b-battleship.md` | Battleship port phases (in progress) |
+| `plan-track2-bsdsocket.md` | BSD socket layer phases (not started) |
+
+Point-in-time docs still in flight (audit findings, plans awaiting execution)
+carry their own `**Status:**` line and are not listed here.
+
 ## Archive
 
 `docs/archive/` holds retired snapshots, kept browsable (rather than deleted)

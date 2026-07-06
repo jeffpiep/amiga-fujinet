@@ -1,5 +1,9 @@
 # Implementation Plan: Track 1A — fujinet-network / fujinet-fuji Compat Layer
 
+> **Status: ARCHIVED — superseded 2026-07-05.** Work completed 2026-07-01;
+> the durable procedure lives in `docs/updating-fujinet-compat-headers.md` and
+> the symbol inventory in `docs/audit-track1a-gap-table.md`.
+
 **Depends on:** nothing (builds on top of existing `fujinet-nio-lib`)  
 **Blocks:** Track 1B (Battleship port)  
 **Status:** Complete (2026-07-01) — `libs/fujinet-compat-amiga` builds and battleship links it. Ongoing header-sync procedure lives in `docs/updating-fujinet-compat-headers.md`.

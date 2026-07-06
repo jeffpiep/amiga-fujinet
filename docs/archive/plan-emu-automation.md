@@ -1,5 +1,11 @@
 # Amiga Emulator Automation — Plan
 
+> **Status: ARCHIVED — superseded 2026-07-05.** The plan shipped as the `emu/`
+> harness and the `emu-build-and-boot` skill (`.claude/commands/emu-build-and-boot.md`),
+> which owns the debug workflow and log inventory. Tool install prerequisites
+> were rehomed to CLAUDE.md's Emulator Testing section. Phase 4 (CI) was never
+> executed; the current position on CI is in `docs/audit-build-workflow.md` (B5).
+
 End goal: a reusable workflow that builds any Amiga app, boots it in an emulator
 with emulated serial connected to fujinet-nio, captures all I/O, and returns
 structured pass/fail output that Claude Code (or CI) can inspect.
