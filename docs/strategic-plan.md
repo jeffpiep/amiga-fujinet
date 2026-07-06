@@ -156,8 +156,8 @@ not a refactor.
 | fn_* API (`fn_open`, `fn_read`, `fn_write`) | ✅ Done | HTTP + HTTPS GET/POST working |
 | `http_get` demo app | ✅ Done | HTTPS auto-detect, NTSC mode, weather demo |
 | `fn_test` smoke test | ✅ Done | Validates serial transport end-to-end |
-| Track 1A — compat layer | 🔲 Not started | |
-| Track 1B — Battleship port | 🔲 Not started | Depends on 1A |
+| Track 1A — compat layer | ✅ Done (2026-07-01) | `libs/fujinet-compat-amiga`; header-sync procedure in `docs/updating-fujinet-compat-headers.md` |
+| Track 1B — Battleship port | 🚧 Phases 1–2 done (2026-07-01) | Console game loop plays end-to-end on KS 1.3. Open: Phase 3 (graphical renderer, sound, joystick), Phase 4 (real hardware) |
 | Track 2 Phase 1 — BSD sockets | 🔲 Not started | |
 | Track 2 Phase 2 — DNS | 🔲 Not started | |
 | Track 2 Phase 3 — TLS | 🔲 Not started | |
@@ -173,3 +173,10 @@ not a refactor.
 - **2026-06-28** — FS-UAE `serial_port = tcp:…` mode causes `IOERR_OPENFAIL` in
   `serial.device`. Always use a PTY pair (`socat` + `ser2net` or similar) for
   emulator testing. See `contracts/` and emulator config docs.
+- **2026-07-02** — FS-UAE `.sdf` save-disk files silently override a freshly
+  built ADF, causing stale boots that look like build failures. `emu/run.sh`
+  now deletes them before every run; if a boot ever shows old behavior, check
+  for stray `.sdf` files first.
+- **2026-07-05** — Upstream squash-merges invalidate contributed submodule
+  branches; never rebase them post-merge — drop the branch and re-track
+  upstream master. Procedure: `docs/syncing-upstream-submodules.md`.

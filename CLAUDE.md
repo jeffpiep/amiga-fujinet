@@ -20,6 +20,10 @@ via RS-232 serial to an Amiga computer.
 | `fujinet-nio/` | jeffpiep/fujinet-nio | markjfisher/fujinet-nio |
 | `fujinet-nio-lib/` | jeffpiep/fujinet-nio-lib | markjfisher/fujinet-nio-lib |
 | `battleship/` | jeffpiep/battleship | FujiNetWIFI/battleship |
+| `apps/pacmantests/amiga-pac-man` | — (read-only pin) | tschak909/amiga-pac-man |
+
+Routine submodule syncing (fast-forwards, PR-branch pins, squash-merge
+recovery, drift checks) follows **`docs/syncing-upstream-submodules.md`**.
 
 Each submodule has two remotes:
 - `origin` — your fork (push feature branches here)
@@ -149,6 +153,12 @@ first, then get merged/squash-merged to `main` via PR.
 | `fn_test` | `apps/fn_test/` | `fn_init()` + `fn_is_ready()` — baseline serial transport check |
 | `http_get` | `apps/http_get/` | HTTP and HTTPS GET — curl-like tool, auto-detects `https://` scheme |
 | `battleship` | `apps/battleship/amiga/` | Full FujiNet game — lobby + gameplay over FujiBus. Sources in `apps/battleship/upstream/` submodule; links `libs/fujinet-compat-amiga`. |
+| `compat_test` | `apps/compat_test/` | Compat-layer smoke test on the emulator — exercises `libs/fujinet-compat-amiga` end to end. |
+| `pacmantests` | `apps/pacmantests/` | Exploratory (non-shipping) bitplane-graphics harnesses for the battleship Phase 3 renderer. Includes the `amiga-pac-man` submodule (tschak909). |
+
+`apps/battleship/` establishes the pattern for future game ports:
+`apps/<game>/upstream/` (read-only pinned submodule) + `apps/<game>/amiga/`
+(Makefile + platform layer), linking `libs/fujinet-compat-amiga`.
 
 Copy `fn_test` or `http_get`'s `Makefile` as a starting point for new apps.
 
@@ -187,6 +197,8 @@ for the full workflow.
 
 Quick setup:
 ```bash
+sudo apt install fs-uae socat xvfb jq   # emulator, serial bridge, headless display
+pip3 install amitools                    # xdftool — builds/populates ADF images
 cp emu/config/paths.env.example emu/config/paths.env
 # edit paths.env: set KICKSTART_ROM to your KS 1.3 ROM path
 ```
@@ -241,3 +253,7 @@ In short:
   `docs/archive/` with an `ARCHIVED` status banner.
 
 Canonical build/run steps live here in `CLAUDE.md`, not in `docs/`.
+
+A PR that starts or completes a track/phase must update the Status table in
+`docs/strategic-plan.md` in the same PR — that table is the first thing a new
+session reads, and it goes stale the moment this rule is skipped.
