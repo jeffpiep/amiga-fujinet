@@ -54,6 +54,7 @@ archived per §2 instead of left with a `Complete` header.
 | Doc | Owns |
 |-----|------|
 | `strategic-plan.md` | Vision, constraints, track status table, lessons learned |
+| `testing.md` | Tiered testing practice (T1 host unit / T2 emulator / T3 nio suite) |
 | `syncing-upstream-submodules.md` | Submodule pointer states, squash-merge recovery, drift checks |
 | `updating-fujinet-compat-headers.md` | Refreshing compat-layer headers from `FujiNetWIFI/fujinet-lib` |
 | `audit-track1a-gap-table.md` | Symbol-by-symbol map: fujinet-lib headers → nio-lib |

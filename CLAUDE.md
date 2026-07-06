@@ -162,6 +162,9 @@ first, then get merged/squash-merged to `main` via PR.
 
 Copy `fn_test` or `http_get`'s `Makefile` as a starting point for new apps.
 
+These apps are on-target (T2) smoke tests. For fast host-side unit tests of
+pure-logic code, see the **Testing** section below and `docs/testing.md`.
+
 ## Build Commands
 
 ```bash
@@ -188,6 +191,36 @@ make -C apps/battleship/amiga battleship                # note: explicit target;
 
 See `fujinet-nio/docs/developer_onboarding.md` for full build options, ESP32 setup,
 available profiles (`./build.sh -p -S`), and CLI testing tools.
+
+## Testing
+
+Three tiers, named by target prefix so fast and slow tests stay separable. Full
+rationale + how to add tests: **`docs/testing.md`**.
+
+| Tier | Command | Runs on | Speed / prereqs |
+|------|---------|---------|-----------------|
+| **T1 host unit** | `make test-host` | native `cc` | ms; nothing but a host compiler (CI default) |
+| **T2 emulator smoke** | `make emu-test` | FS-UAE | 60–90 s; needs a running `fujinet-nio` |
+| **T3 nio host suite** | `./build.sh -p …` | native (submodule) | seconds; doctest/CTest inside `fujinet-nio` |
+
+```bash
+# T1 — fast host unit tests (pure-logic Amiga C, native cc, no backend)
+make test-host                                 # repo-wide
+make -C libs/fujinet-compat-amiga test-host    # one module
+
+# T2 — slow emulator smoke tests (needs FS-UAE + a running fujinet-nio)
+make emu-test                                  # repo-wide
+make -C apps/fn_test emu-test                  # one app
+
+# T3 — fujinet-nio host suite (submodule; runs ctest as part of the build)
+cd fujinet-nio && ./build.sh -p fujibus-rs232-debug
+```
+
+T1 tests live in `<module>/test/host/test_*.c` and use the tiny C99 harness
+`libs/fujinet-compat-amiga/test/host/fn_test.h`. Only AmigaOS-free (`proto/*`,
+`dos/*`, …) pure-logic code is T1-eligible; anything touching AmigaOS is tested
+at T2. Do **not** modify the T3 suite from the parent repo — test changes inside
+`fujinet-nio` / `fujinet-nio-lib` go through their own upstream-PR flow.
 
 ## Emulator Testing
 

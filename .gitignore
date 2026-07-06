@@ -6,3 +6,6 @@ fujinet-data/
 apps/*/fn_test
 apps/*/http_get
 apps/**/*.adf
+
+# T1 host unit-test binaries (native cc)
+libs/**/test/host/*.test
