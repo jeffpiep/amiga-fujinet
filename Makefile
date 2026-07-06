@@ -12,7 +12,7 @@
 HOST_TEST_DIRS = libs/fujinet-compat-amiga
 
 # Apps with a T2 emulator smoke test.
-EMU_TEST_DIRS = apps/fn_test apps/compat_test apps/http_get
+EMU_TEST_DIRS = apps/fn_test apps/compat_test apps/http_get apps/battleship/amiga
 
 .PHONY: test test-host emu-test
 

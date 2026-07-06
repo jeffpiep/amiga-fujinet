@@ -18,6 +18,10 @@ and (4) no CI safety net. All fixable with small changes.
 ## Findings
 
 ### B1 — No host-side test loop for the compat layer (highest value fix)
+
+> **Satisfied (2026-07-05)** by the tiered testing practice — see
+> `docs/testing.md` and CLAUDE.md `## Testing` (`make test-host`).
+
 The only way to exercise `libs/fujinet-compat-amiga` today is a full FS-UAE
 boot (~90 s timeout, needs serial bridge + fujinet-nio + Xvfb). That's the
 *outer* verification loop; there is no *inner* one. Evidence it's wanted:
