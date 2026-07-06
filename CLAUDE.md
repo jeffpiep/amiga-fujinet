@@ -161,6 +161,9 @@ first, then get merged/squash-merged to `main` via PR.
 (Makefile + platform layer), linking `libs/fujinet-compat-amiga`.
 
 Copy `fn_test` or `http_get`'s `Makefile` as a starting point for new apps.
+All Amiga Makefiles get the toolchain (`CC`, `AR`, canonical `CFLAGS`) and the
+nio-lib/compat-layer paths from **`make/amiga.mk`** — include it first, append
+per-app flags with `CFLAGS +=`, never redefine the toolchain locally.
 
 These apps are on-target (T2) smoke tests. For fast host-side unit tests of
 pure-logic code, see the **Testing** section below and `docs/testing.md`.
@@ -177,16 +180,17 @@ cd fujinet-nio
 ./build.sh -cp fujibus-rs232-debug     # clean + build
 
 # Build fujinet-nio-lib for Amiga
-cd fujinet-nio-lib && make TARGET=amiga
+cd fujinet-nio-lib && make amiga
 
-# Build Amiga apps
-cd apps/http_get && make
-cd apps/fn_test && make
+# Build all Amiga apps (includes battleship; auto-builds the compat shim)
+make -C apps
 
-# Build battleship (extra deps beyond the standard apps)
+# Or per app
+make -C apps/http_get
+make -C apps/battleship/amiga battleship   # note: explicit target; bare `make` builds the ADF
+
+# Battleship one-time extra dep
 git submodule update --init apps/battleship/upstream   # game sources (not initialized by default)
-make -C libs/fujinet-compat-amiga                       # compat shim battleship links against
-make -C apps/battleship/amiga battleship                # note: explicit target; bare `make` builds the ADF
 ```
 
 See `fujinet-nio/docs/developer_onboarding.md` for full build options, ESP32 setup,

@@ -42,6 +42,10 @@ artifact from a hand-run experiment.
   CLAUDE.md's Build Commands.
 
 ### B2 — Toolchain preamble is copy-pasted with drift
+
+> **Satisfied (2026-07-05)** by `make/amiga.mk` — all Amiga Makefiles now
+> include it; `-Wextra` is canonical.
+
 `CC`/`CFLAGS` are repeated in every Amiga Makefile and have already diverged:
 the compat lib uses `-Wall -Wextra`, the apps only `-Wall`; `-Wno-pointer-sign`
 and `-DNO_INLINE_MULDIV` appear in some but not others. Drift here becomes
@@ -54,6 +58,10 @@ standard `NIO_LIB`/`COMPAT` paths. App Makefiles shrink to: sources, includes,
 emu variables, link rule. Keep per-app additions possible via `CFLAGS +=`.
 
 ### B3 — `apps/Makefile` is stale
+
+> **Satisfied (2026-07-05)** — `make -C apps` now builds all four apps,
+> including battleship via its explicit target.
+
 It builds only `http_get`; `fn_test`, `compat_test`, and battleship are
 missing. A stale aggregate is worse than none — it silently under-verifies.
 
