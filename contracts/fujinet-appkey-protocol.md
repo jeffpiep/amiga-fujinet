@@ -1,226 +1,125 @@
-# FujiNet AppKey Protocol
+# FujiNet AppKey → App-Store Mapping
+
+> **Supersedes (2026-07-06):** this contract previously specified a classic
+> four-command AppKey wire protocol (`OPEN/READ/WRITE/CLOSE_APPKEY`,
+> `0xDC`–`0xDB`) to be added to `fujinet-nio`. That protocol was never
+> implemented. Upstream instead shipped a generalized **app-store** on the
+> FileDevice (fujinet-nio `83627c0`, fujinet-nio-lib `445891c`), whose docs
+> state it "deliberately avoids the legacy AppKey model of fixed
+> creator/app/key triples and 64-byte blobs." We adopt the app-store; this
+> contract now specifies how the classic AppKey API maps onto it. The old
+> wire-protocol text lives in git history.
 
 ## Overview
 
-AppKeys are small (up to 64 bytes) named blobs that apps persist on the FujiNet
-device. They are keyed by a three-part address — **creator**, **app**, **key** —
-and stored as flat files on the FujiNet server's storage. Any platform that speaks
-FujiBus can read and write its own keys without a network connection.
+AppKeys are small (≤64 byte) blobs that games persist on the FujiNet device,
+addressed by a **creator / app / key** triple. Games written against the
+standard `fujinet-fuji.h` API call:
 
-This contract specifies the four-command protocol session used between the Amiga
-client library (`libs/fujinet-compat-amiga`) and the FujiNet server (`fujinet-nio`).
-
-**Scope:** 64-byte (DEFAULT) key size. 256-byte keys are defined in the original
-firmware but are out of scope for this implementation.
-
----
-
-## Key Identifiers
-
-| Field        | Type      | Description |
-|--------------|-----------|-------------|
-| `creator_id` | uint16_t  | Registered creator ID. Battleship: `0xE41C`. Lobby: `0x0001`. |
-| `app_id`     | uint8_t   | Application within the creator. Battleship prefs: `0x05`. Lobby: `0x01`. |
-| `key_id`     | uint8_t   | Slot within the app. Battleship prefs: `0x00`. |
-
-Known keys used by Battleship:
-
-| Creator  | App    | Key    | Contents |
-|----------|--------|--------|----------|
-| `0x0001` | `0x01` | `0x00` | Lobby player name (string, max 8 bytes) |
-| `0x0001` | `0x01` | `0x05` | Lobby server URL (string, up to 64 bytes) |
-| `0xE41C` | `0x05` | `0x00` | Battleship prefs struct (byte 0 = debugFlag, byte 1 = seenHelp) |
-
----
-
-## Commands
-
-| Command       | Byte   | Direction      |
-|---------------|--------|----------------|
-| OPEN_APPKEY   | `0xDC` | client → server |
-| READ_APPKEY   | `0xDD` | client ← server |
-| WRITE_APPKEY  | `0xDE` | client → server |
-| CLOSE_APPKEY  | `0xDB` | client → server |
-
----
-
-## Command Details
-
-### OPEN_APPKEY (0xDC)
-
-Sets the server-side session context for a subsequent read or write. Must be called
-before READ_APPKEY or WRITE_APPKEY. Opening a new session while one is already open
-implicitly closes the prior session.
-
-**Request payload — 6 bytes:**
-
-```
-Offset  Size  Type     Field
-------  ----  -------  -----
-0       2     uint16_t creator_id  (little-endian)
-2       1     uint8_t  app_id
-3       1     uint8_t  key_id
-4       1     int8_t   mode        (0 = READ, 1 = WRITE)
-5       1     uint8_t  reserved    (0x00)
+```c
+void fuji_set_appkey_details(uint16_t creator_id, uint8_t app_id, enum AppKeySize keysize);
+bool fuji_read_appkey(uint8_t key_id, uint16_t *count, uint8_t *data);
+bool fuji_write_appkey(uint8_t key_id, uint16_t count, uint8_t *data);
 ```
 
-**Response:** no payload; success or error status only.
-
-**Validation:**
-- `creator_id` must be non-zero.
-- `mode` must be `0` (READ) or `1` (WRITE).
-- Storage must be available.
-
----
-
-### WRITE_APPKEY (0xDE)
-
-Writes key data to the server. Session must already be open in WRITE mode.
-
-**Request payload:** raw key data, 1–64 bytes. Length is carried in the FujiBus
-command-frame auxiliary bytes (`aux1` = low byte, `aux2` = high byte of length).
-
-**Response:** no payload; success or error status only.
-
-After a successful write the session is automatically closed (creator reset to 0).
-
----
-
-### READ_APPKEY (0xDD)
-
-Reads key data from the server. Session must already be open in READ mode.
-
-**Request payload:** none.
-
-**Response payload — 2 + 64 bytes (66 bytes total):**
+On Amiga, the compat layer (`libs/fujinet-compat-amiga/src/fn_fuji.c`)
+implements these on top of the nio-lib **app-store API** — string-namespaced
+key/value storage served by `fujinet-nio`'s FileDevice:
 
 ```
-Offset  Size  Type     Field
-------  ----  -------  -----
-0       2     uint16_t data_len  (little-endian; 0 if key does not exist)
-2       N     uint8_t  key data  (N = data_len; remaining bytes zero-padded to 64)
+game code (fujinet-fuji.h appkey API, numeric triple, ≤64 bytes)
+        │
+libs/fujinet-compat-amiga/src/fn_fuji.c      ← this contract
+        │
+fn_appstore_stat/read/write()                (fujinet-nio-lib)
+        │  FileDevice AppStore commands 0x20–0x24 over FujiBus
+fujinet-nio  →  backing filesystem, /FujiNet/app-store/v1 (private root)
 ```
 
-The full 66-byte buffer is always returned. If the key file does not exist on the
-server, `data_len` = 0 and all data bytes are zero — this is not an error.
+The server storage layout is an upstream implementation detail — the compat
+layer must only use `fn_appstore_*` calls, never construct paths.
 
-After a successful read the session is automatically closed.
+**Scope:** `keysize = DEFAULT` (64 bytes) only, matching what lobby games use.
+The app-store supports arbitrary sizes; the classic API does not, so the compat
+layer enforces the 64-byte ceiling.
 
----
+## Naming convention (the heart of this contract)
 
-### CLOSE_APPKEY (0xDB)
+The numeric triple maps to app-store strings as:
 
-Resets server-side session state. No-op if no session is open. Always succeeds.
+| App-store field | Format | Example (Battleship prefs) |
+|---|---|---|
+| `namespace` | `appkey-<creator%04x>-<app%02x>` | `appkey-e41c-05` |
+| `key`       | `<key%02x>`                      | `00` |
 
-**Request payload:** none.  
-**Response:** no payload.
+- Lowercase hex, fixed width, matching the classic firmware's
+  `%04x%02x%02x.key` filename style.
+- One namespace per (creator, app) pair keeps `fn_appstore_list()` usable as
+  "list this app's keys".
+- **Open question (confirm with Mark before other platforms adopt it):**
+  whether upstream wants a blessed convention for legacy-appkey consumers, so
+  that e.g. lobby keys (creator `0x0001`) written by other future nio clients
+  land in the same namespace.
 
----
+Known keys used by Battleship / the lobby:
 
-## Server-Side Storage
+| Creator  | App    | Key    | Namespace / key | Contents |
+|----------|--------|--------|-----------------|----------|
+| `0x0001` | `0x01` | `0x00` | `appkey-0001-01` / `00` | Lobby player name (string, max 8 bytes) |
+| `0x0001` | `0x01` | `0x05` | `appkey-0001-01` / `05` | Lobby server URL (string, ≤64 bytes) |
+| `0xE41C` | `0x05` | `0x00` | `appkey-e41c-05` / `00` | Battleship prefs (byte 0 = debugFlag, byte 1 = seenHelp) |
 
-Keys are stored as flat files:
+## Semantics mapping
 
-```
-<storage_root>/FujiNet/<CREATOR><APP><KEY>.key
-```
+| Classic call | App-store realization |
+|---|---|
+| `fuji_set_appkey_details(c, a, size)` | Store `(c, a)` in static context; build the namespace string. `size != DEFAULT` → all subsequent ops fail (`false`). |
+| `fuji_read_appkey(k, &count, data)` | One `fn_appstore_read(ns, key, 0, data, 64, &out)`. Missing key (`!EXISTS` flag) → **success** with `*count = 0` (classic semantics: absent key is not an error). Present → `*count = out.bytes_read`. A value >64 bytes (foreign writer) is truncated at 64; ignore the missing-EOF flag. |
+| `fuji_write_appkey(k, count, data)` | Reject `count > 64`. One `fn_appstore_write(ns, key, 0, data, count, &out)` — offset 0 creates/replaces. |
 
-Where:
-- `<CREATOR>` — 4 lowercase hex digits (uint16_t printed as `%04x`)
-- `<APP>` — 2 lowercase hex digits
-- `<KEY>` — 2 lowercase hex digits
+Single-chunk transfers suffice: 64 bytes always fits in one FujiBus frame, so
+the chunked-offset machinery is unused here.
 
-Examples:
-- creator=`0xE41C`, app=`0x05`, key=`0x00` → `FujiNet/e41c0500.key`
-- creator=`0x0001`, app=`0x01`, key=`0x00` → `FujiNet/00010100.key`
+**Missing-key defaults:** the compat layer keeps its current behavior of
+returning built-in defaults for known keys when the read finds nothing (e.g.
+Battleship prefs default to `seenHelp = 1`), so games boot sanely on a fresh
+server. Defaults live in `fn_fuji.c`, not on the server.
 
-The `FujiNet/` subdirectory is created automatically on first write if absent.
+## Client-side obligations (fujinet-compat-amiga)
 
-On POSIX builds (`fujinet-nio`) `<storage_root>` is the `"host"` filesystem
-registered in `StorageManager` (default: `./fujinet-data`).
+1. Reimplement `fn_fuji.c` on `fn_appstore_*`. This **removes** the
+   `SYS:fujinet/…` / `ENVARC:` local-file storage and with it the
+   `proto/dos.h` dependency — the file becomes pure logic over `fn_*` calls
+   and therefore **T1-eligible** (host unit tests per `docs/testing.md`,
+   using the inert-stub technique from `test_network.c`).
+2. Error mapping: any `fn_appstore_*` result other than `FN_OK` → the classic
+   call returns `false` and sets the layer's last-error state.
+3. Battleship's ADF `envarc/` seeding (`ADF_STATIC_DIR` in
+   `apps/battleship/amiga/Makefile`) becomes obsolete once this lands —
+   remove the seeding rules and instead seed the **server** in emu tests
+   (see below).
 
----
+## Server-side obligations (fujinet-nio)
 
-## Session State Machine
+None. The app-store already ships in upstream `master` and is registered in
+the posix build (`main_posix.cpp`). The Amiga side consumes it as-is.
 
-```
-[IDLE]
-  │
-  ├─OPEN(mode=READ)──▶ [OPEN-READ]
-  │                         │
-  │                         ├─READ_APPKEY──▶ [IDLE]  (auto-close)
-  │                         └─CLOSE────────▶ [IDLE]
-  │
-  └─OPEN(mode=WRITE)─▶ [OPEN-WRITE]
-                            │
-                            ├─WRITE_APPKEY─▶ [IDLE]  (auto-close)
-                            └─CLOSE────────▶ [IDLE]
-```
+## Testing
 
-READ_APPKEY or WRITE_APPKEY while in the wrong mode (or with no session open)
-returns an error response and leaves session state unchanged.
+- **T1:** unit-test the triple→string mapping and the read/write semantics in
+  `libs/fujinet-compat-amiga/test/host/` with stubbed `fn_appstore_*`.
+- **T2:** extend `test/compat_test.c` with an appkey write→read round-trip
+  over the emulator against a live `fujinet-nio`.
+- **Seeding for emu tests:** write keys server-side before boot with
+  upstream's tool, e.g.
+  `python -m fujinet_tools.file appstore-write appkey-0001-01 00 --data AMIGA`
+  (see `fujinet-nio/py/fujinet_tools/file.py` for exact CLI), rather than
+  touching `fujinet-data/` paths directly.
 
----
+## References
 
-## Error Handling
-
-| Condition | Response |
-|-----------|----------|
-| OPEN with `creator_id == 0` | IOError |
-| OPEN with invalid mode | IOError |
-| OPEN with storage unavailable | IOError |
-| READ/WRITE with no session open | IOError |
-| WRITE in READ mode (or vice-versa) | IOError |
-| Key file not found on READ | Success; `data_len` = 0, data = zeros |
-| File I/O failure during READ/WRITE | IOError |
-
----
-
-## Client-Side Obligations (fujinet-compat-amiga)
-
-`fuji_set_appkey_details()` / `fuji_read_appkey()` / `fuji_write_appkey()` in
-`libs/fujinet-compat-amiga/src/fn_fuji.c` must, when a real FujiNet serial
-connection is active, send the OPEN → READ/WRITE → CLOSE command sequence over
-the transport rather than touching local Amiga files.
-
-The current local-file implementation (`SYS:fujinet/<creator>/<app>/<key>`) remains
-as the emulator/no-FujiNet fallback only.
-
----
-
-## Server-Side Obligations (fujinet-nio)
-
-`FujiDevice` in `fujinet-nio` must:
-
-1. Add enum values to `include/fujinet/io/devices/fuji_commands.h`:
-   ```cpp
-   OpenAppKey  = 0xDC,
-   ReadAppKey  = 0xDD,
-   WriteAppKey = 0xDE,
-   CloseAppKey = 0xDB,
-   ```
-
-2. Add a session-state struct member to `FujiDevice`:
-   ```cpp
-   struct AppKeyCtx {
-       uint16_t creator{0};
-       uint8_t  app{0};
-       uint8_t  key{0};
-       int8_t   mode{-1};  // -1 = closed, 0 = read, 1 = write
-   } _appkey_ctx;
-   ```
-
-3. Implement `handle_open_appkey`, `handle_read_appkey`, `handle_write_appkey`,
-   `handle_close_appkey` in `src/lib/fuji_device.cpp`, dispatching from
-   `FujiDevice::handle()`.
-
-4. File I/O via `_storage.get("host")` → `IFileSystem::open()` / `read()` / `write()`.
-
----
-
-## Reference
-
-- `fujinet-firmware/lib/device/sio/fuji.cpp` — canonical protocol implementation (lines 739–927)
-- `fujinet-firmware/lib/device/sio/fuji.h` — `appkey` struct definition
-- `libs/fujinet-compat-amiga/src/fn_fuji.c` — Amiga client (local-file fallback)
+- `fujinet-nio/docs/file_device_protocol.md` — AppStore commands `0x20`–`0x24`, wire format
+- `fujinet-nio-lib/docs/api.md` — `fn_appstore_*` client API
+- `libs/fujinet-compat-amiga/src/fn_fuji.c` — current (local-file) implementation to be replaced
 - `contracts/fujibus-protocol.md` — FujiBus framing and transport layer
+- `fujinet-firmware/lib/device/sio/fuji.cpp` — classic firmware AppKey implementation (historical reference)
