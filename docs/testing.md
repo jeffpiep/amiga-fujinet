@@ -87,8 +87,9 @@ Unchanged by this practice. Each app's Makefile includes `emu/template/emu.mk`,
 sets an `EMU_PASS_PATTERN`, and `make emu-test` boots the app in FS-UAE via
 `emu/run.sh`, polling the FujiNet/serial logs for that pattern. Slow, and needs
 `fujinet-nio` built and running. See `CLAUDE.md` "Emulator Testing" and the
-`emu-build-and-boot` skill. `libs/fujinet-compat-amiga`'s m68k `make test`
-cross-compiles `compat_test.c`; it is run on-target via `apps/compat_test`.
+`emu-build-and-boot` skill. The compat layer's T2 test source lives at
+`libs/fujinet-compat-amiga/test/compat_test.c`; `apps/compat_test` is the
+single owner of building, packaging, and running it on-target.
 
 ## T3 — the fujinet-nio host suite (submodule)
 
@@ -139,3 +140,9 @@ T3 is referenced from the parent repo, never modified there.
 CI is designed to be trivial to add: a workflow that runs `make test-host` needs
 nothing beyond a host `cc`. The slow T2/T3 tiers stay opt-in / local until the
 emulator harness is worth wiring into CI.
+
+**Deliberately deferred (decision 2026-07-07):** CI and a `cppcheck` lint
+target (audit findings B4/B5, see `docs/archive/audit-build-workflow.md`).
+`-Wextra` everywhere via `make/amiga.mk` is the static-analysis posture for
+now; revisit CI when a second contributor appears or a broken-main regression
+actually bites.

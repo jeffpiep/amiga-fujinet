@@ -1,7 +1,8 @@
 # Audit: Documentation Suite (Brief Output 4)
 
-**Status:** Approved (2026-07-05). Point-in-time artifact; archive after its
-recommendations are executed.
+> **Status: ARCHIVED — superseded 2026-07-07.** All findings (F1–F5)
+> executed across PRs #8/#10. The status-update rule and doc inventory
+> live on in CLAUDE.md and docs/README.md.
 
 Non-advocate review of the existing doc suite (CLAUDE.md, docs/, contracts/),
 per the repo-audit brief. Verdict up front: **the suite is small, load-bearing,

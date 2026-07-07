@@ -1,7 +1,9 @@
 # Audit: Build System & Workflow (Brief Output 2)
 
-**Status:** Approved (2026-07-05). Point-in-time artifact; archive after its
-recommendations are executed.
+> **Status: ARCHIVED — superseded 2026-07-07.** B1 (host tests, PR #10),
+> B2/B3 (make/amiga.mk + apps/Makefile, PR #11), and B6
+> (contracts/esp32-target.md) executed. B4 (cppcheck) and B5 (CI)
+> deliberately deferred — see docs/testing.md "Future work".
 
 Audit of Makefiles, emu harness, and testing/CI gaps, per the repo-audit
 brief. The goal is a workflow where a Claude Opus session can build, test, and

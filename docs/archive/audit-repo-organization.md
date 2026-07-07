@@ -1,7 +1,9 @@
 # Audit: Repo Organization (Brief Output 1)
 
-**Status:** Approved (2026-07-05). Point-in-time artifact; archive after its
-recommendations are executed.
+> **Status: ARCHIVED — superseded 2026-07-07.** R1–R4 executed in PR #8;
+> R5 (compat_test single ownership) executed alongside
+> contracts/esp32-target.md. The blessed game-port pattern lives in
+> CLAUDE.md "Reference Apps".
 
 Per the brief: audit only what this repo owns (`libs/`, `apps/`, `contracts/`,
 `emu/`, `docs/`) for platform leakage and misplaced files; the HAL/OSAL
