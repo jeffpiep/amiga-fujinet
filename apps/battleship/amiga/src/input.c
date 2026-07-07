@@ -25,7 +25,15 @@ char cgetc(void)
     return ch;
 }
 
+#include "joydecode.h"
+
+/* Joystick port 2 — the customary Amiga game port (port 1 has the mouse,
+ * whose movement would register as phantom directions). Read-only peeks at
+ * the counter/CIA registers; conventional and safe alongside the OS. */
+#define JOY1DAT (*(volatile uint16_t *)0xDFF00C)
+#define CIAAPRA (*(volatile uint8_t *)0xBFE001) /* bit 7 = port-2 fire, active low */
+
 uint8_t readJoystick(void)
 {
-    return 0;
+    return joyDecode(JOY1DAT, (uint8_t)!(CIAAPRA & 0x80));
 }

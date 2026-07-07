@@ -18,7 +18,7 @@ COMMON_SRCS = \
     $(UPSTREAM)/stateclient.c \
     $(UPSTREAM)/misc.c
 
-AMIGA_SRCS = src/graphics.c src/input.c src/sound.c src/util.c
+AMIGA_SRCS = src/graphics.c src/input.c src/joydecode.c src/sound.c src/util.c
 
 SRCS = $(COMMON_SRCS) $(AMIGA_SRCS)
 
@@ -49,7 +49,19 @@ strip: $(TARGET)
 
 include ../../../emu/template/emu.mk
 
-clean:
-	rm -f $(TARGET)
+# ---- T1 host unit tests (docs/testing.md) ----
+HOST_CC     = cc
+HOST_CFLAGS = -std=c99 -Wall -Wextra -g -O0
+HOST_INC    = -Iinclude -I../../../libs/fujinet-compat-amiga/test/host
+HOST_TESTS  = test/host/test_joydecode.test
 
-.PHONY: all clean strip
+test/host/%.test: test/host/%.c
+	$(HOST_CC) $(HOST_CFLAGS) $(HOST_INC) -o $@ $<
+
+test-host: $(HOST_TESTS)
+	@fail=0; for t in $(HOST_TESTS); do echo "== $$t =="; ./$$t || fail=1; done; exit $$fail
+
+clean:
+	rm -f $(TARGET) $(HOST_TESTS)
+
+.PHONY: all clean strip test-host
