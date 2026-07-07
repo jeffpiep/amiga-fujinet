@@ -1,11 +1,14 @@
 /*
- * fujinet-fuji.h implementation for Amiga via dos.library file I/O.
+ * fujinet-fuji.h implementation for Amiga over the fujinet-nio app-store.
  *
- * AppKeys are stored as flat binary files:
- *   SYS:fujinet/<creator_hex>/<app_hex>/<key_hex>
+ * AppKeys map onto namespaced app-store keys served by fujinet-nio's
+ * FileDevice, per contracts/fujinet-appkey-protocol.md:
  *
- * dos.library Open/Read/Write/Close are KS 1.3 safe.
- * CreateDir is used to create parent directories as needed.
+ *   (creator, app, key)  →  namespace "appkey-<creator%04x>-<app%02x>",
+ *                           key       "<key%02x>"
+ *
+ * Pure logic over fn_appstore_* — no AmigaOS headers, so this file is
+ * T1 host-testable (docs/testing.md).
  */
 
 #include <stdint.h>
@@ -13,11 +16,9 @@
 #include <string.h>
 #include <stdio.h>
 
-#include <proto/dos.h>
-#include <dos/dos.h>
-
 #include "amiga_compat.h"   /* must come before fujinet-fuji.h */
 #include "fujinet-fuji.h"
+#include "fujinet-nio.h"
 
 /* ------------------------------------------------------------------ */
 /* Static context set by fuji_set_appkey_details()                   */
@@ -25,63 +26,48 @@
 
 static uint16_t s_creator_id = 0;
 static uint8_t  s_app_id     = 0;
+static uint8_t  s_bad_size   = 0; /* non-DEFAULT keysize requested */
 static uint8_t  s_last_error = 0; /* true = last op had error */
 
 FNStatus _fuji_status;
 
 /* ------------------------------------------------------------------ */
-/* Path construction                                                  */
+/* Name construction (contracts/fujinet-appkey-protocol.md)           */
 /* ------------------------------------------------------------------ */
 
-/* Build SYS:fujinet/<creator_hex>/<app_hex>/<key_hex> into buf.   */
-static void build_appkey_path(char *buf, size_t buflen,
-                               uint8_t key_id)
+#define APPKEY_NS_LEN  16  /* "appkey-" + 4 + "-" + 2 + NUL */
+#define APPKEY_KEY_LEN 4   /* 2 hex digits + NUL */
+
+static void build_appstore_names(uint8_t key_id,
+                                 char *ns, size_t nslen,
+                                 char *key, size_t keylen)
 {
-    snprintf(buf, buflen,
-             "SYS:fujinet/%04X/%02X/%02X",
-             (unsigned)s_creator_id,
-             (unsigned)s_app_id,
-             (unsigned)key_id);
+    snprintf(ns, nslen, "appkey-%04x-%02x",
+             (unsigned)s_creator_id, (unsigned)s_app_id);
+    snprintf(key, keylen, "%02x", (unsigned)key_id);
 }
 
-/* Build parent dir path (SYS:fujinet/<creator>/<app>) into buf.   */
-static void build_appkey_dir(char *buf, size_t buflen)
+/* Built-in defaults for known keys so games boot sanely against a
+ * fresh server (missing key is not an error — classic semantics).
+ * Returns true if a default was supplied. */
+static bool default_for_missing_key(uint8_t key_id,
+                                    uint16_t *count, uint8_t *data)
 {
-    snprintf(buf, buflen,
-             "SYS:fujinet/%04X/%02X",
-             (unsigned)s_creator_id,
-             (unsigned)s_app_id);
-}
-
-/* Ensure SYS:fujinet/<creator>/<app> exists, creating as needed.  */
-static bool ensure_appkey_dir(void)
-{
-    char base[64];
-    char dir[80];
-
-    snprintf(base, sizeof(base), "SYS:fujinet/%04X",
-             (unsigned)s_creator_id);
-    build_appkey_dir(dir, sizeof(dir));
-
-    /* CreateDir returns NULL and sets IoErr if dir already exists —  */
-    /* that is fine; only fail if it's a real error.                  */
-    BPTR lock = Lock(base, ACCESS_READ);
-    if (!lock)
-        CreateDir(base);
-    else
-        UnLock(lock);
-
-    lock = Lock(dir, ACCESS_READ);
-    if (!lock) {
-        BPTR newdir = CreateDir(dir);
-        if (!newdir)
-            return false;
-        UnLock(newdir);
-    } else {
-        UnLock(lock);
+    if (s_creator_id == 1 && s_app_id == 1 && key_id == 0) {
+        /* Lobby player name: default to "amiga" */
+        const uint8_t def[] = "amiga";
+        *count = sizeof(def) - 1;
+        memcpy(data, def, *count);
+        return true;
     }
-
-    return true;
+    if (s_creator_id == 0xE41C && s_app_id == 5 && key_id == 0) {
+        /* Prefs: byte 1 = seenHelp = 1 so help screen is skipped */
+        const uint8_t def[24] = { 0x00, 0x01, 0x00, 0x00 };
+        *count = sizeof(def);
+        memcpy(data, def, *count);
+        return true;
+    }
+    return false;
 }
 
 /* ------------------------------------------------------------------ */
@@ -91,35 +77,28 @@ static bool ensure_appkey_dir(void)
 void fuji_set_appkey_details(uint16_t creator_id, uint8_t app_id,
                               enum AppKeySize keysize)
 {
-    (void)keysize; /* only DEFAULT (64 bytes) supported */
     s_creator_id = creator_id;
     s_app_id     = app_id;
+    s_bad_size   = (keysize != DEFAULT); /* only DEFAULT (64 bytes) supported */
     s_last_error = 0;
 }
 
 bool fuji_write_appkey(uint8_t key_id, uint16_t count, uint8_t *data)
 {
-    char path[64];
-    BPTR fh;
-    LONG written;
+    char ns[APPKEY_NS_LEN];
+    char key[APPKEY_KEY_LEN];
+    fn_appstore_write_t wr;
 
-    if (!ensure_appkey_dir()) {
+    if (s_bad_size || count > MAX_APPKEY_LEN) {
         s_last_error = 1;
         return false;
     }
 
-    build_appkey_path(path, sizeof(path), key_id);
+    build_appstore_names(key_id, ns, sizeof(ns), key, sizeof(key));
 
-    fh = Open(path, MODE_NEWFILE);
-    if (!fh) {
-        s_last_error = 1;
-        return false;
-    }
-
-    written = Write(fh, data, (LONG)count);
-    Close(fh);
-
-    if (written != (LONG)count) {
+    /* offset 0 creates or replaces the value */
+    if (fn_appstore_write(ns, key, 0, data, count, &wr) != FN_OK ||
+        wr.bytes_written != count) {
         s_last_error = 1;
         return false;
     }
@@ -130,48 +109,34 @@ bool fuji_write_appkey(uint8_t key_id, uint16_t count, uint8_t *data)
 
 bool fuji_read_appkey(uint8_t key_id, uint16_t *count, uint8_t *data)
 {
-    char path[64];
-    BPTR fh;
-    LONG got;
+    char ns[APPKEY_NS_LEN];
+    char key[APPKEY_KEY_LEN];
+    fn_appstore_read_t rr;
 
-    build_appkey_path(path, sizeof(path), key_id);
-
-    fh = Open(path, MODE_OLDFILE);
-    if (!fh) {
-        /* File doesn't exist or ENVARC: not mounted.
-         * Provide built-in defaults for known keys so the game can start
-         * in a bare KS 1.3 environment without a full Workbench ENVARC. */
-        if (s_creator_id == 1 && s_app_id == 1 && key_id == 0) {
-            /* Lobby player name: default to "amiga" */
-            const uint8_t def[] = "amiga";
-            *count = sizeof(def) - 1;
-            memcpy(data, def, *count);
-            s_last_error = 0;
-            return true;
-        }
-        if (s_creator_id == 0xE41C && s_app_id == 5 && key_id == 0) {
-            /* Prefs: byte 1 = seenHelp = 1 so help screen is skipped */
-            const uint8_t def[24] = { 0x00, 0x01, 0x00, 0x00 };
-            *count = sizeof(def);
-            memcpy(data, def, *count);
-            s_last_error = 0;
-            return true;
-        }
+    if (s_bad_size) {
         *count = 0;
         s_last_error = 1;
         return false;
     }
 
-    got = Read(fh, data, MAX_APPKEY_LEN);
-    Close(fh);
+    build_appstore_names(key_id, ns, sizeof(ns), key, sizeof(key));
 
-    if (got < 0) {
+    /* Single chunk: 64 bytes always fits one FujiBus frame. A value
+     * larger than 64 bytes (foreign writer) is truncated at 64. */
+    if (fn_appstore_read(ns, key, 0, data, MAX_APPKEY_LEN, &rr) != FN_OK) {
         *count = 0;
         s_last_error = 1;
         return false;
     }
 
-    *count       = (uint16_t)got;
+    if (!(rr.flags & FN_APPSTORE_READ_EXISTS)) {
+        if (!default_for_missing_key(key_id, count, data))
+            *count = 0;
+        s_last_error = 0;
+        return true;
+    }
+
+    *count       = rr.bytes_read;
     s_last_error = 0;
     return true;
 }

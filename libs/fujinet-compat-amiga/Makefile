@@ -29,7 +29,7 @@ test: test/compat_test
 HOST_CC     = cc
 HOST_CFLAGS = -std=c99 -Wall -Wextra -g -O0
 HOST_INC    = -Iinclude -I$(NIO_INC) -Itest/host
-HOST_TESTS  = test/host/test_network.test
+HOST_TESTS  = test/host/test_network.test test/host/test_fuji.test
 
 test/host/%.test: test/host/%.c test/host/fn_test.h
 	$(HOST_CC) $(HOST_CFLAGS) $(HOST_INC) -o $@ $<
