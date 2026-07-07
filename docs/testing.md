@@ -42,8 +42,10 @@ ABI and can't compile or link natively.
 - `libs/fujinet-compat-amiga/src/fn_network.c` passes — pure C plus the FujiNet
   headers. Its statics (`strip_prefix`, `map_mode`, `map_err`, `slot_find`) are
   exactly the kind of thing T1 targets.
-- `libs/fujinet-compat-amiga/src/fn_fuji.c` does **not** — it includes
-  `proto/dos.h`. Code like that is tested at T2.
+- `libs/fujinet-compat-amiga/src/fn_fuji.c` is AmigaOS-free but is now only
+  inert stubs (the appkey API moved into `fujinet-nio-lib`'s `src/legacy/`),
+  so it has nothing worth a T1 test; the appkey wire behavior is covered by
+  upstream's `make test-legacy` and by the T2 `compat_test` round-trip.
 
 When you want new logic to be host-testable, keep the AmigaOS calls in a separate
 translation unit from the pure logic.

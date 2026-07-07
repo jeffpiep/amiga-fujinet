@@ -180,3 +180,9 @@ not a refactor.
 - **2026-07-05** — Upstream squash-merges invalidate contributed submodule
   branches; never rebase them post-merge — drop the branch and re-track
   upstream master. Procedure: `docs/syncing-upstream-submodules.md`.
+- **2026-07-07** — Our invented appkey→app-store namespace convention was
+  superseded within a day by upstream adding the classic appkey API natively
+  (`fn_legacy_appkey.h`, `persist://` alias). Before inventing a cross-client
+  convention in a compat layer, ask upstream first — the flagged open question
+  in the contract was the right instinct; implementing ahead of the answer
+  cost a (small) rewrite.

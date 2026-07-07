@@ -29,11 +29,11 @@ APP_BINARY       = $(TARGET)
 EMU_PASS_PATTERN = fujibus: receive:
 EMU_TIMEOUT      = 90
 
-# AppKeys now live server-side via the fujinet-nio app-store
-# (contracts/fujinet-appkey-protocol.md); missing keys fall back to
-# fn_fuji.c's built-in defaults, so the ADF needs no ENVARC: seeding.
-# To pre-seed keys for a test, write them to the *server* with
-# fujinet-nio's py/fujinet_tools before boot.
+# AppKeys live server-side as persist:///FujiNet/*.key files, served by
+# fujinet-nio-lib's legacy appkey API (contracts/fujinet-appkey-protocol.md),
+# so the ADF needs no ENVARC: seeding. A missing key reads as 0 bytes and
+# the game prompts for name / shows help. To pre-seed a key for a test,
+# drop <server data root>/FujiNet/<creator><app><key>.key before boot.
 
 # Stack size is set via __stack in util.c
 
