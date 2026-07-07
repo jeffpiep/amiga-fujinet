@@ -7,7 +7,7 @@ OBJS = $(SRCS:.c=.o)
 
 TARGET = libfn_compat_amiga.a
 
-.PHONY: all clean test test-host
+.PHONY: all clean test-host
 
 all: $(TARGET)
 
@@ -17,12 +17,9 @@ $(TARGET): $(OBJS)
 %.o: %.c
 	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
 
-# ── T2: emulator/on-target smoke test (m68k, needs live fujinet-nio backend) ──
-# Cross-compiles only; run it under FS-UAE via apps/compat_test (make emu-test).
-test/compat_test: test/compat_test.c $(TARGET)
-	$(CC) $(CFLAGS) $(INCLUDES) -o $@ $^ -L. -lfn_compat_amiga -L../../fujinet-nio-lib -lfujinet_nio_amiga
-
-test: test/compat_test
+# The T2 smoke test source lives in test/compat_test.c but is built,
+# packaged, and run on-target by apps/compat_test (make emu-test) — the
+# single owner of the T2 binary. No m68k test rule here.
 
 # ── T1: host unit tests (native cc, fast, CI-safe, no AmigaOS, no backend) ────
 # Each test .c #includes the module .c to reach static helpers. See docs/testing.md.
@@ -38,4 +35,4 @@ test-host: $(HOST_TESTS)
 	@fail=0; for t in $(HOST_TESTS); do echo "== $$t =="; ./$$t || fail=1; done; exit $$fail
 
 clean:
-	rm -f $(OBJS) $(TARGET) test/compat_test $(HOST_TESTS)
+	rm -f $(OBJS) $(TARGET) $(HOST_TESTS)

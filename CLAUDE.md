@@ -275,6 +275,7 @@ between sessions — put the spec in a contract file and reference it by path.
 | `contracts/amiga-app-api.md` | Public fujinet-nio-lib API for writing Amiga apps (fn_open, fn_read, HTTPS, etc.) |
 | `contracts/amiga-adf-bootstrap.md` | ADF build recipe, serial.device requirement, startup-sequence rules |
 | `contracts/fujinet-appkey-protocol.md` | Mapping classic AppKey API (creator/app/key) onto upstream's app-store |
+| `contracts/esp32-target.md` | ESP32 target: decided facts (PHY candidates, what stays identical) + deferred work |
 
 When adding new cross-submodule features, write the contract first.
 
