@@ -1,14 +1,17 @@
-# FujiNet AppKey → App-Store Mapping
+# FujiNet AppKeys on Amiga — Legacy API via fujinet-nio-lib
 
-> **Supersedes (2026-07-06):** this contract previously specified a classic
-> four-command AppKey wire protocol (`OPEN/READ/WRITE/CLOSE_APPKEY`,
-> `0xDC`–`0xDB`) to be added to `fujinet-nio`. That protocol was never
-> implemented. Upstream instead shipped a generalized **app-store** on the
-> FileDevice (fujinet-nio `83627c0`, fujinet-nio-lib `445891c`), whose docs
-> state it "deliberately avoids the legacy AppKey model of fixed
-> creator/app/key triples and 64-byte blobs." We adopt the app-store; this
-> contract now specifies how the classic AppKey API maps onto it. The old
-> wire-protocol text lives in git history.
+> **Supersedes (2026-07-07):** this contract previously specified a mapping
+> from the classic AppKey triple onto app-store namespaces
+> (`appkey-<creator>-<app>` / `<key>`), implemented in our compat layer.
+> The day after that shipped, upstream added the classic AppKey API
+> **natively to fujinet-nio-lib** (`8eddb80`, `include/fn_legacy_appkey.h`
+> + `src/legacy/`), storing keys in the classic firmware's own file layout
+> via the new `persist://` filesystem alias (fujinet-nio `60ca4eb`). That
+> answers the open question this contract carried ("confirm namespace
+> convention with Mark") — the answer is *don't invent one*. The compat
+> layer's implementation was removed; the app-store mapping text lives in
+> git history. (Before that, this file specified a `0xDC`–`0xDB` wire
+> protocol that was never implemented — also in git history.)
 
 ## Overview
 
@@ -22,104 +25,78 @@ bool fuji_read_appkey(uint8_t key_id, uint16_t *count, uint8_t *data);
 bool fuji_write_appkey(uint8_t key_id, uint16_t count, uint8_t *data);
 ```
 
-On Amiga, the compat layer (`libs/fujinet-compat-amiga/src/fn_fuji.c`)
-implements these on top of the nio-lib **app-store API** — string-namespaced
-key/value storage served by `fujinet-nio`'s FileDevice:
+These three functions are now provided by **fujinet-nio-lib itself**
+(`include/fn_legacy_appkey.h`, implemented in `src/legacy/`), built into
+`fujinet-nio-amiga.a` as separate archive members — apps that never call
+them don't link them.
 
 ```
 game code (fujinet-fuji.h appkey API, numeric triple, ≤64 bytes)
-        │
-libs/fujinet-compat-amiga/src/fn_fuji.c      ← this contract
-        │
-fn_appstore_stat/read/write()                (fujinet-nio-lib)
-        │  FileDevice AppStore commands 0x20–0x24 over FujiBus
-fujinet-nio  →  backing filesystem, /FujiNet/app-store/v1 (private root)
+        │  (declarations from the compat header; no compat-layer code)
+fujinet-nio-lib src/legacy/fn_legacy_appkey_*.c
+        │  FileDevice FileRead/FileWrite (0x03/0x04) over FujiBus
+fujinet-nio  →  persist:///FujiNet/<creator%04x><app%02x><key%02x>.key
 ```
 
-The server storage layout is an upstream implementation detail — the compat
-layer must only use `fn_appstore_*` calls, never construct paths.
-
-**Scope:** `keysize = DEFAULT` (64 bytes) only, matching what lobby games use.
-The app-store supports arbitrary sizes; the classic API does not, so the compat
-layer enforces the 64-byte ceiling.
-
-## Naming convention (the heart of this contract)
-
-The numeric triple maps to app-store strings as:
-
-| App-store field | Format | Example (Battleship prefs) |
-|---|---|---|
-| `namespace` | `appkey-<creator%04x>-<app%02x>` | `appkey-e41c-05` |
-| `key`       | `<key%02x>`                      | `00` |
-
-- Lowercase hex, fixed width, matching the classic firmware's
-  `%04x%02x%02x.key` filename style.
-- One namespace per (creator, app) pair keeps `fn_appstore_list()` usable as
-  "list this app's keys".
-- **Open question (confirm with Mark before other platforms adopt it):**
-  whether upstream wants a blessed convention for legacy-appkey consumers, so
-  that e.g. lobby keys (creator `0x0001`) written by other future nio clients
-  land in the same namespace.
+The `persist://` alias resolves to the platform's persistent store (host
+filesystem on POSIX, SD/flash on ESP32) without the client knowing which.
+The file layout is the **classic firmware's own** — an SD card written by
+old firmware is readable by fujinet-nio apps with no migration.
 
 Known keys used by Battleship / the lobby:
 
-| Creator  | App    | Key    | Namespace / key | Contents |
-|----------|--------|--------|-----------------|----------|
-| `0x0001` | `0x01` | `0x00` | `appkey-0001-01` / `00` | Lobby player name (string, max 8 bytes) |
-| `0x0001` | `0x01` | `0x05` | `appkey-0001-01` / `05` | Lobby server URL (string, ≤64 bytes) |
-| `0xE41C` | `0x05` | `0x00` | `appkey-e41c-05` / `00` | Battleship prefs (byte 0 = debugFlag, byte 1 = seenHelp) |
+| Creator  | App    | Key    | File (under `persist:///FujiNet/`) | Contents |
+|----------|--------|--------|------------------------------------|----------|
+| `0x0001` | `0x01` | `0x00` | `00010100.key` | Lobby player name (string, max 8 bytes) |
+| `0x0001` | `0x01` | `0x05` | `00010105.key` | Lobby server URL (string, ≤64 bytes) |
+| `0xE41C` | `0x05` | `0x00` | `e41c0500.key` | Battleship prefs (byte 0 = debugFlag, byte 1 = seenHelp) |
 
-## Semantics mapping
+## Semantics (upstream-defined, recorded here for Amiga consumers)
 
-| Classic call | App-store realization |
-|---|---|
-| `fuji_set_appkey_details(c, a, size)` | Store `(c, a)` in static context; build the namespace string. `size != DEFAULT` → all subsequent ops fail (`false`). |
-| `fuji_read_appkey(k, &count, data)` | One `fn_appstore_read(ns, key, 0, data, 64, &out)`. Missing key (`!EXISTS` flag) → **success** with `*count = 0` (classic semantics: absent key is not an error). Present → `*count = out.bytes_read`. A value >64 bytes (foreign writer) is truncated at 64; ignore the missing-EOF flag. |
-| `fuji_write_appkey(k, count, data)` | Reject `count > 64`. One `fn_appstore_write(ns, key, 0, data, count, &out)` — offset 0 creates/replaces. |
-
-Single-chunk transfers suffice: 64 bytes always fits in one FujiBus frame, so
-the chunked-offset machinery is unused here.
-
-**Missing-key defaults:** the compat layer keeps its current behavior of
-returning built-in defaults for known keys when the read finds nothing (e.g.
-Battleship prefs default to `seenHelp = 1`), so games boot sanely on a fresh
-server. Defaults live in `fn_fuji.c`, not on the server.
+- `fuji_set_appkey_details(c, a, size)` sets static context; `DEFAULT` = 64
+  bytes, `SIZE_256` = 256 bytes. A creator id of 0 disables subsequent ops.
+- `fuji_read_appkey` returns `false` on **any** failure *including a missing
+  key* (classic firmware behavior — unlike our former compat shim, there are
+  no client-side defaults). Games already handle this: e.g. Battleship's
+  `read_appkey()` helper treats `false` as "0 bytes read" and falls back to
+  prompting for a name / showing help.
+- `fuji_write_appkey` creates or replaces the whole key file.
+- The compat layer's `fujinet-fuji.h` keeps its `FN_FUJI_H` include guard —
+  `fn_legacy_appkey.h` checks that exact guard to avoid redefining
+  `enum AppKeySize` (values match: `DEFAULT = 0`).
 
 ## Client-side obligations (fujinet-compat-amiga)
 
-1. Reimplement `fn_fuji.c` on `fn_appstore_*`. This **removes** the
-   `SYS:fujinet/…` / `ENVARC:` local-file storage and with it the
-   `proto/dos.h` dependency — the file becomes pure logic over `fn_*` calls
-   and therefore **T1-eligible** (host unit tests per `docs/testing.md`,
-   using the inert-stub technique from `test_network.c`).
-2. Error mapping: any `fn_appstore_*` result other than `FN_OK` → the classic
-   call returns `false` and sets the layer's last-error state.
-3. Battleship's ADF `envarc/` seeding (`ADF_STATIC_DIR` in
-   `apps/battleship/amiga/Makefile`) becomes obsolete once this lands —
-   remove the seeding rules and instead seed the **server** in emu tests
-   (see below).
+1. **Do not implement the appkey functions.** `fn_fuji.c` must not define
+   `fuji_set_appkey_details` / `fuji_read_appkey` / `fuji_write_appkey`,
+   or the linker would shadow nio-lib's legacy members. The compat header
+   declares them; `fujinet-nio-amiga.a` (linked after the compat lib)
+   defines them.
+2. Keep the compat header's `enum AppKeySize` in sync with
+   `fn_legacy_appkey.h` if upstream ever extends it.
 
 ## Server-side obligations (fujinet-nio)
 
-None. The app-store already ships in upstream `master` and is registered in
-the posix build (`main_posix.cpp`). The Amiga side consumes it as-is.
+None beyond running a build that includes the `persist://` alias
+(upstream `60ca4eb` or later). The posix profile registers it by default;
+keys land under the server's data root at `FujiNet/*.key`.
 
 ## Testing
 
-- **T1:** unit-test the triple→string mapping and the read/write semantics in
-  `libs/fujinet-compat-amiga/test/host/` with stubbed `fn_appstore_*`.
-- **T2:** extend `test/compat_test.c` with an appkey write→read round-trip
-  over the emulator against a live `fujinet-nio`.
-- **Seeding for emu tests:** write keys server-side before boot with
-  upstream's tool, e.g.
-  `python -m fujinet_tools.file appstore-write appkey-0001-01 00 --data AMIGA`
-  (see `fujinet-nio/py/fujinet_tools/file.py` for exact CLI), rather than
-  touching `fujinet-data/` paths directly.
+- **Wire-level:** upstream owns it — `make test-legacy` in `fujinet-nio-lib`
+  runs `tests/legacy_appkey_wire_test.c` against a live server. Not
+  duplicated in this repo (submodule boundary, `docs/testing.md`).
+- **T2:** `apps/compat_test` does an appkey write→read round-trip on the
+  emulator; its pass pattern matches the final wire command
+  `dev=0xFE cmd=0x03` (FileRead).
+- **Seeding for emu tests:** drop a file at
+  `<server data root>/FujiNet/<creator><app><key>.key` before boot, or write
+  it through a prior client run — there is no app-store namespace involved.
 
 ## References
 
-- `fujinet-nio/docs/file_device_protocol.md` — AppStore commands `0x20`–`0x24`, wire format
-- `fujinet-nio-lib/docs/api.md` — `fn_appstore_*` client API
-- `libs/fujinet-compat-amiga/src/fn_fuji.c` — current (local-file) implementation to be replaced
+- `fujinet-nio-lib/include/fn_legacy_appkey.h` — the API (doc comments give the path scheme)
+- `fujinet-nio-lib/src/legacy/` — implementation; `tests/legacy_appkey_wire_test.c`
+- `fujinet-nio/docs/filesystem.md` — `persist://` alias and filesystem roots
+- `fujinet-nio/docs/file_device_protocol.md` — FileDevice wire format
 - `contracts/fujibus-protocol.md` — FujiBus framing and transport layer
-- `fujinet-firmware/lib/device/sio/fuji.cpp` — classic firmware AppKey implementation (historical reference)

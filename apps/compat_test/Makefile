@@ -8,10 +8,11 @@ SRCS   = $(COMPAT)/test/compat_test.c
 
 APP_NAME         = compat_test
 APP_BINARY       = $(TARGET)
-# AppStoreRead on the FileDevice — the appkey read-back is the LAST wire
-# command compat_test issues, so matching it proves the HTTP test and the
-# appkey write→read round-trip all made it onto the bus.
-EMU_PASS_PATTERN = dev=0xFE cmd=0x21
+# FileRead on the FileDevice (legacy appkey path, fn_legacy_appkey.h) —
+# the appkey read-back is the LAST wire command compat_test issues, so
+# matching it proves the HTTP test and the appkey write→read round-trip
+# all made it onto the bus.
+EMU_PASS_PATTERN = dev=0xFE cmd=0x03
 EMU_TIMEOUT      = 90
 
 all: $(TARGET)
