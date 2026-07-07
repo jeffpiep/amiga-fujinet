@@ -157,7 +157,7 @@ not a refactor.
 | `http_get` demo app | ✅ Done | HTTPS auto-detect, NTSC mode, weather demo |
 | `fn_test` smoke test | ✅ Done | Validates serial transport end-to-end |
 | Track 1A — compat layer | ✅ Done (2026-07-01) | `libs/fujinet-compat-amiga`; header-sync procedure in `docs/updating-fujinet-compat-headers.md` |
-| Track 1B — Battleship port | 🚧 Phases 1–2 done (2026-07-01) | Console game loop plays end-to-end on KS 1.3. Open: Phase 3 (graphical renderer, sound, joystick), Phase 4 (real hardware) |
+| Track 1B — Battleship port | 🚧 Phase 3 started (2026-07-06) | Console game loop plays end-to-end on KS 1.3. Phase 3 order: 3a joystick (CIA read), 3b sound (audio.device tones), 3c graphical renderer (OS-friendly custom 320×200 screen). Then Phase 4 (real hardware) |
 | Track 2 Phase 1 — BSD sockets | 🔲 Not started | |
 | Track 2 Phase 2 — DNS | 🔲 Not started | |
 | Track 2 Phase 3 — TLS | 🔲 Not started | |

@@ -2,7 +2,7 @@
 
 **Depends on:** Track 1A (`libfn_compat_amiga.a`) must be complete and tested  
 **Blocks:** nothing  
-**Status:** In progress (2026-07-01) — Phases 1–2 complete (links, joins a table, sees the lobby, plays a full game). Phases 3–4 open: sound, joystick, ADF/real-hardware testing (see Verification Checklist).
+**Status:** In progress (2026-07-06) — Phases 1–2 complete (links, joins a table, sees the lobby, plays a full game). Phase 3 started: joystick, sound, then graphical renderer (custom screen) — see the Phase 3 section for the decided approach. Phase 4 (ADF/real-hardware testing) open.
 
 ---
 
@@ -175,9 +175,41 @@ keyboard-controlled.
 
 ### Phase 3 — Full platform layer
 
-- Add `audio.device` sound effects
-- Add joystick input (`gameport.device` CIA read)
-- Polish screen layout for 80×25 console
+Decided 2026-07-06. Three sub-phases, each landing as its own PR, in this
+order (small/independent first; the renderer — the big unknown — last):
+
+**3a — Joystick input.** Direct CIA/`JOY0DAT` register read (KS 1.3 safe,
+read-only, conventional even in OS-friendly programs; skips `gameport.device`
+complexity). Testable immediately on the working console build.
+
+**3b — Sound.** Simple `audio.device` tones from small static sample buffers
+(square/triangle waves): cursor tick, select, attack, hit, miss, sink sweep —
+per the `sound.h` table above. No sampled/8SVX assets in this phase.
+
+**3c — Graphical renderer.** Replaces the ASCII console `graphics.c`
+entirely (the "polish 80×25 console" idea is dead scope). OS-friendly custom
+screen — no hardware takeover:
+
+- `OpenScreen()` (Intuition): 320×200, 3–4 bitplanes, `LoadRGB4()` palette.
+  OS manages copper list and display DMA.
+- All drawing through graphics.library on the screen's RastPort: `Text()`
+  for character cells, `DrawImage()`/`BltBitMap()` for ship/icon tiles,
+  `RectFill()`, `Move()`/`Draw()` for lines/boxes, `WaitTOF()` for vsync.
+- Multitasking stays alive (no `LoadView()`, no copper poking, no interrupt
+  disabling) so serial I/O to fujinet-nio keeps running underneath.
+- **Chip RAM:** blitter source data (tiles, images) must live in
+  `AllocMem(MEMF_CHIP)` buffers, `CopyMem()`d at init — the `.datachip`
+  linker section does *not* flag the hunk on this toolchain. See
+  `apps/pacmantests/c99-pac-man/README.md` for the full gotcha writeup.
+- Prototyped groundwork lives in `apps/pacmantests/` (bitplane/`DrawImage`
+  rendering in `Ghosts/`, vector `DrawBorder` in `DrawMaze/`).
+
+Renderer items to take a real position on (the console version fakes them):
+`saveScreenBuffer()`/`restoreScreenBuffer()`, `drawGamefieldUpdate()` attack
+animation frames, and `drawGamefieldCursor()` blink sprites.
+
+Phase 3 completion also unblocks the upstream port PR — see
+`docs/upstreaming-battleship.md`.
 
 ### Phase 4 — ADF boot test
 
@@ -194,8 +226,9 @@ keyboard-controlled.
 - [x] Can join a table and see lobby (Phase 2)
 - [x] Can place ships and play a full game to completion (Phase 2) — confirmed
       end-to-end on KS 1.3 / NTSC (2-player vs AI and 4-player)
-- [ ] Sound effects play on hit/miss/sink (Phase 3)
-- [ ] Joystick moves cursor (Phase 3)
+- [ ] Joystick moves cursor (Phase 3a)
+- [ ] Sound effects play on hit/miss/sink (Phase 3b)
+- [ ] Graphical renderer: full game on a custom 320×200 screen (Phase 3c)
 - [ ] Boots from ADF in emulator, plays full game (Phase 4)
 - [ ] Tested on real Amiga 500 + PiStorm (Phase 4)
 - [~] Player name persisted via AppKey/ENVARC: (name loads each boot from a
