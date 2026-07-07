@@ -226,7 +226,8 @@ Phase 3 completion also unblocks the upstream port PR — see
 - [x] Can join a table and see lobby (Phase 2)
 - [x] Can place ships and play a full game to completion (Phase 2) — confirmed
       end-to-end on KS 1.3 / NTSC (2-player vs AI and 4-player)
-- [ ] Joystick moves cursor (Phase 3a)
+- [x] Joystick moves cursor (Phase 3a) — verified 2026-07-06 in live play via
+      FS-UAE keyboard-joystick emulation (cursor keys + Right Alt fire)
 - [ ] Sound effects play on hit/miss/sink (Phase 3b)
 - [ ] Graphical renderer: full game on a custom 320×200 screen (Phase 3c)
 - [ ] Boots from ADF in emulator, plays full game (Phase 4)
