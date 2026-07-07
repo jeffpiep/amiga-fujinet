@@ -10,3 +10,4 @@ apps/**/*.adf
 
 # T1 host unit-test binaries (native cc)
 libs/**/test/host/*.test
+apps/**/test/host/*.test
