@@ -162,6 +162,21 @@ void initSound(void)
     atexit(soundCleanup); /* quit() exits via exit(0) */
 }
 
+/* FS-UAE (3.1.x) drops the AUDxVOL write audio.device performs when a
+ * CMD_WRITE starts, so the sample plays at volume 0 — silent. Re-poking
+ * the owned channel's volume register with the same value the device
+ * sets is a no-op on real hardware and makes the emulator audible.
+ * Diagnosed with direct-Paula vs audio.device probes; see PR #17. */
+static void pokeVolume(void)
+{
+    ULONG mask = (ULONG)sndIO->ioa_Request.io_Unit & 0xF;
+    UWORD n;
+
+    for (n = 0; n < 4; n++)
+        if (mask & (1uL << n))
+            *(volatile UWORD *)(0xDFF0A8 + n * 16) = 64;
+}
+
 static void play(const struct SndFx *fx)
 {
     if (!sndOpen || prefs.disableSound)
@@ -175,6 +190,7 @@ static void play(const struct SndFx *fx)
     sndIO->ioa_Volume = 64; /* amplitude is baked into the samples */
     sndIO->ioa_Cycles = 1;
     SendIO((struct IORequest *)sndIO);
+    pokeVolume();
     sndPending = 1;
 }
 
