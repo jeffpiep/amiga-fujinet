@@ -186,3 +186,12 @@ not a refactor.
   convention in a compat layer, ask upstream first — the flagged open question
   in the contract was the right instinct; implementing ahead of the answer
   cost a (small) rewrite.
+- **2026-07-08** — FS-UAE 3.1.x drops the `AUDxVOL` write `audio.device`
+  performs at CMD_WRITE start: OS-polite audio plays at volume 0 (silent,
+  `io_Error=0`, correct DMA timing) while direct Paula register pokes sound
+  fine — games bang the hardware, so the bug goes unnoticed. Workaround:
+  re-poke the owned channel's volume register after `SendIO` (no-op on real
+  hardware) — see `pokeVolume()` in `apps/battleship/amiga/src/sound.c`.
+  Diagnosis technique worth remembering: record the PipeWire sink monitor
+  (`pw-record --target <sink> --properties '{stream.capture.sink=true}'`)
+  and RMS-analyze to distinguish "silent guest" from "muted host".
