@@ -157,7 +157,7 @@ not a refactor.
 | `http_get` demo app | ✅ Done | HTTPS auto-detect, NTSC mode, weather demo |
 | `fn_test` smoke test | ✅ Done | Validates serial transport end-to-end |
 | Track 1A — compat layer | ✅ Done (2026-07-01) | `libs/fujinet-compat-amiga`; header-sync procedure in `docs/updating-fujinet-compat-headers.md` |
-| Track 1B — Battleship port | 🚧 Phase 3 started (2026-07-06) | Console game loop plays end-to-end on KS 1.3. Phase 3 order: 3a joystick (CIA read), 3b sound (audio.device tones), 3c graphical renderer (OS-friendly custom 320×200 screen). Then Phase 4 (real hardware) |
+| Track 1B — Battleship port | 🚧 Phase 3c scaffolding done (2026-07-12) | 3a joystick ✅, 3b sound ✅. 3c graphical renderer: tile engine on custom 320×200×4 screen playable end-to-end in emulator with placeholder art (lobby → placement → gameplay → menu verified); art pass (Atari-modeled tiles/font/palette in `tiles.h`) remains. Then Phase 4 (real hardware) |
 | Track 2 Phase 1 — BSD sockets | 🔲 Not started | |
 | Track 2 Phase 2 — DNS | 🔲 Not started | |
 | Track 2 Phase 3 — TLS | 🔲 Not started | |
@@ -195,3 +195,14 @@ not a refactor.
   Diagnosis technique worth remembering: record the PipeWire sink monitor
   (`pw-record --target <sink> --properties '{stream.capture.sink=true}'`)
   and RMS-analyze to distinguish "silent guest" from "muted host".
+- **2026-07-12** — `emu/run.sh` xwd screenshots scramble color channels on
+  saturated colors (llvmpipe GL window capture artifact): solid palette colors
+  show as per-pixel nibble-rotation stripes (e.g. `0x05A` → `0x5A0`/`0xA05`)
+  while black/white/grey render fine — text-only screens hid the bug for weeks.
+  The emulated frame itself is correct. For color-accurate captures use FS-UAE's
+  internal screenshot (`screenshots_output_dir` + F12+S, injectable headless via
+  XTEST) — the `fs-uae-crop-*.png` output is a pixel-exact Amiga framebuffer.
+  Two more graphical-renderer gotchas: the *system default* font may be the
+  60-column topaz (10 px wide) — request topaz 8 explicitly when cell-aligning
+  `Text()`; and the first `fujibus: receive:` fires before the first screen
+  draws, so pass-pattern screenshots can capture a black screen.
