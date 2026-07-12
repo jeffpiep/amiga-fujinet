@@ -157,7 +157,7 @@ not a refactor.
 | `http_get` demo app | ✅ Done | HTTPS auto-detect, NTSC mode, weather demo |
 | `fn_test` smoke test | ✅ Done | Validates serial transport end-to-end |
 | Track 1A — compat layer | ✅ Done (2026-07-01) | `libs/fujinet-compat-amiga`; header-sync procedure in `docs/updating-fujinet-compat-headers.md` |
-| Track 1B — Battleship port | 🚧 Phase 3 started (2026-07-06) | Console game loop plays end-to-end on KS 1.3. Phase 3 order: 3a joystick (CIA read), 3b sound (audio.device tones), 3c graphical renderer (OS-friendly custom 320×200 screen). Then Phase 4 (real hardware) |
+| Track 1B — Battleship port | 🚧 Phase 3c scaffolding done (2026-07-12) | 3a joystick ✅, 3b sound ✅. 3c graphical renderer: tile engine on custom 320×200×4 screen playable end-to-end in emulator with placeholder art (lobby → placement → gameplay → menu verified); art pass (Atari-modeled tiles/font/palette in `tiles.h`) remains. Then Phase 4 (real hardware) |
 | Track 2 Phase 1 — BSD sockets | 🔲 Not started | |
 | Track 2 Phase 2 — DNS | 🔲 Not started | |
 | Track 2 Phase 3 — TLS | 🔲 Not started | |
@@ -195,3 +195,12 @@ not a refactor.
   Diagnosis technique worth remembering: record the PipeWire sink monitor
   (`pw-record --target <sink> --properties '{stream.capture.sink=true}'`)
   and RMS-analyze to distinguish "silent guest" from "muted host".
+- **2026-07-12** — Three graphical-renderer gotchas surfaced during the Phase 3c
+  scaffold, all rehomed to their owning docs: xwd screenshots scramble color
+  channels on saturated colors while monochrome looks fine (capture artifact,
+  not an Amiga bug — text-only screens hid it for weeks) and the emu-test pass
+  pattern can fire before the first screen draw → both documented with the
+  FS-UAE internal-screenshot (F12+S) recipe in
+  `.claude/commands/emu-build-and-boot.md`; the system default font may be
+  10 px-wide 60-column topaz rather than topaz 8 → documented in
+  `contracts/amiga-coding-conventions.md` (Custom screens / rendering).

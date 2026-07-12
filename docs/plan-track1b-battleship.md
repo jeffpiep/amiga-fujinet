@@ -2,7 +2,7 @@
 
 **Depends on:** Track 1A (`libfn_compat_amiga.a`) must be complete and tested  
 **Blocks:** nothing  
-**Status:** In progress (2026-07-06) — Phases 1–2 complete (links, joins a table, sees the lobby, plays a full game). Phase 3 started: joystick, sound, then graphical renderer (custom screen) — see the Phase 3 section for the decided approach. Phase 4 (ADF/real-hardware testing) open.
+**Status:** In progress (2026-07-12) — Phases 1–2 complete; 3a (joystick) and 3b (sound) done. 3c graphical renderer: scaffolding complete — tile engine on a custom 320×200×4 screen (gfxcore/cellmap/tiles.h, IDCMP keyboard, sprite cursor), full game verified in the emulator with placeholder art. Art pass (Atari-modeled tiles/font/palette, edits confined to `tiles.h` + a compiled font) remains. Phase 4 (ADF/real-hardware testing) open.
 
 ---
 
@@ -228,8 +228,11 @@ Phase 3 completion also unblocks the upstream port PR — see
       end-to-end on KS 1.3 / NTSC (2-player vs AI and 4-player)
 - [x] Joystick moves cursor (Phase 3a) — verified 2026-07-06 in live play via
       FS-UAE keyboard-joystick emulation (cursor keys + Right Alt fire)
-- [ ] Sound effects play on hit/miss/sink (Phase 3b)
-- [ ] Graphical renderer: full game on a custom 320×200 screen (Phase 3c)
+- [x] Sound effects play on hit/miss/sink (Phase 3b) — merged 2026-07-09 (#17)
+- [~] Graphical renderer: full game on a custom 320×200 screen (Phase 3c) —
+      scaffolding verified in emulator 2026-07-12 (lobby, placement, gameplay
+      with hits/misses/sunk legend, sprite cursor, in-game menu save/restore);
+      placeholder art — Atari-modeled art pass pending
 - [ ] Boots from ADF in emulator, plays full game (Phase 4)
 - [ ] Tested on real Amiga 500 + PiStorm (Phase 4)
 - [~] Player name persisted via AppKey/ENVARC: (name loads each boot from a

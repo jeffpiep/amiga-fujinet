@@ -1,81 +1,47 @@
+/*
+ * graphics.c - upstream drawing contract on the graphical tile renderer
+ *
+ * Phase 3c: implements upstream/src/platform-specific/graphics.h on a
+ * 320x200x4 custom screen as a 40x25 grid of 8x8 tiles. Layout math lives
+ * in cellmap.c (host-tested), OS plumbing in gfxcore.c, art in tiles.h.
+ * The layout mirrors the Atari renderer (upstream/src/atari/graphics.c).
+ *
+ * Requires: intuition.library, graphics.library (V33 / KS 1.3)
+ * Compiler: m68k-amigaos-gcc (amiga-gcc)
+ *
+ * See: docs/plan-track1b-battleship.md (Phase 3c)
+ */
 #include "misc.h"
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdarg.h>
 #include <string.h>
-#include <dos/dos.h>
-#include <proto/dos.h>
+
+#include <proto/graphics.h>   /* WaitTOF */
+
 #undef FN_ERR_UNKNOWN
 #include "fujinet-nio.h"
 
+#include "gfxcore.h"
+#include "cellmap.h"
+
+#if FIELD_ATTACK != CM_FIELD_ATTACK || FIELD_MISS != CM_FIELD_MISS
+#error "cellmap.h field codes out of sync with upstream misc.h"
+#endif
+
 extern char playerName[12];
 
-static uint8_t playerCount_g = 0;
-static uint8_t quadrant_offset[4][2];
-
-/* Last drawn attack cursor, so we can repaint the cell it leaves (no trail).
- * Quad -1 = no cursor currently on screen. */
-static int8_t  s_cursorQuad = -1;
-static uint8_t s_cursorX = 0;
-static uint8_t s_cursorY = 0;
-
-/*
- * Raw console for immediate, no-echo, per-keypress input on KS 1.3.
- *
- * CON: opens in cooked mode (line-buffered + echo): Read() blocks until Enter
- * and every key is echoed. SetMode() would switch it to raw, but SetMode() is
- * dos.library V36 (KS 2.0+) and crashes on KS 1.3. RAW: gives raw, no-echo,
- * per-keypress input using only V33 (KS 1.2+) calls (Open/Close/Read/Write/
- * WaitForChar), so it works on the Amiga 500 / KS 1.3 target.
- *
- * All game output is written directly to this handle (conPrintf) and all
- * input read from it (input.c). We do not rely on stdout following
- * SelectOutput(): bebbo's nix13 CRT binds stdout to the boot CLI handle at
- * startup, so printf() would render in the wrong window.
- */
-BPTR g_rawConsole = 0;
-
-static void closeRawConsole(void)
-{
-    if (g_rawConsole) {
-        Close(g_rawConsole);
-        g_rawConsole = 0;
-    }
-}
-
-static void conPrintf(const char *fmt, ...)
-{
-    char buf[96];
-    va_list ap;
-    int n;
-    va_start(ap, fmt);
-    n = vsnprintf(buf, sizeof(buf), fmt, ap);
-    va_end(ap);
-    if (n < 0) return;
-    if (n >= (int)sizeof(buf)) n = (int)sizeof(buf) - 1;
-    if (g_rawConsole)
-        Write(g_rawConsole, buf, (LONG)n);
-    else
-        fwrite(buf, 1, (size_t)n, stdout);
-}
-
-static void goto_xy(uint8_t x, uint8_t y)
-{
-    conPrintf("\033[%d;%dH", (int)y + 1, (int)x + 1);
-}
+static uint8_t playerCount_g = 2;
 
 void initGraphics(void)
 {
-    /* Raw, no-echo console window (NTSC: 640x200). Falls back to the boot
-     * CLI (cooked mode) if the window can't be opened. */
-    g_rawConsole = Open((CONST_STRPTR)"RAW:0/0/640/200/Battleship", MODE_NEWFILE);
-    if (g_rawConsole)
-        atexit(closeRawConsole);
-    setbuf(stdout, NULL);
+    if (!gfx_open()) {
+        /* nix13 binds stdout to the boot CLI, so this lands somewhere
+         * visible even though our screen never opened. */
+        printf("battleship: can't open screen (chip RAM?)\n");
+        exit(1);
+    }
 
-    /* Open serial.device and set baud = 19200 before game logic starts.
-     * If ENVARC isn't available, the upstream init path blocks waiting
-     * for keyboard input; ensure fallbacks are in place first. */
+    /* Open serial.device and set baud = 19200 before game logic starts. */
     fn_init();
 
     if (playerName[0] == '\0')
@@ -85,309 +51,229 @@ void initGraphics(void)
         prefs.seenHelp = 1;
 }
 
-void resetGraphics(void) {}
+void resetGraphics(void) {}   /* teardown runs via gfx_close atexit */
 
 void resetScreen(void)
 {
-    /* Clear by overwriting every row with blanks rather than trusting the
-     * console's CSI erase sequences (the Amiga console.device's "CSI J" support
-     * proved unreliable here — old frames bled through). Write WIDTH-1 spaces so
-     * the bottom-right corner cell is never touched (writing it scrolls). */
-    static const char blanks[] =
-        "                                        "   /* 40 */
-        "                                       ";    /* +39 = 79 */
-    uint8_t r;
-    for (r = 0; r < HEIGHT; r++) {
-        goto_xy(0, r);
-        conPrintf("%s", blanks);
-    }
-    goto_xy(0, 0);
+    gfx_cursor_hide();
+    gfx_fill(0, 0, WIDTH, HEIGHT, PEN_BG);
 }
 
-void waitvsync(void) {}
+void waitvsync(void)
+{
+    WaitTOF();
+}
 
 uint8_t cycleNextColor(void) { return 0; }
 
-/*
- * The Amiga console scrolls the whole window up the instant the bottom-right-most
- * cell (column WIDTH-1 of the last row) is written. Upstream — written for fixed
- * bitmap consoles — clears and redraws the move timer right up to that corner
- * every turn, which marched the playfield off-screen. Clip any write on the last
- * row so column WIDTH-1 is never touched; the corner cell is invisible anyway.
- * Returns how many columns may be written starting at (x, y).
- */
-static uint8_t clipLastCell(uint8_t x, uint8_t y, uint8_t len)
-{
-    if (y == (HEIGHT - 1) && ((uint16_t)x + len) >= WIDTH)
-        len = (x >= (WIDTH - 1)) ? 0 : (uint8_t)((WIDTH - 1) - x);
-    return len;
-}
-
 void drawText(uint8_t x, uint8_t y, const char *s)
 {
-    uint8_t n = clipLastCell(x, y, (uint8_t)strlen(s));
-    goto_xy(x, y);
-    conPrintf("%.*s", (int)n, s);
+    gfx_text(x, y, s, PEN_TEXT, PEN_BG);
 }
 
 void drawTextAlt(uint8_t x, uint8_t y, const char *s)
 {
-    uint8_t n = clipLastCell(x, y, (uint8_t)strlen(s));
-    goto_xy(x, y);
-    conPrintf("%.*s", (int)n, s);
+    gfx_text(x, y, s, PEN_TEXT_ALT, PEN_BG);
 }
 
 void drawIcon(uint8_t x, uint8_t y, uint8_t icon)
 {
-    if (!clipLastCell(x, y, 1)) return;
-    goto_xy(x, y);
-    conPrintf("%c", (char)icon);
+    char buf[2];
+
+    buf[0] = (char)icon;
+    buf[1] = '\0';
+    gfx_text(x, y, buf, PEN_TEXT_ALT, PEN_BG);
 }
 
 void drawBlank(uint8_t x, uint8_t y)
 {
-    if (!clipLastCell(x, y, 1)) return;
-    goto_xy(x, y);
-    conPrintf(" ");
+    gfx_draw_tile(x, y, TILE_BLANK);
 }
 
 void drawSpace(uint8_t x, uint8_t y, uint8_t w)
 {
-    w = clipLastCell(x, y, w);
-    goto_xy(x, y);
-    while (w--) conPrintf(" ");
+    gfx_fill(x, y, w, 1, PEN_BG);
 }
 
 void drawLine(uint8_t x, uint8_t y, uint8_t w)
 {
-    w = clipLastCell(x, y, w);
-    goto_xy(x, y);
-    while (w--) conPrintf("-");
+    uint8_t i;
+
+    for (i = 0; i < w; i++)
+        gfx_draw_tile(x + i, y, TILE_LINE);
 }
 
 void drawBox(uint8_t x, uint8_t y, uint8_t w, uint8_t h)
 {
     uint8_t i;
-    goto_xy(x, y);
-    conPrintf("+");
-    for (i = 0; i < w; i++) conPrintf("-");
-    conPrintf("+");
-    for (i = 1; i <= h; i++) {
-        goto_xy(x,     y + i); conPrintf("|");
-        goto_xy(x+w+1, y + i); conPrintf("|");
-    }
-    goto_xy(x, y + h + 1);
-    conPrintf("+");
-    for (i = 0; i < w; i++) conPrintf("-");
-    conPrintf("+");
-}
 
-/*
- * Board layout (x,y = top-left of each 10x10 grid).
- *
- * Every board sits on the SAME row (y=4) in a single horizontal strip — 2
- * columns for 1-2 players, up to 4 columns for 3-4 players. A 2x2 arrangement
- * does not fit: two stacked rows of 10-tall grids span rows 2..22, overflowing
- * the ~22-row NTSC console. One row of grids keeps the whole vertical budget
- * identical regardless of player count.
- *
- *   Row budget (grid at y=4) — must fit in HEIGHT (22) rows:
- *     y=3:      player name
- *     y=4..13:  10x10 gamefield
- *     y=15..19: ship legend (5 slots, index 0-4)  (grid top + 11)
- *     y=20:     game-over message (HEIGHT-2)
- *     y=21:     status bar (HEIGHT-1)
- *
- *   Columns: 2-player uses wide left/right halves (x=4, 44). 3-4 players use
- *   four 14-wide slots (x=2, 16, 30, 44) — board is 10 wide, name above and
- *   legend below fit within each slot. The rightmost board ends at col 53
- *   because the usable window width is < 80 cols (KS 1.3 window borders).
- */
-/* Pre-paint one empty 10x10 board as a grid of '.' (water). The reference
- * (graphical) ports rely on a tiled backdrop for empty water; the text port
- * has none, so we paint it ourselves. drawShip and drawGamefield then overlay
- * ships and hits/misses on top without erasing this grid. */
-static void drawEmptyField(uint8_t quadrant)
-{
-    uint8_t ox = quadrant_offset[quadrant][0];
-    uint8_t oy = quadrant_offset[quadrant][1];
-    uint8_t row;
-    for (row = 0; row < 10; row++) {
-        goto_xy(ox, oy + row);
-        conPrintf("..........");
+    gfx_draw_tile(x, y, TILE_BOX_TL);
+    gfx_draw_tile(x + w + 1, y, TILE_BOX_TR);
+    for (i = 1; i <= w; i++) {
+        gfx_draw_tile(x + i, y, TILE_BORDER_H);
+        gfx_draw_tile(x + i, y + h + 1, TILE_BORDER_H);
     }
+    for (i = 1; i <= h; i++) {
+        gfx_draw_tile(x, y + i, TILE_BORDER_V);
+        gfx_draw_tile(x + w + 1, y + i, TILE_BORDER_V);
+    }
+    gfx_draw_tile(x, y + h + 1, TILE_BOX_BL);
+    gfx_draw_tile(x + w + 1, y + h + 1, TILE_BOX_BR);
 }
 
 void drawBoard(uint8_t playerCount)
 {
-    uint8_t q;
+    uint8_t q, row, ox, oy;
+
     playerCount_g = playerCount;
-    if (playerCount <= 2) {
-        quadrant_offset[0][0] = 4;  quadrant_offset[0][1] = 4;
-        quadrant_offset[1][0] = 44; quadrant_offset[1][1] = 4;
-        quadrant_offset[2][0] = 44; quadrant_offset[2][1] = 4;
-        quadrant_offset[3][0] = 4;  quadrant_offset[3][1] = 4;
-    } else {
-        /* 3-4 players: one horizontal row of boards in four 14-wide columns.
-         * The usable window width is narrower than 80 cols (title-bar window
-         * borders), so the rightmost board must end by ~col 53 (where the
-         * 2-player right board sits) or it clips off-screen and its name wraps. */
-        quadrant_offset[0][0] = 2;  quadrant_offset[0][1] = 4;
-        quadrant_offset[1][0] = 16; quadrant_offset[1][1] = 4;
-        quadrant_offset[2][0] = 30; quadrant_offset[2][1] = 4;
-        quadrant_offset[3][0] = 44; quadrant_offset[3][1] = 4;
-    }
     resetScreen();
 
-    /* Cursor erase-state is stale after a full redraw. */
-    s_cursorQuad = -1;
+    for (q = 0; q < playerCount && q < 4; q++) {
+        /* 10x10 sea grid */
+        cm_quadrant_origin(playerCount_g, q, &ox, &oy);
+        for (row = 0; row < 10; row++) {
+            uint8_t col;
 
-    /* Pre-paint the empty water grid for every visible board. */
-    for (q = 0; q < playerCount && q < 4; q++)
-        drawEmptyField(q);
+            for (col = 0; col < 10; col++)
+                gfx_draw_tile(ox + col, oy + row, TILE_SEA);
+        }
+
+        /* 3x8 sea drawer for the ship legend */
+        cm_drawer_origin(playerCount_g, q, &ox, &oy);
+        for (row = 0; row < 8; row++) {
+            gfx_draw_tile(ox,     oy + row, TILE_SEA);
+            gfx_draw_tile(ox + 1, oy + row, TILE_SEA);
+            gfx_draw_tile(ox + 2, oy + row, TILE_SEA);
+        }
+    }
 }
 
-/*
- * The Amiga console scrolls the whole window up whenever a character is written
- * into the bottom-right-most cell (col WIDTH-1 of the last row). drawClock is
- * the only thing that writes near the right edge of the last row, and it runs
- * every frame — that was the cause of the playfield marching upward. Keep it one
- * column clear of the edge so column WIDTH-1 is never written.
- */
 void drawClock(void)
 {
-    goto_xy(WIDTH - 4, HEIGHT - 1);
-    conPrintf("[T]");
+    gfx_draw_tile(WIDTH - 1, HEIGHT - 1, TILE_CLOCK);
 }
 
 void drawConnectionIcon(bool show)
 {
-    goto_xy(0, HEIGHT - 1);
-    conPrintf(show ? "[*]" : "[ ]");
+    gfx_draw_tile(0, HEIGHT - 1, show ? TILE_CONN_ON : TILE_CONN_OFF);
 }
 
 void drawEndgameMessage(const char *msg)
 {
     uint8_t len = (uint8_t)strlen(msg);
-    uint8_t x   = (WIDTH - len) / 2;
-    goto_xy(x, HEIGHT - 2);
-    conPrintf("%s", msg);
+    uint8_t x   = (uint8_t)((WIDTH - len) / 2);
+    uint8_t i;
+
+    for (i = 0; i < WIDTH; i++)
+        gfx_draw_tile(i, HEIGHT - 2, TILE_ENDGAME_BAR);
+    gfx_fill(0, HEIGHT - 1, WIDTH, 1, PEN_BG);
+    gfx_text(x, HEIGHT - 1, msg, PEN_TEXT, PEN_BG);
 }
 
+/*
+ * Name label: above the grid for top boards (quadrants 1, 2), below it for
+ * bottom boards (0, 3) — the Atari arrangement. Active player gets bright
+ * bracketed text, inactive players dim text.
+ */
 void drawPlayerName(uint8_t player, const char *name, bool active)
 {
-    uint8_t x = quadrant_offset[player][0];
-    uint8_t y = quadrant_offset[player][1] - 1;
-    goto_xy(x, y);
-    if (active)
-        conPrintf("[%s]", name);
-    else
-        conPrintf(" %s ", name);
+    char buf[16];
+    uint8_t ox, oy, y;
+
+    cm_quadrant_origin(playerCount_g, player, &ox, &oy);
+    y = (player == 1 || player == 2) ? (uint8_t)(oy - 1) : (uint8_t)(oy + 10);
+
+    snprintf(buf, sizeof(buf), active ? "[%s]" : " %s ", name);
+    gfx_fill(ox, y, 12, 1, PEN_BG);
+    gfx_text(ox, y, buf, active ? PEN_TEXT_ALT : PEN_DIM, PEN_BG);
 }
 
 void drawShip(uint8_t quadrant, uint8_t size, uint8_t pos, bool hide)
 {
-    uint8_t ox = quadrant_offset[quadrant][0];
-    uint8_t oy = quadrant_offset[quadrant][1];
-    uint8_t delta = 0;
-    uint8_t sx, sy, i;
-    if (pos > 99) { delta = 1; pos -= 100; }
+    uint8_t ox, oy, sx, sy, i, vertical = 0;
+
+    if (pos > 99) {
+        vertical = 1;
+        pos -= 100;
+    }
+    cm_quadrant_origin(playerCount_g, quadrant, &ox, &oy);
     sx = pos % 10;
     sy = pos / 10;
+
     for (i = 0; i < size; i++) {
-        if (delta)
-            goto_xy(ox + sx,     oy + sy + i);
+        uint8_t tile = hide ? TILE_SEA : cm_ship_tile(i, size, vertical);
+
+        if (vertical)
+            gfx_draw_tile(ox + sx, oy + sy + i, tile);
         else
-            goto_xy(ox + sx + i, oy + sy);
-        conPrintf("%c", hide ? '.' : 'S');
+            gfx_draw_tile(ox + sx + i, oy + sy, tile);
     }
 }
 
-/*
- * Legend sits 11 rows below the grid top (one gap after the 10-row grid).
- * In the 4-player layout the bottom grids are at y=13, so the legend would
- * land at y>=24 and run off screen — skip silently in that case.
- */
 void drawLegendShip(uint8_t player, uint8_t index, uint8_t size, uint8_t status)
 {
-    uint8_t ox = quadrant_offset[player][0];
-    uint8_t oy = quadrant_offset[player][1] + 11 + index;
-    uint8_t i;
-    if (oy >= HEIGHT) return;
-    goto_xy(ox, oy);
+    uint8_t ox, oy, dx, dy, i;
+
+    cm_drawer_origin(playerCount_g, player, &ox, &oy);
+    cm_legend_offset(index, &dx, &dy);
+    ox += dx;
+    oy += dy;
+
     for (i = 0; i < size; i++)
-        conPrintf("%c", status ? 'S' : 'X');
+        gfx_draw_tile(ox, oy + i,
+                      status ? cm_ship_tile(i, size, 1) : TILE_LEGEND_HIT);
 }
 
 /*
- * Overlay hits/misses only. Empty cells (0) are left untouched so the
- * pre-painted '.' water grid and any ships drawn by drawShip survive. (The
- * reference text ports do the same — they never repaint empty cells.) Drawing
- * '.' for every empty cell here was erasing the player's own ships.
+ * Overlay hits/misses only. Empty cells are left untouched so the sea grid
+ * painted by drawBoard and any ships drawn by drawShip survive (the Atari
+ * renderer does the same).
  */
 void drawGamefield(uint8_t quadrant, uint8_t *field)
 {
-    uint8_t ox = quadrant_offset[quadrant][0];
-    uint8_t oy = quadrant_offset[quadrant][1];
-    uint8_t row, col;
+    uint8_t ox, oy, row, col;
+
+    cm_quadrant_origin(playerCount_g, quadrant, &ox, &oy);
     for (row = 0; row < 10; row++) {
         for (col = 0; col < 10; col++) {
             uint8_t cell = field[row * 10 + col];
+
             if (cell != FIELD_ATTACK && cell != FIELD_MISS)
                 continue;
-            goto_xy(ox + col, oy + row);
-            conPrintf("%c", cell == FIELD_ATTACK ? 'X' : 'o');
+            gfx_draw_tile(ox + col, oy + row, cm_field_tile(cell));
         }
     }
 }
 
-void drawGamefieldUpdate(uint8_t quadrant, uint8_t *gamefield, uint8_t attackPos, uint8_t anim)
+void drawGamefieldUpdate(uint8_t quadrant, uint8_t *gamefield,
+                         uint8_t attackPos, uint8_t anim)
 {
-    uint8_t ox   = quadrant_offset[quadrant][0];
-    uint8_t oy   = quadrant_offset[quadrant][1];
-    uint8_t cell = gamefield[attackPos];
-    (void)anim;
-    goto_xy(ox + attackPos % 10, oy + attackPos / 10);
-    conPrintf("%c", cell == FIELD_ATTACK ? 'X' :
-                 cell == FIELD_MISS   ? 'o' : '.');
+    uint8_t ox, oy;
 
-    /* A shot was fired (by either player). The upstream renderer only does a
-     * full clear+redraw on ship-placement transitions, so during normal turns
-     * it relies on the console never scrolling — but console.device scrolls on
-     * various edge writes we can't fully avoid, leaving the playfield drifting.
-     * Request one clean full redraw at the next render cycle so any per-turn
-     * drift is wiped at the (already natural) turn boundary. */
-    state.drawBoard = true;
+    gfx_cursor_hide();
+    cm_quadrant_origin(playerCount_g, quadrant, &ox, &oy);
+    gfx_draw_tile(ox + attackPos % 10, oy + attackPos / 10,
+                  cm_update_tile(gamefield[attackPos], anim));
 }
 
-/*
- * Solid attack cursor with no trail: before drawing '@' at the new cell,
- * repaint the cell the cursor just left with its underlying content (hit,
- * miss, or '.' water). drawBoard resets s_cursorQuad so a fresh redraw never
- * repaints a stale location.
- */
-void drawGamefieldCursor(uint8_t quadrant, uint8_t x, uint8_t y, uint8_t *gamefield, uint8_t blink)
+void drawGamefieldCursor(uint8_t quadrant, uint8_t x, uint8_t y,
+                         uint8_t *gamefield, uint8_t blink)
 {
-    (void)blink;
+    uint8_t ox, oy;
 
-    if (s_cursorQuad >= 0 &&
-        (s_cursorQuad != (int8_t)quadrant || s_cursorX != x || s_cursorY != y)) {
-        uint8_t prev = gamefield[s_cursorY * 10 + s_cursorX];
-        char    c    = prev == FIELD_ATTACK ? 'X' :
-                       prev == FIELD_MISS   ? 'o' : '.';
-        goto_xy(quadrant_offset[s_cursorQuad][0] + s_cursorX,
-                quadrant_offset[s_cursorQuad][1] + s_cursorY);
-        conPrintf("%c", c);
-    }
-
-    goto_xy(quadrant_offset[quadrant][0] + x,
-            quadrant_offset[quadrant][1] + y);
-    conPrintf("@");
-
-    s_cursorQuad = (int8_t)quadrant;
-    s_cursorX = x;
-    s_cursorY = y;
+    (void)gamefield;
+    cm_quadrant_origin(playerCount_g, quadrant, &ox, &oy);
+    /* blink is a 0..2 frame index — flip to the alternate sprite image on
+     * the last phase for a soft two-tone pulse. */
+    gfx_cursor_move(ox + x, oy + y, (uint8_t)(blink >= 2));
 }
 
-bool saveScreenBuffer(void)  { return false; }
-void restoreScreenBuffer(void) {}
+bool saveScreenBuffer(void)
+{
+    return gfx_save_screen() != 0;
+}
+
+void restoreScreenBuffer(void)
+{
+    gfx_restore_screen();
+}
