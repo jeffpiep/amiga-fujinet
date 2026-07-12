@@ -76,6 +76,38 @@ And the fujinet-nio log for FujiBus activity:
 cat $(ls -t emu/logs/<appname>/*/fujinet.log | head -1)
 ```
 
+## Screenshot color accuracy — read this before judging colors
+
+The `screenshot.png` from `run.sh` is an **xwd capture of FS-UAE's OpenGL
+window under llvmpipe**, and it scrambles color channels on saturated colors:
+a solid palette color renders as fine vertical stripes cycling through
+nibble-rotations of the true value (e.g. `0x05A` sea blue shows as
+`0x05A`/`0x5A0`/`0xA05` stripes). Black, white, and greys are
+rotation-invariant and look fine — which is why text-only screens never
+revealed the bug. **The emulated frame itself is correct**; do not "fix"
+palette or bitplane code based on striped xwd screenshots.
+
+For color-accurate, pixel-exact captures use FS-UAE's internal screenshot
+(F12+S), which dumps the Amiga framebuffer directly:
+
+1. Add to the generated `.fs-uae` config (or a copy of it):
+   `screenshots_output_dir = <dir>`
+2. Inject the hotkey headlessly with `emu/scripts/emukey.py` (XTEST;
+   requires `pip install python-xlib`):
+   ```bash
+   python3 emu/scripts/emukey.py :99 F12+s
+   ```
+3. Read the `fs-uae-crop-<timestamp>.png` it writes — that is the raw
+   Amiga display, unscaled and unfiltered.
+
+### Driving the Amiga keyboard headless
+
+`emukey.py` also types into the emulated Amiga (any keysym, e.g.
+`space`, `Escape`, `w`, plus `sleepN` pauses), which enables scripted
+interactive testing — e.g. playing through game screens between internal
+screenshots. Run the `run.sh` stages manually (see Manual / Debug Fallback)
+so the session stays alive while you inject keys against the Xvfb display.
+
 ---
 
 ## Adding emu-test to a new app
@@ -98,6 +130,13 @@ include ../../emu/template/emu.mk
 |---------------|-----------------|
 | Sends FujiBus traffic (fn_open, fn_read, etc.) | `fujibus: receive:` — matched in fujinet.log (line-buffered, real-time) |
 | Opens serial only (fn_init + fn_is_ready, no data sent) | `serial: setbaud: 19200` — matched in FS-UAE's log after teardown |
+
+Note: the first `fujibus: receive:` can fire *before* the app draws its
+first screen (e.g. an appkey read during init), so a PASS screenshot may
+legitimately be black. To capture a later visual state, rerun with a
+never-matching pattern and a fixed timeout —
+`PASS_PATTERN="zzz-no-match" TIMEOUT_S=60 emu/run.sh` screenshots at
+timeout — or use the internal-screenshot flow above.
 
 ---
 
@@ -128,7 +167,8 @@ Each run creates `emu/logs/<appname>/<timestamp>/`:
 | FAIL reason `timeout`, screenshot shows CLI prompt | Pass pattern wrong for app | See pass pattern guidance above |
 | Error 121 but binary was rebuilt | FS-UAE `.sdf` save-state caching old disk contents | `run.sh` auto-deletes stale `.sdf` files; if manually running FS-UAE, delete `~/Documents/FS-UAE/Save States/run/<name>.sdf` |
 | FAIL reason `timeout`, screenshot shows boot screen | ADF didn't boot | Verify `bootable: True` in build-adf.sh output; check `WB_ADF` |
-| FAIL reason `timeout`, screenshot is black | Xvfb or FS-UAE didn't start | Check `emulator.log`; ensure `xvfb` package is installed |
+| FAIL reason `timeout`, screenshot is black | Xvfb or FS-UAE didn't start — or the app simply hadn't drawn yet (see pass pattern note) | Check `emulator.log`; ensure `xvfb` package is installed |
+| Colored areas show fine RGB vertical stripes | xwd capture artifact, not an Amiga bug | See "Screenshot color accuracy" — use FS-UAE internal screenshots (F12+S) |
 | FAIL reason `socat_pty_timeout` | socat didn't create PTYs within 10s | Check socat is installed; look for stale symlinks at /tmp/amiga-serial |
 | FAIL reason `fujinet_binary_missing` | fujinet-nio not built | `cd fujinet-nio && ./build.sh -p fujibus-rs232-debug` |
 | `KICKSTART_ROM` error at startup | ROM path wrong or file absent | Edit `emu/config/paths.env` |

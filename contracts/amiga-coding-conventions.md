@@ -39,6 +39,22 @@ On failure, clean up in reverse order before returning an error code.
 - `DoIO()` blocks until completion — acceptable for prototype RS-232 use
 - `SendIO()` / `WaitIO()` pattern for async — not needed yet but prefer `DoIO` for simplicity
 
+### Custom screens / rendering
+- **Never rely on the system default font for cell-aligned rendering.** The
+  default can be the 60-column topaz (10 px wide), which silently overflows an
+  8×8 cell grid and misaligns every `Text()` call against tile layouts. Request
+  topaz 8 explicitly:
+  ```c
+  static struct TextAttr _topaz8 = {
+      (STRPTR)"topaz.font", TOPAZ_EIGHTY, FS_NORMAL, FPF_ROMFONT
+  };
+  /* NewScreen.Font = &_topaz8; */
+  ```
+- Blitter/sprite source data (tiles, `struct Image` data, sprite images) must
+  be staged into `AllocMem(MEMF_CHIP)` buffers at init — the `.datachip` linker
+  section does **not** work on this toolchain. Full writeup:
+  `apps/pacmantests/c99-pac-man/README.md`.
+
 ---
 
 ## C Style

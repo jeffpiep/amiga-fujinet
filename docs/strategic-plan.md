@@ -195,14 +195,12 @@ not a refactor.
   Diagnosis technique worth remembering: record the PipeWire sink monitor
   (`pw-record --target <sink> --properties '{stream.capture.sink=true}'`)
   and RMS-analyze to distinguish "silent guest" from "muted host".
-- **2026-07-12** — `emu/run.sh` xwd screenshots scramble color channels on
-  saturated colors (llvmpipe GL window capture artifact): solid palette colors
-  show as per-pixel nibble-rotation stripes (e.g. `0x05A` → `0x5A0`/`0xA05`)
-  while black/white/grey render fine — text-only screens hid the bug for weeks.
-  The emulated frame itself is correct. For color-accurate captures use FS-UAE's
-  internal screenshot (`screenshots_output_dir` + F12+S, injectable headless via
-  XTEST) — the `fs-uae-crop-*.png` output is a pixel-exact Amiga framebuffer.
-  Two more graphical-renderer gotchas: the *system default* font may be the
-  60-column topaz (10 px wide) — request topaz 8 explicitly when cell-aligning
-  `Text()`; and the first `fujibus: receive:` fires before the first screen
-  draws, so pass-pattern screenshots can capture a black screen.
+- **2026-07-12** — Three graphical-renderer gotchas surfaced during the Phase 3c
+  scaffold, all rehomed to their owning docs: xwd screenshots scramble color
+  channels on saturated colors while monochrome looks fine (capture artifact,
+  not an Amiga bug — text-only screens hid it for weeks) and the emu-test pass
+  pattern can fire before the first screen draw → both documented with the
+  FS-UAE internal-screenshot (F12+S) recipe in
+  `.claude/commands/emu-build-and-boot.md`; the system default font may be
+  10 px-wide 60-column topaz rather than topaz 8 → documented in
+  `contracts/amiga-coding-conventions.md` (Custom screens / rendering).
