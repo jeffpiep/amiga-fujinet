@@ -24,6 +24,7 @@
 #include <graphics/gfx.h>
 #include <graphics/gfxbase.h>
 #include <graphics/rastport.h>
+#include <graphics/text.h>
 #include <graphics/sprite.h>
 #include <graphics/view.h>
 #include <intuition/intuition.h>
@@ -66,12 +67,19 @@ static UWORD *_chip_cursor_b;
 static struct BitMap _save_bm;
 static PLANEPTR _save_planes;          /* one chunk, SCREEN_D * RAS_BYTES */
 
+/* Explicit topaz 8: the *system default* font can be the 60-column topaz
+ * (10 px wide), which overflows the 8x8 cell grid and misaligns every
+ * string against the tile layout. TOPAZ_EIGHTY is always in ROM. */
+static struct TextAttr _topaz8 = {
+    (STRPTR)"topaz.font", TOPAZ_EIGHTY, FS_NORMAL, FPF_ROMFONT
+};
+
 static struct NewScreen _new_screen = {
     0, 0, SCREEN_W, SCREEN_H, SCREEN_D,
     0, 1,
     0,                 /* ViewModes: lores */
     CUSTOMSCREEN,
-    NULL,              /* default (topaz 8) font */
+    &_topaz8,          /* 8x8 font to match the cell grid */
     NULL,              /* no title — ShowTitle(FALSE) anyway */
     NULL, NULL
 };
