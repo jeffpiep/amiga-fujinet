@@ -1,12 +1,11 @@
 #ifndef AMIGA_VARS_H
 #define AMIGA_VARS_H
 
-/* Console dimensions. A KS 1.3 titled RAW: window on an NTSC 640x200 Workbench
- * screen only exposes ~22 text rows (the title bar/borders eat the rest), so
- * the playfield must fit in 22 rows or the bottom lines clamp/scroll. 22 also
- * fits comfortably on the taller PAL (640x256) screen. */
-#define WIDTH  80
-#define HEIGHT 22
+/* Cell grid of the graphical renderer: 40x25 cells of 8x8 pixels on a
+ * 320x200 custom screen (Phase 3c). Mirrors the Atari port's 40-column
+ * layout squeezed by one row (Atari is 40x26) — see src/cellmap.c. */
+#define WIDTH  40
+#define HEIGHT 25
 
 /* Icon characters (ASCII) */
 #define ICON_TEXT_CURSOR '>'
@@ -54,16 +53,16 @@
 #define JOY_BTN_2(v) ((v) & 0x20)
 #define JOY_BTN_1_MASK 0x10
 
-/* Layout constants (text console) */
-#define BOTTOM_HEIGHT 3
-#define SCORES_X      60
-#define GAMEOVER_PROMPT_Y (HEIGHT - 2)
-#define TIMER_X       70
+/* Layout constants (40-column grid — values follow the Atari port) */
+#define BOTTOM_HEIGHT 4
+#define SCORES_X      11
+#define GAMEOVER_PROMPT_Y (HEIGHT - 3)
+#define TIMER_X       12
 #define TIMER_NUM_OFFSET_X 0
 #define TIMER_NUM_OFFSET_Y 0
 #define ROLL_SOUND_MOD 4
-#define ROLL_FRAMES    10
-#define ROLL_X         (WIDTH - 20)
+#define ROLL_FRAMES    31
+#define ROLL_X         (WIDTH - 25)
 #define SCORE_CURSOR_ALT 0
 
 #endif /* AMIGA_VARS_H */

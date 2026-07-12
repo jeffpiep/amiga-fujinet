@@ -18,7 +18,8 @@ COMMON_SRCS = \
     $(UPSTREAM)/stateclient.c \
     $(UPSTREAM)/misc.c
 
-AMIGA_SRCS = src/graphics.c src/input.c src/joydecode.c src/sndgen.c src/sound.c src/util.c
+AMIGA_SRCS = src/graphics.c src/gfxcore.c src/cellmap.c src/keytrans.c \
+             src/input.c src/joydecode.c src/sndgen.c src/sound.c src/util.c
 
 SRCS = $(COMMON_SRCS) $(AMIGA_SRCS)
 
@@ -53,7 +54,8 @@ include ../../../emu/template/emu.mk
 HOST_CC     = cc
 HOST_CFLAGS = -std=c99 -Wall -Wextra -g -O0
 HOST_INC    = -Iinclude -I../../../libs/fujinet-compat-amiga/test/host
-HOST_TESTS  = test/host/test_joydecode.test test/host/test_sndgen.test
+HOST_TESTS  = test/host/test_joydecode.test test/host/test_sndgen.test \
+              test/host/test_cellmap.test test/host/test_keytrans.test
 
 test/host/%.test: test/host/%.c
 	$(HOST_CC) $(HOST_CFLAGS) $(HOST_INC) -o $@ $<
