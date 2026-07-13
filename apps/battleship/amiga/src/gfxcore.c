@@ -50,14 +50,26 @@ static struct Screen *_screen;
 static struct SimpleSprite _cursor_spr;
 static BYTE _cursor_spr_got = -1;      /* GetSprite result, -1 = none */
 
-/* Chip-RAM staging bank: all tiles, then the two cursor sprite images. */
+/* Chip-RAM staging bank: all tiles, the two cursor sprite images, and a
+ * zeroed blank mouse-pointer sprite (posctl + 1 line + terminator). */
 #define TILE_BYTES       (8 * 4 * sizeof(UWORD))       /* one 8x8x4 tile */
 #define TILE_BANK_BYTES  (TILE_COUNT * TILE_BYTES)
 #define CURSOR_SPR_BYTES (CURSOR_SPR_WORDS * sizeof(UWORD))
-#define CHIP_BANK_BYTES  (TILE_BANK_BYTES + 2 * CURSOR_SPR_BYTES)
+#define BLANK_PTR_WORDS  6
+#define BLANK_PTR_BYTES  (BLANK_PTR_WORDS * sizeof(UWORD))
+#define CHIP_BANK_BYTES  (TILE_BANK_BYTES + 2 * CURSOR_SPR_BYTES + \
+                          BLANK_PTR_BYTES)
 static UWORD *_chip_bank;
 static UWORD *_chip_cursor_a;
 static UWORD *_chip_cursor_b;
+static UWORD *_chip_blank_ptr;
+
+/* Mouse-aim handshake (see gfxcore.h). */
+static uint8_t _aim_active;
+static uint8_t _aim_players;
+static uint8_t _aim_x;
+static uint8_t _aim_y;
+static uint8_t _pointer_blanked;
 
 /* Spare bitmap for saveScreenBuffer/restoreScreenBuffer (in-game menu). */
 #define SCREEN_W    320
@@ -87,7 +99,7 @@ static struct NewScreen _new_screen = {
 static struct NewWindow _new_window = {
     0, 0, SCREEN_W, SCREEN_H,
     0, 1,
-    RAWKEY | VANILLAKEY,
+    RAWKEY | VANILLAKEY | MOUSEBUTTONS,
     BACKDROP | BORDERLESS | ACTIVATE,
     NULL, NULL, NULL,
     NULL,              /* Screen — filled in at open */
@@ -159,6 +171,8 @@ uint8_t gfx_open(void)
     CopyMem((APTR)cursor_spr_a, _chip_cursor_a, CURSOR_SPR_BYTES);
     _chip_cursor_b = dst + CURSOR_SPR_WORDS;
     CopyMem((APTR)cursor_spr_b, _chip_cursor_b, CURSOR_SPR_BYTES);
+    _chip_blank_ptr = _chip_cursor_b + CURSOR_SPR_WORDS;
+    memset(_chip_blank_ptr, 0, BLANK_PTR_BYTES);   /* invisible pointer */
 
     /* Save/restore buffer: the blitter reads it back on restore, so it
      * must be chip RAM like everything else the blitter touches. */
@@ -290,4 +304,39 @@ void gfx_restore_screen(void)
         return;
     BltBitMap(&_save_bm, 0, 0, &_screen->BitMap, 0, 0,
               SCREEN_W, SCREEN_H, 0xC0, 0xFF, NULL);
+}
+
+void gfx_aim_set(uint8_t player_count, uint8_t cell_x, uint8_t cell_y)
+{
+    _aim_active = 1;
+    _aim_players = player_count;
+    _aim_x = cell_x;
+    _aim_y = cell_y;
+}
+
+void gfx_aim_clear(void)
+{
+    _aim_active = 0;
+    gfx_pointer_blank(0);
+}
+
+uint8_t gfx_aim_get(uint8_t *player_count, uint8_t *cell_x, uint8_t *cell_y)
+{
+    if (!_aim_active)
+        return 0;
+    *player_count = _aim_players;
+    *cell_x = _aim_x;
+    *cell_y = _aim_y;
+    return 1;
+}
+
+void gfx_pointer_blank(uint8_t blank)
+{
+    if (!gfx_window || blank == _pointer_blanked)
+        return;
+    _pointer_blanked = blank;
+    if (blank)
+        SetPointer(gfx_window, _chip_blank_ptr, 1, 16, 0, 0);
+    else
+        ClearPointer(gfx_window);
 }

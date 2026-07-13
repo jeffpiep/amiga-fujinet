@@ -60,4 +60,16 @@ void gfx_cursor_hide(void);
 uint8_t gfx_save_screen(void);
 void gfx_restore_screen(void);
 
+/* Mouse-aim handshake between the renderer and input.c. graphics.c arms
+ * this from drawGamefieldCursor (the only moment the game is aiming) and
+ * clears it on redraws/updates; input.c polls it each frame to decide
+ * whether mouse chasing is live and where the cursor currently sits. */
+void gfx_aim_set(uint8_t player_count, uint8_t cell_x, uint8_t cell_y);
+void gfx_aim_clear(void);
+uint8_t gfx_aim_get(uint8_t *player_count, uint8_t *cell_x, uint8_t *cell_y);
+
+/* Blank (1) or restore (0) the Intuition mouse pointer over the window.
+ * State-guarded: repeated calls with the same value are no-ops. */
+void gfx_pointer_blank(uint8_t blank);
+
 #endif /* GFXCORE_H */

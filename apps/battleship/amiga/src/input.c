@@ -25,6 +25,7 @@
 
 #include "gfxcore.h"
 #include "keytrans.h"
+#include "mousemap.h"
 
 /* Power-of-two ring buffer for decoded keys. */
 #define KEYBUF_SIZE 8
@@ -33,8 +34,12 @@ static char _keybuf[KEYBUF_SIZE];
 static uint8_t _keybuf_head;
 static uint8_t _keybuf_tail;
 
+/* Left mouse button held (from IDCMP MOUSEBUTTONS). */
+static uint8_t _mouse_button;
+
 /* Drain every pending IDCMP message, pushing decoded keys into the ring
- * buffer (oldest keys drop if the game falls far behind). */
+ * buffer (oldest keys drop if the game falls far behind) and tracking the
+ * left mouse button state. */
 static void drainKeyMessages(void)
 {
     struct IntuiMessage *msg;
@@ -47,6 +52,13 @@ static void drainKeyMessages(void)
         int16_t key;
 
         ReplyMsg((struct Message *)msg);
+        if (cls == MOUSEBUTTONS) {
+            if (code == SELECTDOWN)
+                _mouse_button = 1;
+            else if (code == SELECTUP)
+                _mouse_button = 0;
+            continue;
+        }
         if (cls != RAWKEY && cls != VANILLAKEY)
             continue;
         key = kt_decode(cls == RAWKEY, code);
@@ -84,7 +96,82 @@ char cgetc(void)
 #define JOY1DAT (*(volatile uint16_t *)0xDFF00C)
 #define CIAAPRA (*(volatile uint8_t *)0xBFE001) /* bit 7 = port-2 fire, active low */
 
+/*
+ * Mouse aiming (attack cursor only — armed by drawGamefieldCursor via
+ * gfx_aim_set). Moving the mouse over an enemy gamefield blanks the
+ * Intuition pointer and "chases" the game cursor to the hovered cell by
+ * blending joystick-style direction bits into readJoystick()'s result;
+ * the left button maps to the trigger.
+ *
+ * The chase pulses bits on alternating frames: upstream readCommonInput()
+ * treats an unchanged joystick value as a held stick and imposes a
+ * ~12-frame repeat delay, so a steady direction would crawl. Pulsing
+ * looks like a fresh press every other frame — one cell per frame pair,
+ * ~30 cells/s, which reads as snapping on a 10x10 board.
+ *
+ * Authority rules: the mouse only takes over when it moves (so joystick
+ * and keyboard aiming don't fight a parked mouse), a real joystick input
+ * cancels the chase, and the fire bit passes only while the cursor sits
+ * on the hovered cell — the shot always lands where the player sees the
+ * cursor (no fire-at-a-stale-target).
+ */
+static int16_t _mouse_last_mx = -1;
+static int16_t _mouse_last_my = -1;
+static uint8_t _mouse_chasing;
+static uint8_t _mouse_tgt_x;
+static uint8_t _mouse_tgt_y;
+static uint8_t _mouse_pulse;
+
+static uint8_t mouseAimBits(uint8_t real_joy)
+{
+    uint8_t players, cx, cy, tx, ty, in_field;
+    uint8_t bits = 0;
+    int16_t mx, my;
+
+    if (!gfx_window)
+        return 0;
+    if (!gfx_aim_get(&players, &cx, &cy)) {
+        _mouse_chasing = 0;
+        return 0;
+    }
+
+    drainKeyMessages();   /* freshen button state */
+    mx = gfx_window->MouseX;
+    my = gfx_window->MouseY;
+    in_field = mm_aim_cell(players, mx, my, &tx, &ty);
+
+    gfx_pointer_blank(in_field);
+
+    if (real_joy) {
+        _mouse_chasing = 0;         /* real stick wins */
+    } else {
+        if (in_field && (mx != _mouse_last_mx || my != _mouse_last_my)) {
+            _mouse_chasing = 1;
+            _mouse_tgt_x = tx;
+            _mouse_tgt_y = ty;
+        }
+        if (_mouse_chasing) {
+            if (cx == _mouse_tgt_x && cy == _mouse_tgt_y) {
+                _mouse_chasing = 0;
+            } else {
+                _mouse_pulse ^= 1;
+                if (_mouse_pulse)
+                    bits |= mm_chase_bits(cx, cy,
+                                          _mouse_tgt_x, _mouse_tgt_y);
+            }
+        }
+    }
+    _mouse_last_mx = mx;
+    _mouse_last_my = my;
+
+    if (_mouse_button && in_field && cx == tx && cy == ty)
+        bits |= MM_FIRE;
+    return bits;
+}
+
 uint8_t readJoystick(void)
 {
-    return joyDecode(JOY1DAT, (uint8_t)!(CIAAPRA & 0x80));
+    uint8_t joy = joyDecode(JOY1DAT, (uint8_t)!(CIAAPRA & 0x80));
+
+    return joy | mouseAimBits(joy);
 }
