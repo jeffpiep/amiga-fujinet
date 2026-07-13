@@ -56,6 +56,7 @@ void resetGraphics(void) {}   /* teardown runs via gfx_close atexit */
 void resetScreen(void)
 {
     gfx_cursor_hide();
+    gfx_aim_clear();
     gfx_fill(0, 0, WIDTH, HEIGHT, PEN_BG);
 }
 
@@ -251,6 +252,7 @@ void drawGamefieldUpdate(uint8_t quadrant, uint8_t *gamefield,
     uint8_t ox, oy;
 
     gfx_cursor_hide();
+    gfx_aim_clear();
     cm_quadrant_origin(playerCount_g, quadrant, &ox, &oy);
     gfx_draw_tile(ox + attackPos % 10, oy + attackPos / 10,
                   cm_update_tile(gamefield[attackPos], anim));
@@ -266,6 +268,9 @@ void drawGamefieldCursor(uint8_t quadrant, uint8_t x, uint8_t y,
     /* blink is a 0..2 frame index — flip to the alternate sprite image on
      * the last phase for a soft two-tone pulse. */
     gfx_cursor_move(ox + x, oy + y, (uint8_t)(blink >= 2));
+    /* The game is aiming: arm mouse targeting (input.c chases the hovered
+     * enemy-field cell and maps clicks to the trigger). */
+    gfx_aim_set(playerCount_g, x, y);
 }
 
 bool saveScreenBuffer(void)

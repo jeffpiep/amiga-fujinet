@@ -233,6 +233,12 @@ Phase 3 completion also unblocks the upstream port PR — see
       scaffolding verified in emulator 2026-07-12 (lobby, placement, gameplay
       with hits/misses/sunk legend, sprite cursor, in-game menu save/restore);
       placeholder art — Atari-modeled art pass pending
+- [x] Mouse aiming (Phase 3c extension) — hover an enemy field to snap the
+      attack cursor to the cell (Intuition pointer blanks over the field),
+      left-click fires; coexists live with joystick/keyboard, platform-layer
+      only (mousemap.c chase bits blended into readJoystick()). Verified in
+      emulator 2026-07-13: hover-snap, pointer blank, click fired at the
+      hovered cell, aim cleared on turn end
 - [ ] Boots from ADF in emulator, plays full game (Phase 4)
 - [ ] Tested on real Amiga 500 + PiStorm (Phase 4)
 - [~] Player name persisted via AppKey/ENVARC: (name loads each boot from a
