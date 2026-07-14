@@ -39,4 +39,19 @@ uint8_t mm_aim_cell(uint8_t player_count, int16_t px, int16_t py,
 uint8_t mm_chase_bits(uint8_t cur_x, uint8_t cur_y,
                       uint8_t tgt_x, uint8_t tgt_y);
 
+/*
+ * Ship placement: if screen pixel (px, py) lies inside the player's own
+ * gamefield (quadrant 0), store the 0..9 cell coordinates and return 1.
+ */
+uint8_t mm_place_cell(uint8_t player_count, int16_t px, int16_t py,
+                      uint8_t *cell_x, uint8_t *cell_y);
+
+/*
+ * Clamp a hovered cell to a valid ship *origin* so the whole ship stays
+ * on the board: the origin axis along the ship runs 0..10-size. Dragging
+ * past the edge parks the ship against it instead of chasing forever.
+ */
+void mm_clamp_origin(uint8_t size, uint8_t vertical,
+                     uint8_t *cell_x, uint8_t *cell_y);
+
 #endif /* MOUSEMAP_H */

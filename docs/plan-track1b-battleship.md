@@ -239,6 +239,12 @@ Phase 3 completion also unblocks the upstream port PR — see
       only (mousemap.c chase bits blended into readJoystick()). Verified in
       emulator 2026-07-13: hover-snap, pointer blank, click fired at the
       hovered cell, aim cleared on turn end
+- [x] Mouse ship placement — drag the moving ship with the mouse over the
+      own board (origin follows the hovered cell, clamped so the ship stays
+      on the board), R rotates, click places. Placement aim is armed by the
+      hide-draws unique to the placement blink cycle (drawShip hook), so no
+      upstream changes. Verified in emulator 2026-07-13: drag, edge clamp,
+      rotate, click-place, auto re-arm on the next ship
 - [ ] Boots from ADF in emulator, plays full game (Phase 4)
 - [ ] Tested on real Amiga 500 + PiStorm (Phase 4)
 - [~] Player name persisted via AppKey/ENVARC: (name loads each boot from a

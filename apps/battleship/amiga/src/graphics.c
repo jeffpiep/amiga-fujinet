@@ -189,6 +189,18 @@ void drawPlayerName(uint8_t player, const char *name, bool active)
     gfx_text(ox, y, buf, active ? PEN_TEXT_ALT : PEN_DIM, PEN_BG);
 }
 
+/*
+ * Placement-mover tracking. Hide draws on quadrant 0 happen only inside
+ * the ship-placement blink cycle and always carry the moving ship's
+ * current position, so they arm mouse placement aiming. The show draw
+ * immediately following a hide with the same size is the mover at its
+ * new position (the placed-ship redraws that follow can never match:
+ * the first ship placed is always the size-5 carrier, and every later
+ * mover is smaller). Anything else drops the pairing state.
+ */
+static uint8_t s_place_after_hide = 0;
+static uint8_t s_place_size = 0;
+
 void drawShip(uint8_t quadrant, uint8_t size, uint8_t pos, bool hide)
 {
     uint8_t ox, oy, sx, sy, i, vertical = 0;
@@ -200,6 +212,19 @@ void drawShip(uint8_t quadrant, uint8_t size, uint8_t pos, bool hide)
     cm_quadrant_origin(playerCount_g, quadrant, &ox, &oy);
     sx = pos % 10;
     sy = pos / 10;
+
+    if (quadrant == 0) {
+        if (hide) {
+            gfx_aim_set_place(playerCount_g, sx, sy, size, vertical);
+            s_place_after_hide = 1;
+            s_place_size = size;
+        } else if (s_place_after_hide && size == s_place_size) {
+            gfx_aim_set_place(playerCount_g, sx, sy, size, vertical);
+            s_place_after_hide = 0;
+        } else {
+            s_place_after_hide = 0;
+        }
+    }
 
     for (i = 0; i < size; i++) {
         uint8_t tile = hide ? TILE_SEA : cm_ship_tile(i, size, vertical);
