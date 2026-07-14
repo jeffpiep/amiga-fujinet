@@ -62,6 +62,7 @@ void resetScreen(void)
 
 void waitvsync(void)
 {
+    gfx_cursor_sweep();
     WaitTOF();
 }
 
@@ -189,6 +190,18 @@ void drawPlayerName(uint8_t player, const char *name, bool active)
     gfx_text(ox, y, buf, active ? PEN_TEXT_ALT : PEN_DIM, PEN_BG);
 }
 
+/*
+ * Placement-mover tracking. Hide draws on quadrant 0 happen only inside
+ * the ship-placement blink cycle and always carry the moving ship's
+ * current position, so they arm mouse placement aiming. The show draw
+ * immediately following a hide with the same size is the mover at its
+ * new position (the placed-ship redraws that follow can never match:
+ * the first ship placed is always the size-5 carrier, and every later
+ * mover is smaller). Anything else drops the pairing state.
+ */
+static uint8_t s_place_after_hide = 0;
+static uint8_t s_place_size = 0;
+
 void drawShip(uint8_t quadrant, uint8_t size, uint8_t pos, bool hide)
 {
     uint8_t ox, oy, sx, sy, i, vertical = 0;
@@ -200,6 +213,19 @@ void drawShip(uint8_t quadrant, uint8_t size, uint8_t pos, bool hide)
     cm_quadrant_origin(playerCount_g, quadrant, &ox, &oy);
     sx = pos % 10;
     sy = pos / 10;
+
+    if (quadrant == 0) {
+        if (hide) {
+            gfx_aim_set_place(playerCount_g, sx, sy, size, vertical);
+            s_place_after_hide = 1;
+            s_place_size = size;
+        } else if (s_place_after_hide && size == s_place_size) {
+            gfx_aim_set_place(playerCount_g, sx, sy, size, vertical);
+            s_place_after_hide = 0;
+        } else {
+            s_place_after_hide = 0;
+        }
+    }
 
     for (i = 0; i < size; i++) {
         uint8_t tile = hide ? TILE_SEA : cm_ship_tile(i, size, vertical);
@@ -265,9 +291,12 @@ void drawGamefieldCursor(uint8_t quadrant, uint8_t x, uint8_t y,
 
     (void)gamefield;
     cm_quadrant_origin(playerCount_g, quadrant, &ox, &oy);
-    /* blink is a 0..2 frame index — flip to the alternate sprite image on
+    /* One cursor sprite per enemy board — upstream draws the cursor on
+     * every surviving opponent each frame (quadrants 1..3 -> slots 0..2).
+     * blink is a 0..2 frame index — flip to the alternate sprite image on
      * the last phase for a soft two-tone pulse. */
-    gfx_cursor_move(ox + x, oy + y, (uint8_t)(blink >= 2));
+    gfx_cursor_move(quadrant > 0 ? (uint8_t)(quadrant - 1) : 0,
+                    ox + x, oy + y, (uint8_t)(blink >= 2));
     /* The game is aiming: arm mouse targeting (input.c chases the hovered
      * enemy-field cell and maps clicks to the trigger). */
     gfx_aim_set(playerCount_g, x, y);

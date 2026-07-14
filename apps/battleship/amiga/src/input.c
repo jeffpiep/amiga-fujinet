@@ -122,23 +122,43 @@ static uint8_t _mouse_tgt_x;
 static uint8_t _mouse_tgt_y;
 static uint8_t _mouse_pulse;
 
+static uint8_t _mouse_last_mode;
+
 static uint8_t mouseAimBits(uint8_t real_joy)
 {
-    uint8_t players, cx, cy, tx, ty, in_field;
+    uint8_t players, cx, cy, tx, ty, in_field, mode;
     uint8_t bits = 0;
     int16_t mx, my;
 
     if (!gfx_window)
         return 0;
-    if (!gfx_aim_get(&players, &cx, &cy)) {
+    mode = gfx_aim_get(&players, &cx, &cy);
+    if (mode == GFX_AIM_NONE) {
         _mouse_chasing = 0;
+        _mouse_last_mode = mode;
         return 0;
+    }
+    if (mode != _mouse_last_mode) {
+        _mouse_chasing = 0;         /* aim retargeted (attack <-> place) */
+        _mouse_last_mode = mode;
     }
 
     drainKeyMessages();   /* freshen button state */
     mx = gfx_window->MouseX;
     my = gfx_window->MouseY;
-    in_field = mm_aim_cell(players, mx, my, &tx, &ty);
+    if (mode == GFX_AIM_PLACE) {
+        /* Drag the moving ship's origin around the player's own board;
+         * clamp so the whole ship stays on it. */
+        in_field = mm_place_cell(players, mx, my, &tx, &ty);
+        if (in_field) {
+            uint8_t ship_size, ship_vert;
+
+            gfx_aim_get_ship(&ship_size, &ship_vert);
+            mm_clamp_origin(ship_size, ship_vert, &tx, &ty);
+        }
+    } else {
+        in_field = mm_aim_cell(players, mx, my, &tx, &ty);
+    }
 
     gfx_pointer_blank(in_field);
 

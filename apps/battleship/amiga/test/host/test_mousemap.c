@@ -58,6 +58,35 @@ int main(void)
     cm_quadrant_origin(4, 0, &ox, &oy);
     CHECK_EQ(mm_aim_cell(4, CM_PX(ox) + 1, CM_PY(oy) + 1, &cx, &cy), 0);
 
+    /* Placement: own board (quadrant 0) hit-testing. */
+    cm_quadrant_origin(2, 0, &ox, &oy);
+    left = CM_PX(ox);
+    top  = CM_PY(oy);
+    CHECK(mm_place_cell(2, left, top, &cx, &cy));
+    CHECK_EQ(cx, 0); CHECK_EQ(cy, 0);
+    CHECK(mm_place_cell(2, left + 6 * 8 + 2, top + 3 * 8 + 7, &cx, &cy));
+    CHECK_EQ(cx, 6); CHECK_EQ(cy, 3);
+    CHECK_EQ(mm_place_cell(2, left - 1, top, &cx, &cy), 0);
+    CHECK_EQ(mm_place_cell(2, left + 80, top + 80, &cx, &cy), 0);
+
+    /* Enemy board is not a placement target. */
+    cm_quadrant_origin(2, 1, &ox, &oy);
+    CHECK_EQ(mm_place_cell(2, CM_PX(ox) + 4, CM_PY(oy) + 4, &cx, &cy), 0);
+
+    /* Origin clamping keeps the whole ship on the board. */
+    cx = 9; cy = 4;
+    mm_clamp_origin(5, 0, &cx, &cy);          /* horizontal size 5 */
+    CHECK_EQ(cx, 5); CHECK_EQ(cy, 4);         /* x clamped, y untouched */
+    cx = 4; cy = 9;
+    mm_clamp_origin(3, 1, &cx, &cy);          /* vertical size 3 */
+    CHECK_EQ(cx, 4); CHECK_EQ(cy, 7);
+    cx = 2; cy = 2;
+    mm_clamp_origin(4, 0, &cx, &cy);          /* already valid: unchanged */
+    CHECK_EQ(cx, 2); CHECK_EQ(cy, 2);
+    cx = 8; cy = 8;
+    mm_clamp_origin(2, 1, &cx, &cy);          /* size 2 vertical: y max 8 */
+    CHECK_EQ(cx, 8); CHECK_EQ(cy, 8);
+
     /* Chase steps: cardinal, diagonal, arrival. */
     CHECK_EQ(mm_chase_bits(5, 5, 5, 5), 0);
     CHECK_EQ(mm_chase_bits(5, 5, 8, 5), MM_RIGHT);

@@ -51,22 +51,39 @@ void gfx_text(uint8_t cx, uint8_t cy, const char *s, uint8_t pen, uint8_t bpen);
 /* Fill a w x h cell rectangle with a pen. */
 void gfx_fill(uint8_t cx, uint8_t cy, uint8_t w, uint8_t h, uint8_t pen);
 
-/* Attack cursor sprite. alt selects the blink image. Move parks it over a
- * cell; hide parks it below the visible raster. */
-void gfx_cursor_move(uint8_t cx, uint8_t cy, uint8_t alt);
+/* Attack cursor sprites — one per possible enemy board, so the reticle
+ * shows on every surviving opponent in 3-4 player games (upstream draws
+ * it once per enemy quadrant each frame). slot = quadrant - 1 (0..2).
+ * alt selects the blink image. Hide parks all below the visible raster. */
+#define GFX_CURSOR_SLOTS 3
+void gfx_cursor_move(uint8_t slot, uint8_t cx, uint8_t cy, uint8_t alt);
 void gfx_cursor_hide(void);
+/* Frame tick (called from waitvsync): parks any cursor sprite that has
+ * not been moved for ~a blink period — upstream silently stops drawing
+ * the cursor on eliminated opponents' boards. */
+void gfx_cursor_sweep(void);
 
 /* Whole-screen save/restore for the in-game menu (spare chip bitmap). */
 uint8_t gfx_save_screen(void);
 void gfx_restore_screen(void);
 
 /* Mouse-aim handshake between the renderer and input.c. graphics.c arms
- * this from drawGamefieldCursor (the only moment the game is aiming) and
- * clears it on redraws/updates; input.c polls it each frame to decide
- * whether mouse chasing is live and where the cursor currently sits. */
+ * attack mode from drawGamefieldCursor and placement mode from the
+ * placement blink cycle in drawShip; both clear on redraws/updates.
+ * input.c polls this each frame to decide whether mouse chasing is live,
+ * which board it targets, and where the cursor/ship currently sits. */
+#define GFX_AIM_NONE   0
+#define GFX_AIM_ATTACK 1   /* chase target: enemy-field cell (attack cursor) */
+#define GFX_AIM_PLACE  2   /* chase target: own-field cell (ship origin)     */
+
 void gfx_aim_set(uint8_t player_count, uint8_t cell_x, uint8_t cell_y);
+void gfx_aim_set_place(uint8_t player_count, uint8_t cell_x, uint8_t cell_y,
+                       uint8_t ship_size, uint8_t ship_vertical);
 void gfx_aim_clear(void);
+/* Returns the GFX_AIM_* mode; out-params valid when non-NONE. */
 uint8_t gfx_aim_get(uint8_t *player_count, uint8_t *cell_x, uint8_t *cell_y);
+/* Mover ship shape (valid in GFX_AIM_PLACE mode). */
+void gfx_aim_get_ship(uint8_t *ship_size, uint8_t *ship_vertical);
 
 /* Blank (1) or restore (0) the Intuition mouse pointer over the window.
  * State-guarded: repeated calls with the same value are no-ops. */

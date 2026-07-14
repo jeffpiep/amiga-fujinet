@@ -45,30 +45,41 @@ struct Window *gfx_window;
 
 static struct Screen *_screen;
 
-/* Cursor hardware sprite (sprite 2 — sprite 0 is the Intuition pointer). */
-#define CURSOR_SPR_NUM 2
-static struct SimpleSprite _cursor_spr;
-static BYTE _cursor_spr_got = -1;      /* GetSprite result, -1 = none */
+/* Cursor hardware sprites — sprites 2..4, one per possible enemy board
+ * (sprite 0 is the Intuition pointer). Sprites 2/3 take their colors from
+ * registers 21-23, sprite 4 from 25-27. */
+#define CURSOR_SPR_FIRST 2
+static struct SimpleSprite _cursor_spr[GFX_CURSOR_SLOTS];
+static BYTE _cursor_spr_got[GFX_CURSOR_SLOTS] = { -1, -1, -1 };
+/* Frames since each slot last moved; parked once it exceeds a blink
+ * period (the attack loop repositions live cursors every <= 10 frames). */
+#define CURSOR_PARK_AGE 13
+static uint8_t _cursor_age[GFX_CURSOR_SLOTS] = {
+    CURSOR_PARK_AGE, CURSOR_PARK_AGE, CURSOR_PARK_AGE
+};
 
-/* Chip-RAM staging bank: all tiles, the two cursor sprite images, and a
- * zeroed blank mouse-pointer sprite (posctl + 1 line + terminator). */
+/* Chip-RAM staging bank: all tiles, per-slot cursor sprite images (each
+ * sprite needs its own copies — MoveSprite writes posctl words into the
+ * attached data), and a zeroed blank mouse-pointer sprite. */
 #define TILE_BYTES       (8 * 4 * sizeof(UWORD))       /* one 8x8x4 tile */
 #define TILE_BANK_BYTES  (TILE_COUNT * TILE_BYTES)
 #define CURSOR_SPR_BYTES (CURSOR_SPR_WORDS * sizeof(UWORD))
 #define BLANK_PTR_WORDS  6
 #define BLANK_PTR_BYTES  (BLANK_PTR_WORDS * sizeof(UWORD))
-#define CHIP_BANK_BYTES  (TILE_BANK_BYTES + 2 * CURSOR_SPR_BYTES + \
+#define CHIP_BANK_BYTES  (TILE_BANK_BYTES + \
+                          GFX_CURSOR_SLOTS * 2 * CURSOR_SPR_BYTES + \
                           BLANK_PTR_BYTES)
 static UWORD *_chip_bank;
-static UWORD *_chip_cursor_a;
-static UWORD *_chip_cursor_b;
+static UWORD *_chip_cursor[GFX_CURSOR_SLOTS][2];   /* [slot][alt] */
 static UWORD *_chip_blank_ptr;
 
 /* Mouse-aim handshake (see gfxcore.h). */
-static uint8_t _aim_active;
+static uint8_t _aim_mode;      /* GFX_AIM_* */
 static uint8_t _aim_players;
 static uint8_t _aim_x;
 static uint8_t _aim_y;
+static uint8_t _aim_ship_size;
+static uint8_t _aim_ship_vert;
 static uint8_t _pointer_blanked;
 
 /* Spare bitmap for saveScreenBuffer/restoreScreenBuffer (in-game menu). */
@@ -115,9 +126,13 @@ static struct Image _tile_img = {
 
 void gfx_close(void)
 {
-    if (_cursor_spr_got >= 0) {
-        FreeSprite(CURSOR_SPR_NUM);
-        _cursor_spr_got = -1;
+    uint8_t i;
+
+    for (i = 0; i < GFX_CURSOR_SLOTS; i++) {
+        if (_cursor_spr_got[i] >= 0) {
+            FreeSprite(CURSOR_SPR_FIRST + i);
+            _cursor_spr_got[i] = -1;
+        }
     }
     if (gfx_window) {
         CloseWindow(gfx_window);
@@ -167,11 +182,15 @@ uint8_t gfx_open(void)
         CopyMem((APTR)tile_table[i], dst, TILE_BYTES);
         dst += TILE_BYTES / sizeof(UWORD);
     }
-    _chip_cursor_a = dst;
-    CopyMem((APTR)cursor_spr_a, _chip_cursor_a, CURSOR_SPR_BYTES);
-    _chip_cursor_b = dst + CURSOR_SPR_WORDS;
-    CopyMem((APTR)cursor_spr_b, _chip_cursor_b, CURSOR_SPR_BYTES);
-    _chip_blank_ptr = _chip_cursor_b + CURSOR_SPR_WORDS;
+    for (i = 0; i < GFX_CURSOR_SLOTS; i++) {
+        _chip_cursor[i][0] = dst;
+        CopyMem((APTR)cursor_spr_a, dst, CURSOR_SPR_BYTES);
+        dst += CURSOR_SPR_WORDS;
+        _chip_cursor[i][1] = dst;
+        CopyMem((APTR)cursor_spr_b, dst, CURSOR_SPR_BYTES);
+        dst += CURSOR_SPR_WORDS;
+    }
+    _chip_blank_ptr = dst;
     memset(_chip_blank_ptr, 0, BLANK_PTR_BYTES);   /* invisible pointer */
 
     /* Save/restore buffer: the blitter reads it back on restore, so it
@@ -194,23 +213,33 @@ uint8_t gfx_open(void)
     if (!gfx_window)
         goto fail;
 
-    /* Attack cursor sprite. Sprites 2/3 take their colors from registers
-     * 21-23. A failed GetSprite just means no cursor overlay — the game
-     * stays playable, so don't treat it as fatal. */
-    _cursor_spr.x = 0;
-    _cursor_spr.y = 0;
-    _cursor_spr.height = CURSOR_SPR_HEIGHT;
-    _cursor_spr.num = 0;
-    _cursor_spr_got = GetSprite(&_cursor_spr, CURSOR_SPR_NUM);
-    if (_cursor_spr_got >= 0) {
-        for (i = 0; i < 3; i++)
-            SetRGB4(&_screen->ViewPort, 21 + i,
-                    (cursor_spr_rgb[i] >> 8) & 0xF,
-                    (cursor_spr_rgb[i] >> 4) & 0xF,
-                    cursor_spr_rgb[i] & 0xF);
-        ChangeSprite(&_screen->ViewPort, &_cursor_spr, (APTR)_chip_cursor_a);
-        gfx_cursor_hide();
+    /* Attack cursor sprites, one per possible enemy board. Sprite pairs
+     * share color registers (2/3 -> 21-23, 4/5 -> 25-27); load the cursor
+     * colors into both banks. A failed GetSprite just means that board
+     * loses its cursor overlay — the game stays playable, so don't treat
+     * it as fatal. */
+    for (i = 0; i < GFX_CURSOR_SLOTS; i++) {
+        _cursor_spr[i].x = 0;
+        _cursor_spr[i].y = 0;
+        _cursor_spr[i].height = CURSOR_SPR_HEIGHT;
+        _cursor_spr[i].num = 0;
+        _cursor_spr_got[i] = GetSprite(&_cursor_spr[i],
+                                       CURSOR_SPR_FIRST + i);
+        if (_cursor_spr_got[i] >= 0)
+            ChangeSprite(&_screen->ViewPort, &_cursor_spr[i],
+                         (APTR)_chip_cursor[i][0]);
     }
+    for (i = 0; i < 3; i++) {
+        SetRGB4(&_screen->ViewPort, 21 + i,
+                (cursor_spr_rgb[i] >> 8) & 0xF,
+                (cursor_spr_rgb[i] >> 4) & 0xF,
+                cursor_spr_rgb[i] & 0xF);
+        SetRGB4(&_screen->ViewPort, 25 + i,
+                (cursor_spr_rgb[i] >> 8) & 0xF,
+                (cursor_spr_rgb[i] >> 4) & 0xF,
+                cursor_spr_rgb[i] & 0xF);
+    }
+    gfx_cursor_hide();
 
     atexit(gfx_close);
     return 1;
@@ -272,21 +301,41 @@ void gfx_fill(uint8_t cx, uint8_t cy, uint8_t w, uint8_t h, uint8_t pen)
              (WORD)(cx + w) * CM_CELL_W - 1, (WORD)(cy + h) * CM_CELL_H - 1);
 }
 
-void gfx_cursor_move(uint8_t cx, uint8_t cy, uint8_t alt)
+void gfx_cursor_move(uint8_t slot, uint8_t cx, uint8_t cy, uint8_t alt)
 {
-    if (_cursor_spr_got < 0)
+    if (slot >= GFX_CURSOR_SLOTS || _cursor_spr_got[slot] < 0)
         return;
-    ChangeSprite(&_screen->ViewPort, &_cursor_spr,
-                 (APTR)(alt ? _chip_cursor_b : _chip_cursor_a));
-    MoveSprite(&_screen->ViewPort, &_cursor_spr,
+    _cursor_age[slot] = 0;
+    ChangeSprite(&_screen->ViewPort, &_cursor_spr[slot],
+                 (APTR)_chip_cursor[slot][alt ? 1 : 0]);
+    MoveSprite(&_screen->ViewPort, &_cursor_spr[slot],
                (WORD)cx * CM_CELL_W, (WORD)cy * CM_CELL_H);
 }
 
 void gfx_cursor_hide(void)
 {
-    if (_cursor_spr_got < 0)
-        return;
-    MoveSprite(&_screen->ViewPort, &_cursor_spr, 0, SCREEN_H + 16);
+    uint8_t i;
+
+    for (i = 0; i < GFX_CURSOR_SLOTS; i++) {
+        if (_cursor_spr_got[i] >= 0) {
+            _cursor_age[i] = CURSOR_PARK_AGE;
+            MoveSprite(&_screen->ViewPort, &_cursor_spr[i],
+                       0, SCREEN_H + 16);
+        }
+    }
+}
+
+void gfx_cursor_sweep(void)
+{
+    uint8_t i;
+
+    for (i = 0; i < GFX_CURSOR_SLOTS; i++) {
+        if (_cursor_spr_got[i] < 0 || _cursor_age[i] >= CURSOR_PARK_AGE)
+            continue;
+        if (++_cursor_age[i] == CURSOR_PARK_AGE)
+            MoveSprite(&_screen->ViewPort, &_cursor_spr[i],
+                       0, SCREEN_H + 16);
+    }
 }
 
 uint8_t gfx_save_screen(void)
@@ -308,26 +357,43 @@ void gfx_restore_screen(void)
 
 void gfx_aim_set(uint8_t player_count, uint8_t cell_x, uint8_t cell_y)
 {
-    _aim_active = 1;
+    _aim_mode = GFX_AIM_ATTACK;
     _aim_players = player_count;
     _aim_x = cell_x;
     _aim_y = cell_y;
 }
 
+void gfx_aim_set_place(uint8_t player_count, uint8_t cell_x, uint8_t cell_y,
+                       uint8_t ship_size, uint8_t ship_vertical)
+{
+    _aim_mode = GFX_AIM_PLACE;
+    _aim_players = player_count;
+    _aim_x = cell_x;
+    _aim_y = cell_y;
+    _aim_ship_size = ship_size;
+    _aim_ship_vert = ship_vertical;
+}
+
 void gfx_aim_clear(void)
 {
-    _aim_active = 0;
+    _aim_mode = GFX_AIM_NONE;
     gfx_pointer_blank(0);
 }
 
 uint8_t gfx_aim_get(uint8_t *player_count, uint8_t *cell_x, uint8_t *cell_y)
 {
-    if (!_aim_active)
-        return 0;
+    if (_aim_mode == GFX_AIM_NONE)
+        return GFX_AIM_NONE;
     *player_count = _aim_players;
     *cell_x = _aim_x;
     *cell_y = _aim_y;
-    return 1;
+    return _aim_mode;
+}
+
+void gfx_aim_get_ship(uint8_t *ship_size, uint8_t *ship_vertical)
+{
+    *ship_size = _aim_ship_size;
+    *ship_vertical = _aim_ship_vert;
 }
 
 void gfx_pointer_blank(uint8_t blank)

@@ -44,3 +44,33 @@ uint8_t mm_chase_bits(uint8_t cur_x, uint8_t cur_y,
         bits |= MM_DOWN;
     return bits;
 }
+
+uint8_t mm_place_cell(uint8_t player_count, int16_t px, int16_t py,
+                      uint8_t *cell_x, uint8_t *cell_y)
+{
+    uint8_t ox, oy;
+    int16_t dx, dy;
+
+    cm_quadrant_origin(player_count, 0, &ox, &oy);
+    dx = px - CM_PX(ox);
+    dy = py - CM_PY(oy);
+    if (dx < 0 || dy < 0 || dx >= 10 * CM_CELL_W || dy >= 10 * CM_CELL_H)
+        return 0;
+    *cell_x = (uint8_t)(dx / CM_CELL_W);
+    *cell_y = (uint8_t)(dy / CM_CELL_H);
+    return 1;
+}
+
+void mm_clamp_origin(uint8_t size, uint8_t vertical,
+                     uint8_t *cell_x, uint8_t *cell_y)
+{
+    uint8_t max = (uint8_t)(10 - size);
+
+    if (vertical) {
+        if (*cell_y > max)
+            *cell_y = max;
+    } else {
+        if (*cell_x > max)
+            *cell_x = max;
+    }
+}
