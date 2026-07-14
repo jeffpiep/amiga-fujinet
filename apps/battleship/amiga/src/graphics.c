@@ -62,6 +62,7 @@ void resetScreen(void)
 
 void waitvsync(void)
 {
+    gfx_cursor_sweep();
     WaitTOF();
 }
 
@@ -290,9 +291,12 @@ void drawGamefieldCursor(uint8_t quadrant, uint8_t x, uint8_t y,
 
     (void)gamefield;
     cm_quadrant_origin(playerCount_g, quadrant, &ox, &oy);
-    /* blink is a 0..2 frame index — flip to the alternate sprite image on
+    /* One cursor sprite per enemy board — upstream draws the cursor on
+     * every surviving opponent each frame (quadrants 1..3 -> slots 0..2).
+     * blink is a 0..2 frame index — flip to the alternate sprite image on
      * the last phase for a soft two-tone pulse. */
-    gfx_cursor_move(ox + x, oy + y, (uint8_t)(blink >= 2));
+    gfx_cursor_move(quadrant > 0 ? (uint8_t)(quadrant - 1) : 0,
+                    ox + x, oy + y, (uint8_t)(blink >= 2));
     /* The game is aiming: arm mouse targeting (input.c chases the hovered
      * enemy-field cell and maps clicks to the trigger). */
     gfx_aim_set(playerCount_g, x, y);

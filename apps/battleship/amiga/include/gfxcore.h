@@ -51,10 +51,17 @@ void gfx_text(uint8_t cx, uint8_t cy, const char *s, uint8_t pen, uint8_t bpen);
 /* Fill a w x h cell rectangle with a pen. */
 void gfx_fill(uint8_t cx, uint8_t cy, uint8_t w, uint8_t h, uint8_t pen);
 
-/* Attack cursor sprite. alt selects the blink image. Move parks it over a
- * cell; hide parks it below the visible raster. */
-void gfx_cursor_move(uint8_t cx, uint8_t cy, uint8_t alt);
+/* Attack cursor sprites — one per possible enemy board, so the reticle
+ * shows on every surviving opponent in 3-4 player games (upstream draws
+ * it once per enemy quadrant each frame). slot = quadrant - 1 (0..2).
+ * alt selects the blink image. Hide parks all below the visible raster. */
+#define GFX_CURSOR_SLOTS 3
+void gfx_cursor_move(uint8_t slot, uint8_t cx, uint8_t cy, uint8_t alt);
 void gfx_cursor_hide(void);
+/* Frame tick (called from waitvsync): parks any cursor sprite that has
+ * not been moved for ~a blink period — upstream silently stops drawing
+ * the cursor on eliminated opponents' boards. */
+void gfx_cursor_sweep(void);
 
 /* Whole-screen save/restore for the in-game menu (spare chip bitmap). */
 uint8_t gfx_save_screen(void);
