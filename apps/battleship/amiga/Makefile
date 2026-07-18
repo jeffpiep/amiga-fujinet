@@ -48,6 +48,24 @@ $(TARGET): $(SRCS) $(COMPAT_LIB) $(NIO_ALIB)
 strip: $(TARGET)
 	python3 $(STRIP_SYMS) $<
 
+# ---- Art-pass tile gallery (preview harness, docs/plan-track1b-battleship.md) ----
+# Standalone: gfxcore.c + tiles.h, no upstream game. `make tilegallery` builds
+# the binary; `make gallery-adf` wraps it in a bootable ADF via the emu tooling.
+GALLERY        = tilegallery
+GALLERY_SRCS   = src/gallery_main.c src/gfxcore.c
+_GALLERY_ADF   = $(CURDIR)/$(GALLERY).adf
+
+$(GALLERY): $(GALLERY_SRCS)
+	$(CC) $(CFLAGS) $(INCLUDES) -Wl,-x -o $@ $(GALLERY_SRCS)
+
+gallery-adf: $(GALLERY)
+	APP_NAME=$(GALLERY) \
+	APP_BINARY=$(abspath $(GALLERY)) \
+	ADF_OUT=$(_GALLERY_ADF) \
+	../../../emu/scripts/build-adf.sh
+
+.PHONY: gallery-adf
+
 include ../../../emu/template/emu.mk
 
 # ---- T1 host unit tests (docs/testing.md) ----
@@ -65,6 +83,6 @@ test-host: $(HOST_TESTS)
 	@fail=0; for t in $(HOST_TESTS); do echo "== $$t =="; ./$$t || fail=1; done; exit $$fail
 
 clean:
-	rm -f $(TARGET) $(HOST_TESTS)
+	rm -f $(TARGET) $(GALLERY) $(_GALLERY_ADF) $(HOST_TESTS)
 
 .PHONY: all clean strip test-host

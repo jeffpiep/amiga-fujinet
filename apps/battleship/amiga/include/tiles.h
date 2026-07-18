@@ -27,8 +27,10 @@
 /* ---- Palette (12-bit RGB4, LoadRGB4 order, indexed by PEN_*) ---- */
 
 static const uint16_t tile_palette[16] = {
+    /* 0 BG   1 TEXT 2 SEA  3 HIT  4 SHIP 5 ALT  6 DIM  7 SEA_DK */
     0x000, 0xFFF, 0x05A, 0xD22, 0x2C4, 0xFC3, 0x888, 0x038,
-    0xF80, 0x0DE, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000
+    /* 8 EXPL 9 CONN 10 SHIP_HI 11 SHIP_SHD 12 SEA_LT 13 FOAM 14 WOOD 15 - */
+    0xF80, 0x0DE, 0x6E8,   0x182,    0x4BE,  0xDEF,   0x963, 0x000
 };
 
 /* ---- 2-color tile composer ---- */
@@ -50,6 +52,35 @@ static const uint16_t tile_palette[16] = {
     TPLANE(1, fg, bg, r0, r1, r2, r3, r4, r5, r6, r7),      \
     TPLANE(2, fg, bg, r0, r1, r2, r3, r4, r5, r6, r7),      \
     TPLANE(3, fg, bg, r0, r1, r2, r3, r4, r5, r6, r7) }
+
+/* ---- Multicolor tile composer (art pass) ----
+ *
+ * Author a full-color tile as an 8x8 grid of pen numbers (0-15), one pen per
+ * pixel, left-to-right then top-to-bottom (64 values). TILE_MC expands them
+ * into the same 32-word / 4-plane struct Image layout TILE_PAT produces, so a
+ * multicolor tile drops into tile_table[] with no engine change. Use this for
+ * hero tiles (sea, ships); keep TILE_PAT for flat 2-color art. */
+
+/* One plane row: pack 8 pens' bit `pl` into a byte, MSB = leftmost pixel. */
+#define MROW(pl, q0, q1, q2, q3, q4, q5, q6, q7) \
+    ((uint16_t)( ((((q0) >> (pl)) & 1) << 7) | ((((q1) >> (pl)) & 1) << 6) | \
+                 ((((q2) >> (pl)) & 1) << 5) | ((((q3) >> (pl)) & 1) << 4) | \
+                 ((((q4) >> (pl)) & 1) << 3) | ((((q5) >> (pl)) & 1) << 2) | \
+                 ((((q6) >> (pl)) & 1) << 1) |  (((q7) >> (pl)) & 1) ) << 8)
+
+#define MPLANE(pl, \
+    a0,a1,a2,a3,a4,a5,a6,a7, b0,b1,b2,b3,b4,b5,b6,b7, \
+    c0,c1,c2,c3,c4,c5,c6,c7, d0,d1,d2,d3,d4,d5,d6,d7, \
+    e0,e1,e2,e3,e4,e5,e6,e7, f0,f1,f2,f3,f4,f5,f6,f7, \
+    g0,g1,g2,g3,g4,g5,g6,g7, h0,h1,h2,h3,h4,h5,h6,h7) \
+    MROW(pl,a0,a1,a2,a3,a4,a5,a6,a7), MROW(pl,b0,b1,b2,b3,b4,b5,b6,b7), \
+    MROW(pl,c0,c1,c2,c3,c4,c5,c6,c7), MROW(pl,d0,d1,d2,d3,d4,d5,d6,d7), \
+    MROW(pl,e0,e1,e2,e3,e4,e5,e6,e7), MROW(pl,f0,f1,f2,f3,f4,f5,f6,f7), \
+    MROW(pl,g0,g1,g2,g3,g4,g5,g6,g7), MROW(pl,h0,h1,h2,h3,h4,h5,h6,h7)
+
+#define TILE_MC(...) { \
+    MPLANE(0, __VA_ARGS__), MPLANE(1, __VA_ARGS__), \
+    MPLANE(2, __VA_ARGS__), MPLANE(3, __VA_ARGS__) }
 
 /* ---- Placeholder tiles ---- */
 
