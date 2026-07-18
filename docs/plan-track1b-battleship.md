@@ -2,7 +2,7 @@
 
 **Depends on:** Track 1A (`libfn_compat_amiga.a`) must be complete and tested  
 **Blocks:** nothing  
-**Status:** In progress (2026-07-12) — Phases 1–2 complete; 3a (joystick) and 3b (sound) done. 3c graphical renderer: scaffolding complete — tile engine on a custom 320×200×4 screen (gfxcore/cellmap/tiles.h, IDCMP keyboard, sprite cursor), full game verified in the emulator with placeholder art. Art pass (Atari-modeled tiles/font/palette, edits confined to `tiles.h` + a compiled font) remains. Phase 4 (ADF/real-hardware testing) open.
+**Status:** In progress (2026-07-18) — Phases 1–2 complete; 3a (joystick) and 3b (sound) done. 3c graphical renderer: scaffolding complete — tile engine on a custom 320×200×4 screen (gfxcore/cellmap/tiles.h, IDCMP keyboard, sprite cursor), full game verified in the emulator with placeholder art. Mouse control merged: aiming (#21) and ship placement (#23). Art pass (Atari-modeled tiles/font/palette, edits confined to `tiles.h` + a compiled font) remains. Phase 4 (ADF/real-hardware testing) open.
 
 ---
 
@@ -233,18 +233,19 @@ Phase 3 completion also unblocks the upstream port PR — see
       scaffolding verified in emulator 2026-07-12 (lobby, placement, gameplay
       with hits/misses/sunk legend, sprite cursor, in-game menu save/restore);
       placeholder art — Atari-modeled art pass pending
-- [x] Mouse aiming (Phase 3c extension) — hover an enemy field to snap the
-      attack cursor to the cell (Intuition pointer blanks over the field),
-      left-click fires; coexists live with joystick/keyboard, platform-layer
-      only (mousemap.c chase bits blended into readJoystick()). Verified in
-      emulator 2026-07-13: hover-snap, pointer blank, click fired at the
-      hovered cell, aim cleared on turn end
-- [x] Mouse ship placement — drag the moving ship with the mouse over the
-      own board (origin follows the hovered cell, clamped so the ship stays
-      on the board), R rotates, click places. Placement aim is armed by the
-      hide-draws unique to the placement blink cycle (drawShip hook), so no
-      upstream changes. Verified in emulator 2026-07-13: drag, edge clamp,
-      rotate, click-place, auto re-arm on the next ship
+- [x] Mouse aiming (Phase 3c extension) — merged 2026-07-13 (#21) — hover an
+      enemy field to snap the attack cursor to the cell (Intuition pointer
+      blanks over the field), left-click fires; coexists live with
+      joystick/keyboard, platform-layer only (mousemap.c chase bits blended
+      into readJoystick()). Verified in emulator 2026-07-13: hover-snap,
+      pointer blank, click fired at the hovered cell, aim cleared on turn end
+- [x] Mouse ship placement — merged 2026-07-18 (#23) — drag the moving ship
+      with the mouse over the own board (origin follows the hovered cell,
+      clamped so the ship stays on the board), R rotates, click places.
+      Placement aim is armed by the hide-draws unique to the placement blink
+      cycle (drawShip hook), so no upstream changes. Verified in emulator
+      2026-07-13: drag, edge clamp, rotate, click-place, auto re-arm on the
+      next ship
 - [ ] Boots from ADF in emulator, plays full game (Phase 4)
 - [ ] Tested on real Amiga 500 + PiStorm (Phase 4)
 - [~] Player name persisted via AppKey/ENVARC: (name loads each boot from a
