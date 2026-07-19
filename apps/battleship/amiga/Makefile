@@ -53,9 +53,13 @@ strip: $(TARGET)
 # the binary; `make gallery-adf` wraps it in a bootable ADF via the emu tooling.
 GALLERY        = tilegallery
 GALLERY_SRCS   = src/gallery_main.c src/gfxcore.c
+# tiles.h (the art surface) is #included, not compiled — list the headers as
+# prerequisites so editing a tile actually rebuilds the binary (and thus the
+# ADF). Without this, `make gallery-adf` silently packages the stale binary.
+GALLERY_HDRS   = include/tiles.h include/gfxcore.h include/cellmap.h include/amiga_vars.h
 _GALLERY_ADF   = $(CURDIR)/$(GALLERY).adf
 
-$(GALLERY): $(GALLERY_SRCS)
+$(GALLERY): $(GALLERY_SRCS) $(GALLERY_HDRS)
 	$(CC) $(CFLAGS) $(INCLUDES) -Wl,-x -o $@ $(GALLERY_SRCS)
 
 gallery-adf: $(GALLERY)
