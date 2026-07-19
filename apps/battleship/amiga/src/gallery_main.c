@@ -3,8 +3,9 @@
  *
  * Standalone boot-to-grid preview: links gfxcore.c + tiles.h WITHOUT the
  * upstream game, opens the same 320x200x4 screen the renderer uses, and draws
- * every tile, the 16-entry palette, and the attack-cursor sprite at once so an
- * edit to tiles.h is a one-loop `rebuild -> look`. Any key exits.
+ * every tile MAGNIFIED (each 8x8 tile blown up 3x via RectFill so pixels are
+ * legible), the 16-entry palette, and the attack-cursor sprite. One edit to
+ * tiles.h is a single `rebuild -> look` loop. Any key exits.
  *
  * Build:  make tilegallery
  * Boot :  make gallery-adf   then boot tilegallery.adf in FS-UAE
@@ -14,12 +15,17 @@
 #include <exec/types.h>
 #include <exec/ports.h>
 #include <intuition/intuition.h>
+#include <graphics/rastport.h>
 
 #include <proto/exec.h>
+#include <proto/graphics.h>
 
 #include "gfxcore.h"
-#include "cellmap.h"      /* TILE_COUNT */
+#include "cellmap.h"      /* TILE_COUNT   */
+#include "tiles.h"        /* tile_table[] */
 #include "amiga_vars.h"
+
+#define ZOOM 3            /* magnify each 8x8 tile to 24x24 px */
 
 /* Two-digit decimal (0..99) into a 3-byte buffer. */
 static void num2(char *b, uint8_t n)
@@ -27,6 +33,43 @@ static void num2(char *b, uint8_t n)
     b[0] = (char)('0' + (n / 10) % 10);
     b[1] = (char)('0' + n % 10);
     b[2] = '\0';
+}
+
+/* Decode one pixel's pen (0..15) from a 32-word / 4-plane tile. Leftmost
+ * pixel is bit 15 (tiles are 8 wide, data in the high byte). */
+static uint8_t tile_pixel(const uint16_t *t, int col, int row)
+{
+    uint8_t pen = 0;
+    int pl;
+    for (pl = 0; pl < 4; pl++)
+        if ((t[pl * 8 + row] >> (15 - col)) & 1)
+            pen = (uint8_t)(pen | (1 << pl));
+    return pen;
+}
+
+/* Blit a tile magnified `z`x at pixel (px, py) using solid pen rects. */
+static void draw_tile_z(const uint16_t *t, int px, int py, int z)
+{
+    struct RastPort *rp = gfx_window->RPort;
+    int row, col;
+    for (row = 0; row < 8; row++) {
+        for (col = 0; col < 8; col++) {
+            int x = px + col * z;
+            int y = py + row * z;
+            SetAPen(rp, tile_pixel(t, col, row));
+            RectFill(rp, x, y, x + z - 1, y + z - 1);
+        }
+    }
+}
+
+/* Draw an nx-by-ny contiguous array of one tile (no gaps) so a repeating
+ * pattern's edges meet — reveals seams in tiles like water that fill a board. */
+static void draw_tiled(const uint16_t *t, int px, int py, int nx, int ny, int z)
+{
+    int tx, ty;
+    for (ty = 0; ty < ny; ty++)
+        for (tx = 0; tx < nx; tx++)
+            draw_tile_z(t, px + tx * 8 * z, py + ty * 8 * z, z);
 }
 
 /* Block until a key press on the backdrop window's IDCMP port. */
@@ -54,7 +97,7 @@ int main(void)
     if (!gfx_open())
         return 20;
 
-    gfx_text(1, 0, "TILE GALLERY - press any key", PEN_TEXT, PEN_BG);
+    gfx_text(1, 0, "TILE GALLERY (3x) - press any key", PEN_TEXT, PEN_BG);
 
     /* Palette strip: pens 0..15 as 2-wide swatches with index labels. */
     for (id = 0; id < 16; id++) {
@@ -63,16 +106,22 @@ int main(void)
         gfx_text((uint8_t)(1 + id * 2), 3, lbl, PEN_TEXT, PEN_BG);
     }
 
-    /* Tile grid: 8 per row, each in a 5x3 cell block (tile + id label). */
+    /* Tile grid: 7 per row in a 4-cell-wide block (3x tile + id label); the
+     * right margin (cols 28-39) is reserved for the tiled sea preview. */
     for (id = 0; id < TILE_COUNT; id++) {
-        uint8_t col = (uint8_t)(1 + (id % 8) * 5);
-        uint8_t row = (uint8_t)(5 + (id / 8) * 3);
-        gfx_draw_tile(col, row, id);
+        uint8_t cell_x = (uint8_t)((id % 7) * 4);
+        uint8_t cell_y = (uint8_t)(5 + (id / 7) * 4);
+        draw_tile_z(tile_table[id], cell_x * 8, cell_y * 8, ZOOM);
         num2(lbl, id);
-        gfx_text(col, (uint8_t)(row + 1), lbl, PEN_TEXT_ALT, PEN_BG);
+        gfx_text(cell_x, (uint8_t)(cell_y + 3), lbl, PEN_TEXT_ALT, PEN_BG);
     }
 
-    /* Attack-cursor sprite sample, bottom-left. */
+    /* Tiled sea preview: 4x4 array of TILE_SEA at 2x, contiguous, in the
+     * right margin so its repeating pattern's seams are visible. */
+    gfx_text(29, 4, "SEA 4x4", PEN_TEXT, PEN_BG);
+    draw_tiled(tile_table[TILE_SEA], 29 * 8, 5 * 8, 4, 4, 2);
+
+    /* Attack-cursor sprite sample (drawn at native size), bottom-left. */
     gfx_cursor_move(0, 2, 23, 0);
 
     wait_key();
