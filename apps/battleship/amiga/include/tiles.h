@@ -167,6 +167,18 @@ static const uint16_t tile_hit2[32] = TILE_PAT(PEN_TEXT, PEN_SEA,
     0x42,  /* 01000010 */
     0x81); /* 10000001 */
 
+/* Hit on one of your own ships: red X on the gray hull (distinct from
+ * tile_hit's red X on sea). See docs/handoff-own-ship-hit-tile.md. */
+static const uint16_t tile_hit_ship[32] = TILE_PAT(PEN_HIT, PEN_SHIP,
+    0x81,  /* 10000001 */
+    0x42,  /* 01000010 */
+    0x24,  /* 00100100 */
+    0x18,  /* 00011000 */
+    0x18,  /* 00011000 */
+    0x24,  /* 00100100 */
+    0x42,  /* 01000010 */
+    0x81); /* 10000001 */
+
 static const uint16_t tile_legend_hit[32] = TILE_PAT(PEN_HIT, PEN_BG,
     0x81,  /* 10000001 */
     0x42,  /* 01000010 */
@@ -452,6 +464,7 @@ static const uint16_t *tile_table[TILE_COUNT] = {
     tile_clock,        /* TILE_CLOCK        */
     tile_conn_on,      /* TILE_CONN_ON      */
     tile_conn_off,     /* TILE_CONN_OFF     */
+    tile_hit_ship,     /* TILE_HIT_SHIP     */
 };
 
 /* ---- Attack cursor (hardware sprite 2, colors from registers 21-23) ----

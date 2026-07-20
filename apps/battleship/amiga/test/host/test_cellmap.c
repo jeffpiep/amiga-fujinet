@@ -72,20 +72,33 @@ int main(void)
     CHECK_EQ(cm_ship_tile(1, 3, 1), TILE_SHIP_MID_V);
     CHECK_EQ(cm_ship_tile(2, 3, 1), TILE_SHIP_STERN_V);
 
-    /* Field overlay tiles. */
-    CHECK_EQ(cm_field_tile(0), TILE_SEA);
-    CHECK_EQ(cm_field_tile(CM_FIELD_ATTACK), TILE_HIT);
-    CHECK_EQ(cm_field_tile(CM_FIELD_MISS), TILE_MISS);
+    /* Field overlay tiles (off-ship). */
+    CHECK_EQ(cm_field_tile(0, 0), TILE_SEA);
+    CHECK_EQ(cm_field_tile(CM_FIELD_ATTACK, 0), TILE_HIT);
+    CHECK_EQ(cm_field_tile(CM_FIELD_MISS, 0), TILE_MISS);
+
+    /* on_ship swaps only the settled hit to the hull tile; misses and sea
+     * over a ship are unchanged (a miss is always water). */
+    CHECK_EQ(cm_field_tile(CM_FIELD_ATTACK, 1), TILE_HIT_SHIP);
+    CHECK_EQ(cm_field_tile(CM_FIELD_MISS, 1), TILE_MISS);
+    CHECK_EQ(cm_field_tile(0, 1), TILE_SEA);
 
     /* Update tiles: anim>9 = explosion frames (clamped), anim 1..9 blinks
      * a hit, anim 0 = final state. */
-    CHECK_EQ(cm_update_tile(CM_FIELD_ATTACK, 10), TILE_ANIM_0);
-    CHECK_EQ(cm_update_tile(CM_FIELD_ATTACK, 15), TILE_ANIM_5);
-    CHECK_EQ(cm_update_tile(CM_FIELD_ATTACK, 200), TILE_ANIM_5);
-    CHECK_EQ(cm_update_tile(CM_FIELD_ATTACK, 1), TILE_HIT2);
-    CHECK_EQ(cm_update_tile(CM_FIELD_ATTACK, 0), TILE_HIT);
-    CHECK_EQ(cm_update_tile(CM_FIELD_MISS, 0), TILE_MISS);
-    CHECK_EQ(cm_update_tile(0, 0), TILE_SEA);
+    CHECK_EQ(cm_update_tile(CM_FIELD_ATTACK, 10, 0), TILE_ANIM_0);
+    CHECK_EQ(cm_update_tile(CM_FIELD_ATTACK, 15, 0), TILE_ANIM_5);
+    CHECK_EQ(cm_update_tile(CM_FIELD_ATTACK, 200, 0), TILE_ANIM_5);
+    CHECK_EQ(cm_update_tile(CM_FIELD_ATTACK, 1, 0), TILE_HIT2);
+    CHECK_EQ(cm_update_tile(CM_FIELD_ATTACK, 0, 0), TILE_HIT);
+    CHECK_EQ(cm_update_tile(CM_FIELD_MISS, 0, 0), TILE_MISS);
+    CHECK_EQ(cm_update_tile(0, 0, 0), TILE_SEA);
+
+    /* on_ship: settled hit -> hull tile; explosion frames and blink and
+     * miss are unaffected. */
+    CHECK_EQ(cm_update_tile(CM_FIELD_ATTACK, 0, 1), TILE_HIT_SHIP);
+    CHECK_EQ(cm_update_tile(CM_FIELD_ATTACK, 1, 1), TILE_HIT2);
+    CHECK_EQ(cm_update_tile(CM_FIELD_ATTACK, 10, 1), TILE_ANIM_0);
+    CHECK_EQ(cm_update_tile(CM_FIELD_MISS, 0, 1), TILE_MISS);
 
     return fn_test_report("test_cellmap");
 }
