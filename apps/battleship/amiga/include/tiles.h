@@ -27,10 +27,10 @@
 /* ---- Palette (12-bit RGB4, LoadRGB4 order, indexed by PEN_*) ---- */
 
 static const uint16_t tile_palette[16] = {
-    /* 0 BG   1 TEXT 2 SEA  3 HIT  4 SHIP 5 ALT  6 DIM  7 SEA_DK */
-    0x000, 0xFFF, 0x05A, 0xD22, 0x2C4, 0xFC3, 0x888, 0x038,
+    /*0 BG  1 TEXT 2 SEA  3 HIT  4 SHIP 5 ALT  6 DIM  7 SEA_DK */
+     0x000, 0xFFF, 0x05A, 0xD22, 0x2C4, 0xFC3, 0x888, 0x038,
     /* 8 EXPL 9 CONN 10 SHIP_HI 11 SHIP_SHD 12 SEA_LT 13 FOAM 14 WOOD 15 - */
-    0xF80, 0x0DE, 0x6E8,   0x182,    0x4BE,  0xDEF,   0x963, 0x000
+       0xF80, 0x0DE, 0x6E8,     0x182,      0x4BE,    0xABF,  0x963,  0x000
 };
 
 /* ---- 2-color tile composer ---- */
@@ -59,7 +59,34 @@ static const uint16_t tile_palette[16] = {
  * pixel, left-to-right then top-to-bottom (64 values). TILE_MC expands them
  * into the same 32-word / 4-plane struct Image layout TILE_PAT produces, so a
  * multicolor tile drops into tile_table[] with no engine change. Use this for
- * hero tiles (sea, ships); keep TILE_PAT for flat 2-color art. */
+ * hero tiles (sea, ships); keep TILE_PAT for flat 2-color art.
+ *
+ * Each value is a PEN_* number (see gfxcore.h) — its *color* comes from
+ * tile_palette[] above. You write pens, not colors. Lay the 64 values out as
+ * eight rows of eight so the source reads like the picture; whitespace and the
+ * row grouping are cosmetic (the preprocessor just sees 64 comma-separated
+ * values). Example — a sea tile with a diagonal foam streak and one bright
+ * crest pixel (S = PEN_SEA water, D = PEN_SEA_DK trough, F = PEN_FOAM):
+ *
+ *     #define S PEN_SEA
+ *     #define D PEN_SEA_DK
+ *     #define F PEN_FOAM
+ *     static const uint16_t tile_sea[32] = TILE_MC(
+ *         F, S, S, S, S, S, S, D,     row 0: crest at top-left, trough at right
+ *         S, F, S, S, S, S, D, S,     rows 1-6: foam streak runs down-right,
+ *         S, S, F, S, S, D, S, S,                the darker trough mirrors it
+ *         S, S, S, F, D, S, S, S,
+ *         S, S, S, D, F, S, S, S,
+ *         S, S, D, S, S, F, S, S,
+ *         S, D, S, S, S, S, F, S,
+ *         D, S, S, S, S, S, S, F);    row 7
+ *     #undef S
+ *     #undef D
+ *     #undef F
+ *
+ * The single-letter #defines are optional but make the grid legible; undef
+ * them after each tile (or reuse a shared set) so they do not leak. A pen you
+ * use must have a real color in tile_palette[] — an all-zero slot draws black. */
 
 /* One plane row: pack 8 pens' bit `pl` into a byte, MSB = leftmost pixel. */
 #define MROW(pl, q0, q1, q2, q3, q4, q5, q6, q7) \
@@ -94,15 +121,21 @@ static const uint16_t tile_blank[32] = TILE_PAT(PEN_BG, PEN_BG,
     0x00,  /* 00000000 */
     0x00); /* 00000000 */
 
-static const uint16_t tile_sea[32] = TILE_PAT(PEN_SEA_DK, PEN_SEA,
-    0x00,  /* 00000000 */
-    0x00,  /* 00000000 */
-    0x04,  /* 00000100 */
-    0x00,  /* 00000000 */
-    0x00,  /* 00000000 */
-    0x20,  /* 00100000 */
-    0x00,  /* 00000000 */
-    0x00); /* 00000000 */
+#define S PEN_SEA
+#define D PEN_SEA_DK
+#define F PEN_FOAM
+static const uint16_t tile_sea[32] = TILE_MC(
+    D, D, D, D, D, D, D, D,     //row 0: crest at top-left, trough at right
+    D, S, S, S, S, S, S, S,     //rows 1-6: foam streak runs down-right,
+    D, S, S, S, S, S, S, S,    //            the darker trough mirrors it
+    D, S, F, S, S, S, S, S,
+    D, S, S, S, S, S, S, S,
+    D, S, S, S, S, F, S, S,
+    D, S, S, S, S, S, S, S,
+    D, S, S, S, S, S, S, S);    //row 7
+#undef S
+#undef D
+#undef F
 
 static const uint16_t tile_miss[32] = TILE_PAT(PEN_TEXT, PEN_SEA,
     0x00,  /* 00000000 */
