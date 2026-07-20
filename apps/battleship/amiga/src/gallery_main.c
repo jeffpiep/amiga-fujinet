@@ -62,16 +62,6 @@ static void draw_tile_z(const uint16_t *t, int px, int py, int z)
     }
 }
 
-/* Draw an nx-by-ny contiguous array of one tile (no gaps) so a repeating
- * pattern's edges meet — reveals seams in tiles like water that fill a board. */
-static void draw_tiled(const uint16_t *t, int px, int py, int nx, int ny, int z)
-{
-    int tx, ty;
-    for (ty = 0; ty < ny; ty++)
-        for (tx = 0; tx < nx; tx++)
-            draw_tile_z(t, px + tx * 8 * z, py + ty * 8 * z, z);
-}
-
 /* Block until a key press on the backdrop window's IDCMP port. */
 static void wait_key(void)
 {
@@ -116,10 +106,24 @@ int main(void)
         gfx_text(cell_x, (uint8_t)(cell_y + 3), lbl, PEN_TEXT_ALT, PEN_BG);
     }
 
-    /* Tiled sea preview: 4x4 array of TILE_SEA at 2x, contiguous, in the
-     * right margin so its repeating pattern's seams are visible. */
-    gfx_text(29, 4, "SEA 4x4", PEN_TEXT, PEN_BG);
-    draw_tiled(tile_table[TILE_SEA], 29 * 8, 5 * 8, 4, 4, 2);
+    /* Sea + ships preview: a 4x4 water matrix with an assembled horizontal
+     * ship (bow-mid-stern) along the bottom row and a vertical ship down the
+     * right column, so the tile joints and the ship-on-water look can be
+     * judged in context. Drawn 3x in the right margin. */
+    {
+        static const uint8_t layout[4][4] = {
+            { TILE_SEA,         TILE_SEA,         TILE_SEA,           TILE_SHIP_BOW_V   },
+            { TILE_SEA,         TILE_SEA,         TILE_SEA,           TILE_SHIP_MID_V   },
+            { TILE_SEA,         TILE_SEA,         TILE_SEA,           TILE_SHIP_STERN_V },
+            { TILE_SHIP_BOW_H,  TILE_SHIP_MID_H,  TILE_SHIP_STERN_H,  TILE_SEA          },
+        };
+        int r, c;
+        const int z = 3, ox = 28 * 8, oy = 6 * 8;
+        gfx_text(28, 5, "SHIPS+SEA", PEN_TEXT, PEN_BG);
+        for (r = 0; r < 4; r++)
+            for (c = 0; c < 4; c++)
+                draw_tile_z(tile_table[layout[r][c]], ox + c * 8 * z, oy + r * 8 * z, z);
+    }
 
     /* Attack-cursor sprite sample (drawn at native size), bottom-left. */
     gfx_cursor_move(0, 2, 23, 0);
