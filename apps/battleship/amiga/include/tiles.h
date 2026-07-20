@@ -28,9 +28,9 @@
 
 static const uint16_t tile_palette[16] = {
     /*0 BG  1 TEXT 2 SEA  3 HIT  4 SHIP 5 ALT  6 DIM  7 SEA_DK */
-     0x000, 0xFFF, 0x05A, 0xD22, 0x2C4, 0xFC3, 0x888, 0x038,
+     0x000, 0xFFF, 0x05A, 0xD22, 0x888, 0xFC3, 0x888, 0x038,
     /* 8 EXPL 9 CONN 10 SHIP_HI 11 SHIP_SHD 12 SEA_LT 13 FOAM 14 WOOD 15 - */
-       0xF80, 0x0DE, 0x6E8,     0x182,      0x4BE,    0xABF,  0x963,  0x000
+       0xF80, 0x0DE, 0xBBB,     0x444,      0x4BE,    0xABF,  0x963,  0x000
 };
 
 /* ---- 2-color tile composer ---- */
@@ -177,65 +177,77 @@ static const uint16_t tile_legend_hit[32] = TILE_PAT(PEN_HIT, PEN_BG,
     0x42,  /* 01000010 */
     0x81); /* 10000001 */
 
-static const uint16_t tile_ship_bow_h[32] = TILE_PAT(PEN_SHIP, PEN_SEA,
-    0x00,  /* 00000000 */
-    0x3F,  /* 00111111 */
-    0x7F,  /* 01111111 */
-    0xFF,  /* 11111111 */
-    0xFF,  /* 11111111 */
-    0x7F,  /* 01111111 */
-    0x3F,  /* 00111111 */
-    0x00); /* 00000000 */
+#define W PEN_SEA
+#define D PEN_SEA_DK
+#define S PEN_SHIP
+#define H PEN_SHIP_HI
+#define L PEN_SHIP_SHD
 
-static const uint16_t tile_ship_mid_h[32] = TILE_PAT(PEN_SHIP, PEN_SEA,
-    0x00,  /* 00000000 */
-    0xFF,  /* 11111111 */
-    0xFF,  /* 11111111 */
-    0xFF,  /* 11111111 */
-    0xFF,  /* 11111111 */
-    0xFF,  /* 11111111 */
-    0xFF,  /* 11111111 */
-    0x00); /* 00000000 */
+static const uint16_t tile_ship_mid_h[32] = TILE_MC(
+    D, D, D, D, D, D, D, D,
+    L, L, L, L, L, L, L, L,
+    S, S, S, S, S, S, S, S,
+    S, S, S, L, L, S, S, S,
+    S, S, S, L, L, S, S, S,
+    S, S, S, S, S, S, S, S,
+    L, L, L, L, L, L, L, L,
+    D, W, W, W, W, W, W, W);
 
-static const uint16_t tile_ship_stern_h[32] = TILE_PAT(PEN_SHIP, PEN_SEA,
-    0x00,  /* 00000000 */
-    0xFC,  /* 11111100 */
-    0xFE,  /* 11111110 */
-    0xFF,  /* 11111111 */
-    0xFF,  /* 11111111 */
-    0xFE,  /* 11111110 */
-    0xFC,  /* 11111100 */
-    0x00); /* 00000000 */
+static const uint16_t tile_ship_stern_h[32] = TILE_MC(
+    D, D, D, D, D, D, D, D,
+    L, L, L, L, L, L, L, W,
+    S, S, S, S, S, S, S, L,
+    S, S, S, L, L, S, S, L,
+    S, S, S, L, L, S, S, L,
+    S, S, S, S, S, S, S, L,
+    L, L, L, L, L, L, L, W,
+    D, W, W, W, W, W, W, W);
 
-static const uint16_t tile_ship_bow_v[32] = TILE_PAT(PEN_SHIP, PEN_SEA,
-    0x18,  /* 00011000 */
-    0x3C,  /* 00111100 */
-    0x7E,  /* 01111110 */
-    0x7E,  /* 01111110 */
-    0x7E,  /* 01111110 */
-    0x7E,  /* 01111110 */
-    0x7E,  /* 01111110 */
-    0x7E); /* 01111110 */
+static const uint16_t tile_ship_bow_h[32] = TILE_MC(
+    D, D, D, D, D, D, D, D,
+    D, W, L, L, L, L, L, L,
+    D, L, S, S, S, S, S, S,
+    L, S, S, L, L, S, S, S,
+    L, S, S, L, L, S, S, S,
+    D, L, S, S, S, S, S, S,
+    D, W, L, L, L, L, L, L,
+    D, W, W, W, W, W, W, W);
 
-static const uint16_t tile_ship_mid_v[32] = TILE_PAT(PEN_SHIP, PEN_SEA,
-    0x7E,  /* 01111110 */
-    0x7E,  /* 01111110 */
-    0x7E,  /* 01111110 */
-    0x7E,  /* 01111110 */
-    0x7E,  /* 01111110 */
-    0x7E,  /* 01111110 */
-    0x7E,  /* 01111110 */
-    0x7E); /* 01111110 */
+static const uint16_t tile_ship_bow_v[32] = TILE_MC(
+    D, D, D, L, L, D, D, D,
+    D, W, L, S, S, L, W, W,
+    D, L, S, S, S, S, L, W,
+    D, L, S, L, L, S, L, W,
+    D, L, S, L, L, S, L, W,
+    D, L, S, S, S, S, L, W,
+    D, L, S, S, S, S, L, W,
+    D, L, S, S, S, S, L, W);
 
-static const uint16_t tile_ship_stern_v[32] = TILE_PAT(PEN_SHIP, PEN_SEA,
-    0x7E,  /* 01111110 */
-    0x7E,  /* 01111110 */
-    0x7E,  /* 01111110 */
-    0x7E,  /* 01111110 */
-    0x7E,  /* 01111110 */
-    0x7E,  /* 01111110 */
-    0x3C,  /* 00111100 */
-    0x18); /* 00011000 */
+static const uint16_t tile_ship_mid_v[32] = TILE_MC(
+    D, L, S, S, S, S, L, D,
+    D, L, S, S, S, S, L, W,
+    D, L, S, S, S, S, L, W,
+    D, L, S, L, L, S, L, W,
+    D, L, S, L, L, S, L, W,
+    D, L, S, S, S, S, L, W,
+    D, L, S, S, S, S, L, W,
+    D, L, S, S, S, S, L, W);
+
+static const uint16_t tile_ship_stern_v[32] = TILE_MC(
+    D, L, S, S, S, S, L, D,
+    D, L, S, S, S, S, L, W,
+    D, L, S, S, S, S, L, W,
+    D, L, S, L, L, S, L, W,
+    D, L, S, L, L, S, L, W,
+    D, L, S, S, S, S, L, W,
+    D, L, S, S, S, S, L, W,
+    D, W, L, L, L, L, W, W);
+
+#undef W
+#undef D
+#undef S
+#undef H
+#undef L
 
 /* Attack animation: expanding blast, then dissipating ring. */
 static const uint16_t tile_anim_0[32] = TILE_PAT(PEN_EXPL, PEN_SEA,
