@@ -23,6 +23,11 @@ AMIGA_SRCS = src/graphics.c src/gfxcore.c src/cellmap.c src/keytrans.c src/mouse
 
 SRCS = $(COMMON_SRCS) $(AMIGA_SRCS)
 
+# Headers the sources #include (tiles.h is the art surface). Listed as build
+# prerequisites so editing a tile/header actually rebuilds the binary — without
+# this, make sees no changed .c file and silently ships the stale binary.
+AMIGA_HDRS = $(wildcard include/*.h)
+
 TARGET = battleship
 
 APP_NAME         = battleship
@@ -42,7 +47,7 @@ STRIP_SYMS = ../../../emu/scripts/strip-hunk-symbols.py
 
 all: $(TARGET)
 
-$(TARGET): $(SRCS) $(COMPAT_LIB) $(NIO_ALIB)
+$(TARGET): $(SRCS) $(AMIGA_HDRS) $(COMPAT_LIB) $(NIO_ALIB)
 	$(CC) $(CFLAGS) $(INCLUDES) -Wl,-x -o $@ $(SRCS) $(COMPAT_LIB) $(NIO_ALIB)
 
 strip: $(TARGET)
