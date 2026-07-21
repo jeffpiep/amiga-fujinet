@@ -469,37 +469,41 @@ static const uint16_t *tile_table[TILE_COUNT] = {
 
 /* ---- Attack cursor (hardware sprite 2, colors from registers 21-23) ----
  *
- * 16-wide sprite, corner brackets in the left 8 columns (the Atari
- * cursor_pmg pattern). Two images for the blink: image 0 uses sprite
- * plane A only (color 21), image 1 plane B only (color 22). Layout is
- * SimpleSprite data: posctl pair, height x (planeA, planeB), terminator. */
+ * 16-wide sprite, corner brackets framing the full 8px cell (the left 8
+ * columns). Two images for the blink: image 0 uses sprite plane A only
+ * (color 21), image 1 plane B only (color 22). Layout is SimpleSprite data:
+ * posctl pair, height x (planeA, planeB), terminator.
+ *
+ * Bracket art per row (high byte = the cell's 8px, bit 15 = leftmost):
+ *   0xC300 = ##....##   0x8100 = #......#   — corners top (rows 0-1) and
+ *   bottom (rows 6-7), open sides. */
 
 #define CURSOR_SPR_HEIGHT 8
 #define CURSOR_SPR_WORDS  (2 + CURSOR_SPR_HEIGHT * 2 + 2)
 
 static const uint16_t cursor_spr_a[CURSOR_SPR_WORDS] = {
     0x0000, 0x0000,
-    0xF000, 0x0000,
-    0x9000, 0x0000,
-    0x9000, 0x0000,
+    0xC300, 0x0000,
+    0x8100, 0x0000,
     0x0000, 0x0000,
     0x0000, 0x0000,
-    0x9000, 0x0000,
-    0x9000, 0x0000,
-    0xF000, 0x0000,
+    0x0000, 0x0000,
+    0x0000, 0x0000,
+    0x8100, 0x0000,
+    0xC300, 0x0000,
     0x0000, 0x0000
 };
 
 static const uint16_t cursor_spr_b[CURSOR_SPR_WORDS] = {
     0x0000, 0x0000,
-    0x0000, 0xF000,
-    0x0000, 0x9000,
-    0x0000, 0x9000,
+    0x0000, 0xC300,
+    0x0000, 0x8100,
     0x0000, 0x0000,
     0x0000, 0x0000,
-    0x0000, 0x9000,
-    0x0000, 0x9000,
-    0x0000, 0xF000,
+    0x0000, 0x0000,
+    0x0000, 0x0000,
+    0x0000, 0x8100,
+    0x0000, 0xC300,
     0x0000, 0x0000
 };
 
