@@ -1,9 +1,14 @@
 # Handoff: distinct tile for hits on your own ships
 
-**Status:** NOT STARTED — implementation handoff (snapshot, 2026-07-20)
-**Branch:** `feature/battleship-art-pass` (or a fresh `feature/own-ship-hit-tile` off it)
-**Owner of durable facts:** once done, tick the Phase 3c art item in
-`docs/plan-track1b-battleship.md` and delete/​archive this file.
+> **ARCHIVED 2026-07-20 — DONE.** Implemented on `feature/battleship-art-pass`
+> (commit `c9822ef`): `TILE_HIT_SHIP` renders own-ship hits as a red X on the
+> gray hull; per-quadrant `s_ship_map` footprint in `graphics.c`; host tests
+> pass; verified in a live game. The `tile_hit_ship` *art* is a flat-gray MVP the
+> user may refine. Kept for the design rationale; the durable outcome now lives in
+> `docs/plan-track1b-battleship.md`.
+
+**Original status:** implementation handoff (snapshot, 2026-07-20)
+**Branch:** `feature/battleship-art-pass`
 
 ## Goal
 

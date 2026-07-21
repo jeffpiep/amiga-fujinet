@@ -246,6 +246,14 @@ Phase 3 completion also unblocks the upstream port PR — see
       cycle (drawShip hook), so no upstream changes. Verified in emulator
       2026-07-13: drag, edge clamp, rotate, click-place, auto re-arm on the
       next ship
+- [x] Own-ship hit tile (Phase 3c art) — on `feature/battleship-art-pass` —
+      hits on your own ships render as a distinct tile (`TILE_HIT_SHIP`, red X on
+      the gray hull) vs. the red X on sea used for water/enemy hits. Driven by a
+      per-quadrant own-ship footprint in the platform layer (`graphics.c`
+      `s_ship_map`, populated from `drawShip`); no upstream changes. Host tests
+      pass; verified in a live game 2026-07-20. Tile art is a flat-gray MVP the
+      user may refine. Design rationale archived in
+      `docs/archive/handoff-own-ship-hit-tile.md`.
 - [ ] Boots from ADF in emulator, plays full game (Phase 4)
 - [ ] Tested on real Amiga 500 + PiStorm (Phase 4)
 - [~] Player name persisted via AppKey/ENVARC: (name loads each boot from a
