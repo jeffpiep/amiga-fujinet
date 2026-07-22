@@ -133,19 +133,22 @@ static const uint16_t tile_sea[32] = TILE_MC(
     D, S, S, S, S, F, S, S,
     D, S, S, S, S, S, S, S,
     D, S, S, S, S, S, S, S);    //row 7
-#undef S
-#undef D
 #undef F
 
-static const uint16_t tile_miss[32] = TILE_PAT(PEN_TEXT, PEN_SEA,
-    0x00,  /* 00000000 */
-    0x3C,  /* 00111100 */
-    0x42,  /* 01000010 */
-    0x42,  /* 01000010 */
-    0x42,  /* 01000010 */
-    0x3C,  /* 00111100 */
-    0x00,  /* 00000000 */
-    0x00); /* 00000000 */
+#define T PEN_TEXT
+static const uint16_t tile_miss[32] = TILE_MC(
+    D, D, D, D, D, D, D, D,     
+    D, S, S, S, S, S, S, S,     
+    D, S, S, T, T, S, S, S,    
+    D, S, T, T, T, T, S, S,
+    D, S, T, T, T, T, S, S,
+    D, S, S, T, T, S, S, S,
+    D, S, S, S, S, S, S, S,
+    D, S, S, S, S, S, S, S); 
+#undef T
+#undef S
+#undef D
+
 
 static const uint16_t tile_hit[32] = TILE_PAT(PEN_HIT, PEN_SEA,
     0x81,  /* 10000001 */
@@ -175,26 +178,27 @@ static const uint16_t tile_hit2[32] = TILE_PAT(PEN_TEXT, PEN_SEA,
 // #define H PEN_SHIP_HI
 // #define L PEN_SHIP_SHD
 #define B PEN_HIT
+#define F PEN_EXPL
 static const uint16_t tile_hit_ship[32] = TILE_MC(
     D, D, D, D, D, D, D, D,
-    D, B, S, B, B, S, B, W,
-    D, S, B, B, B, B, S, W,
-    D, B, B, B, B, B, B, W,
-    D, B, B, B, B, B, B, W,
-    D, S, B, B, B, B, S, W,
-    D, B, S, B, B, S, B, W,
+    D, B, S, B, F, S, B, W,
+    D, S, B, B, F, B, S, W,
+    D, F, F, B, B, B, B, W,
+    D, B, B, B, B, F, F, W,
+    D, S, B, F, B, B, S, W,
+    D, B, S, F, B, S, B, W,
     D, W, W, W, W, W, W, W);
 
-
-static const uint16_t tile_legend_hit[32] = TILE_PAT(PEN_HIT, PEN_BG,
-    0x81,  /* 10000001 */
-    0x42,  /* 01000010 */
-    0x24,  /* 00100100 */
-    0x18,  /* 00011000 */
-    0x18,  /* 00011000 */
-    0x24,  /* 00100100 */
-    0x42,  /* 01000010 */
-    0x81); /* 10000001 */
+static const uint16_t tile_legend_hit[32] = TILE_MC(
+    B, D, D, D, D, D, D, B,
+    D, B, W, W, W, W, B, W,
+    D, W, B, W, F, B, W, W,
+    D, W, F, B, B, W, W, W,
+    D, W, W, B, B, F, W, W,
+    D, W, B, F, W, B, W, W,
+    D, B, W, W, W, W, B, W,
+    B, W, W, W, W, W, W, B);
+#undef F
 
 // #define W PEN_SEA
 // #define D PEN_SEA_DK
