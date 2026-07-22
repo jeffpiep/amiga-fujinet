@@ -169,15 +169,22 @@ static const uint16_t tile_hit2[32] = TILE_PAT(PEN_TEXT, PEN_SEA,
 
 /* Hit on one of your own ships: red X on the gray hull (distinct from
  * tile_hit's red X on sea). See docs/handoff-own-ship-hit-tile.md. */
-static const uint16_t tile_hit_ship[32] = TILE_PAT(PEN_HIT, PEN_SHIP,
-    0x81,  /* 10000001 */
-    0x42,  /* 01000010 */
-    0x24,  /* 00100100 */
-    0x18,  /* 00011000 */
-    0x18,  /* 00011000 */
-    0x24,  /* 00100100 */
-    0x42,  /* 01000010 */
-    0x81); /* 10000001 */
+#define W PEN_SEA
+#define D PEN_SEA_DK
+#define S PEN_SHIP
+// #define H PEN_SHIP_HI
+// #define L PEN_SHIP_SHD
+#define B PEN_HIT
+static const uint16_t tile_hit_ship[32] = TILE_MC(
+    D, D, D, D, D, D, D, D,
+    D, B, S, B, B, S, B, W,
+    D, S, B, B, B, B, S, W,
+    D, B, B, B, B, B, B, W,
+    D, B, B, B, B, B, B, W,
+    D, S, B, B, B, B, S, W,
+    D, B, S, B, B, S, B, W,
+    D, W, W, W, W, W, W, W);
+
 
 static const uint16_t tile_legend_hit[32] = TILE_PAT(PEN_HIT, PEN_BG,
     0x81,  /* 10000001 */
@@ -189,9 +196,9 @@ static const uint16_t tile_legend_hit[32] = TILE_PAT(PEN_HIT, PEN_BG,
     0x42,  /* 01000010 */
     0x81); /* 10000001 */
 
-#define W PEN_SEA
-#define D PEN_SEA_DK
-#define S PEN_SHIP
+// #define W PEN_SEA
+// #define D PEN_SEA_DK
+// #define S PEN_SHIP
 #define H PEN_SHIP_HI
 #define L PEN_SHIP_SHD
 
@@ -260,6 +267,7 @@ static const uint16_t tile_ship_stern_v[32] = TILE_MC(
 #undef S
 #undef H
 #undef L
+#undef B
 
 /* Attack animation: expanding blast, then dissipating ring. */
 static const uint16_t tile_anim_0[32] = TILE_PAT(PEN_EXPL, PEN_SEA,
