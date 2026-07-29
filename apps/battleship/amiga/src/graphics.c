@@ -38,7 +38,7 @@ static uint8_t playerCount_g = 2;
  * ships you can see. Consulted when overlaying a hit so a hit on your own
  * ship renders as TILE_HIT_SHIP instead of TILE_HIT. Cleared by drawBoard,
  * maintained on every drawShip (set on SHOW, clear on HIDE).
- * See docs/handoff-own-ship-hit-tile.md.
+ * See docs/archive/handoff-own-ship-hit-tile.md.
  */
 static uint8_t s_ship_map[4][100];
 

@@ -150,28 +150,38 @@ static const uint16_t tile_miss[32] = TILE_MC(
 #undef D
 
 
-static const uint16_t tile_hit[32] = TILE_PAT(PEN_HIT, PEN_SEA,
-    0x81,  /* 10000001 */
-    0x42,  /* 01000010 */
-    0x24,  /* 00100100 */
-    0x18,  /* 00011000 */
-    0x18,  /* 00011000 */
-    0x24,  /* 00100100 */
-    0x42,  /* 01000010 */
-    0x81); /* 10000001 */
+/* Enemy-board hit (red) and its blink partner (white): a clean X in the 7x7
+ * interior, under the PEN_SEA_DK top/left border, on sea. Same silhouette. */
+#define D PEN_SEA_DK
+#define S PEN_SEA
+#define B PEN_HIT
+#define T PEN_TEXT
+static const uint16_t tile_hit[32] = TILE_MC(
+    D, D, D, D, D, D, D, D,
+    D, B, S, S, S, S, S, B,
+    D, S, B, S, S, S, B, S,
+    D, S, S, B, S, B, S, S,
+    D, S, S, S, B, S, S, S,
+    D, S, S, B, S, B, S, S,
+    D, S, B, S, S, S, B, S,
+    D, B, S, S, S, S, S, B);
 
-static const uint16_t tile_hit2[32] = TILE_PAT(PEN_TEXT, PEN_SEA,
-    0x81,  /* 10000001 */
-    0x42,  /* 01000010 */
-    0x24,  /* 00100100 */
-    0x18,  /* 00011000 */
-    0x18,  /* 00011000 */
-    0x24,  /* 00100100 */
-    0x42,  /* 01000010 */
-    0x81); /* 10000001 */
+static const uint16_t tile_hit2[32] = TILE_MC(
+    D, D, D, D, D, D, D, D,
+    D, T, S, S, S, S, S, T,
+    D, S, T, S, S, S, T, S,
+    D, S, S, T, S, T, S, S,
+    D, S, S, S, T, S, S, S,
+    D, S, S, T, S, T, S, S,
+    D, S, T, S, S, S, T, S,
+    D, T, S, S, S, S, S, T);
+#undef D
+#undef S
+#undef B
+#undef T
 
 /* Hit on one of your own ships: red X on the gray hull (distinct from
- * tile_hit's red X on sea). See docs/handoff-own-ship-hit-tile.md. */
+ * tile_hit's red X on sea). See docs/archive/handoff-own-ship-hit-tile.md. */
 #define W PEN_SEA
 #define D PEN_SEA_DK
 #define S PEN_SHIP
@@ -273,66 +283,74 @@ static const uint16_t tile_ship_stern_v[32] = TILE_MC(
 #undef L
 #undef B
 
-/* Attack animation: expanding blast, then dissipating ring. */
-static const uint16_t tile_anim_0[32] = TILE_PAT(PEN_EXPL, PEN_SEA,
-    0x00,  /* 00000000 */
-    0x00,  /* 00000000 */
-    0x00,  /* 00000000 */
-    0x18,  /* 00011000 */
-    0x18,  /* 00011000 */
-    0x00,  /* 00000000 */
-    0x00,  /* 00000000 */
-    0x00); /* 00000000 */
+/* Attack animation: expanding blast, then dissipating ring. Re-fit into the
+ * 7x7 interior under the PEN_SEA_DK top/left border, matching the marker tiles.
+ * E = PEN_EXPL blast on S = PEN_SEA water. */
+#define D PEN_SEA_DK
+#define S PEN_SEA
+#define E PEN_EXPL
+static const uint16_t tile_anim_0[32] = TILE_MC(   /* 2x2 spark */
+    D, D, D, D, D, D, D, D,
+    D, S, S, S, S, S, S, S,
+    D, S, S, S, S, S, S, S,
+    D, S, S, E, E, S, S, S,
+    D, S, S, E, E, S, S, S,
+    D, S, S, S, S, S, S, S,
+    D, S, S, S, S, S, S, S,
+    D, S, S, S, S, S, S, S);
 
-static const uint16_t tile_anim_1[32] = TILE_PAT(PEN_EXPL, PEN_SEA,
-    0x00,  /* 00000000 */
-    0x00,  /* 00000000 */
-    0x3C,  /* 00111100 */
-    0x3C,  /* 00111100 */
-    0x3C,  /* 00111100 */
-    0x3C,  /* 00111100 */
-    0x00,  /* 00000000 */
-    0x00); /* 00000000 */
+static const uint16_t tile_anim_1[32] = TILE_MC(   /* 4x4 block */
+    D, D, D, D, D, D, D, D,
+    D, S, S, S, S, S, S, S,
+    D, S, S, E, E, S, S, S,
+    D, S, E, E, E, E, S, S,
+    D, S, E, E, E, E, S, S,
+    D, S, S, E, E, S, S, S,
+    D, S, S, S, S, S, S, S,
+    D, S, S, S, S, S, S, S);
 
-static const uint16_t tile_anim_2[32] = TILE_PAT(PEN_EXPL, PEN_SEA,
-    0x00,  /* 00000000 */
-    0x3C,  /* 00111100 */
-    0x7E,  /* 01111110 */
-    0x7E,  /* 01111110 */
-    0x7E,  /* 01111110 */
-    0x7E,  /* 01111110 */
-    0x3C,  /* 00111100 */
-    0x00); /* 00000000 */
+static const uint16_t tile_anim_2[32] = TILE_MC(   /* rounded blob */
+    D, D, D, D, D, D, D, D,
+    D, S, E, E, E, E, S, S,
+    D, E, E, E, E, E, E, S,
+    D, E, E, E, E, E, E, S,
+    D, E, E, E, E, E, E, S,
+    D, E, E, E, E, E, E, S,
+    D, S, E, E, E, E, S, S,
+    D, S, S, S, S, S, S, S);
 
-static const uint16_t tile_anim_3[32] = TILE_PAT(PEN_EXPL, PEN_SEA,
-    0x3C,  /* 00111100 */
-    0x7E,  /* 01111110 */
-    0xFF,  /* 11111111 */
-    0xFF,  /* 11111111 */
-    0xFF,  /* 11111111 */
-    0xFF,  /* 11111111 */
-    0x7E,  /* 01111110 */
-    0x3C); /* 00111100 */
+static const uint16_t tile_anim_3[32] = TILE_MC(   /* near-full blast */
+    D, E, E, E, E, E, E, D,
+    E, E, E, E, E, E, E, E,
+    E, E, E, E, E, E, E, E,
+    E, E, E, E, E, E, E, E,
+    E, E, E, E, E, E, E, E,
+    E, E, E, E, E, E, E, E,
+    E, E, E, E, E, E, E, E,
+    D, E, E, E, E, E, E, S);
 
-static const uint16_t tile_anim_4[32] = TILE_PAT(PEN_EXPL, PEN_SEA,
-    0xE7,  /* 11100111 */
-    0xC3,  /* 11000011 */
-    0x81,  /* 10000001 */
-    0x00,  /* 00000000 */
-    0x00,  /* 00000000 */
-    0x81,  /* 10000001 */
-    0xC3,  /* 11000011 */
-    0xE7); /* 11100111 */
+static const uint16_t tile_anim_4[32] = TILE_MC(   /* dissipating ring */
+    D, E, E, E, E, E, E, D,
+    E, E, E, E, E, E, E, E,
+    E, E, S, S, S, S, E, E,
+    E, E, S, S, S, S, E, E,
+    E, E, S, S, S, S, E, E,
+    E, E, S, S, S, S, E, E,
+    E, E, E, E, E, E, E, E,
+    D, E, E, E, E, E, E, S);
 
-static const uint16_t tile_anim_5[32] = TILE_PAT(PEN_EXPL, PEN_SEA,
-    0x81,  /* 10000001 */
-    0x00,  /* 00000000 */
-    0x00,  /* 00000000 */
-    0x00,  /* 00000000 */
-    0x00,  /* 00000000 */
-    0x00,  /* 00000000 */
-    0x00,  /* 00000000 */
-    0x81); /* 10000001 */
+static const uint16_t tile_anim_5[32] = TILE_MC(   /* corner remnants */
+    E, E, S, S, S, S, E, E,
+    E, E, S, S, S, S, E, E,
+    S, S, S, S, S, S, S, S,
+    S, S, S, S, S, S, S, S,
+    S, S, S, S, S, S, S, S,
+    S, S, S, S, S, S, S, S,
+    E, E, S, S, S, S, E, E,
+    E, E, S, S, S, S, E, E);
+#undef D
+#undef S
+#undef E
 
 static const uint16_t tile_border_h[32] = TILE_PAT(PEN_TEXT, PEN_BG,
     0x00,  /* 00000000 */

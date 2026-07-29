@@ -157,7 +157,7 @@ not a refactor.
 | `http_get` demo app | ✅ Done | HTTPS auto-detect, NTSC mode, weather demo |
 | `fn_test` smoke test | ✅ Done | Validates serial transport end-to-end |
 | Track 1A — compat layer | ✅ Done (2026-07-01) | `libs/fujinet-compat-amiga`; header-sync procedure in `docs/updating-fujinet-compat-headers.md` |
-| Track 1B — Battleship port | 🚧 Phase 3c scaffolding done (2026-07-12) | 3a joystick ✅, 3b sound ✅. 3c graphical renderer: tile engine on custom 320×200×4 screen playable end-to-end in emulator with placeholder art (lobby → placement → gameplay → menu verified); art pass (Atari-modeled tiles/font/palette in `tiles.h`) remains. Then Phase 4 (real hardware) |
+| Track 1B — Battleship port | 🚧 Phase 3 complete (2026-07-28) | 3a joystick ✅, 3b sound ✅, 3c graphical renderer ✅. Tile engine on a custom 320×200×4 screen, playable end-to-end in emulator (lobby → placement → gameplay → menu); mouse aiming (#21) and mouse ship placement (#23) merged; tile art pass done (`tiles.h` — multicolor sea/ships/markers/explosion, previewed via the `tilegallery` harness). Next: Phase 4 (ADF boot test, real Amiga 500 + PiStorm) — which also unblocks the upstream port PR |
 | Track 2 Phase 1 — BSD sockets | 🔲 Not started | |
 | Track 2 Phase 2 — DNS | 🔲 Not started | |
 | Track 2 Phase 3 — TLS | 🔲 Not started | |

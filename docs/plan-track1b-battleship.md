@@ -229,10 +229,10 @@ Phase 3 completion also unblocks the upstream port PR — see
 - [x] Joystick moves cursor (Phase 3a) — verified 2026-07-06 in live play via
       FS-UAE keyboard-joystick emulation (cursor keys + Right Alt fire)
 - [x] Sound effects play on hit/miss/sink (Phase 3b) — merged 2026-07-09 (#17)
-- [~] Graphical renderer: full game on a custom 320×200 screen (Phase 3c) —
+- [x] Graphical renderer: full game on a custom 320×200 screen (Phase 3c) —
       scaffolding verified in emulator 2026-07-12 (lobby, placement, gameplay
       with hits/misses/sunk legend, sprite cursor, in-game menu save/restore);
-      placeholder art — Atari-modeled art pass pending
+      art pass completed 2026-07-28 on `feature/battleship-art-pass`
 - [x] Mouse aiming (Phase 3c extension) — merged 2026-07-13 (#21) — hover an
       enemy field to snap the attack cursor to the cell (Intuition pointer
       blanks over the field), left-click fires; coexists live with
@@ -254,6 +254,14 @@ Phase 3 completion also unblocks the upstream port PR — see
       pass; verified in a live game 2026-07-20. Tile art is a flat-gray MVP the
       user may refine. Design rationale archived in
       `docs/archive/handoff-own-ship-hit-tile.md`.
+- [x] Tile art pass (Phase 3c art) — completed 2026-07-28 on
+      `feature/battleship-art-pass`. Multicolor palette + `TILE_MC` authoring
+      macro, textured sea, gray ship hulls (both orientations), white-peg miss,
+      red-X hit with white blink partner, own-ship hit on hull, and a six-frame
+      explosion sequence — all fitted to the 7×7 tile interior under the
+      `PEN_SEA_DK` top/left border so markers align with the sea seam.
+      Previewed via the `tilegallery` harness (`make gallery-adf`); host tests
+      pass.
 - [ ] Boots from ADF in emulator, plays full game (Phase 4)
 - [ ] Tested on real Amiga 500 + PiStorm (Phase 4)
 - [~] Player name persisted via AppKey/ENVARC: (name loads each boot from a
