@@ -262,7 +262,13 @@ Phase 3 completion also unblocks the upstream port PR — see
       `PEN_SEA_DK` top/left border so markers align with the sea seam.
       Previewed via the `tilegallery` harness (`make gallery-adf`); host tests
       pass.
-- [ ] Boots from ADF in emulator, plays full game (Phase 4)
+- [x] Boots from ADF in emulator, plays full game (Phase 4) — verified
+      2026-07-28 in a windowed FS-UAE session (A500 / KS 1.3 / NTSC) against a
+      live `fujinet-nio` over the socat PTY bridge: ~12 minutes of play, 6706
+      FujiBus frames to the carr-designs game server, zero errors or warnings
+      in `fujinet.log`. Art-pass tiles confirmed in real play. Orchestration
+      recipe: `.claude/commands/emu-build-and-boot.md` (Manual / Debug
+      Fallback → "Run FS-UAE interactively on the real display").
 - [ ] Tested on real Amiga 500 + PiStorm (Phase 4)
 - [~] Player name persisted via AppKey/ENVARC: (name loads each boot from a
       pre-populated appkey; full write→reboot→read cycle not yet retested)
