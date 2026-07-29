@@ -46,11 +46,20 @@ feature/<short-description>
 Feature branches are short-lived and focused. `main`/`master` is never committed
 to directly — all changes arrive via squash-merge PR. No `dev` branch.
 
-**One exception**, parent repo only: trivial local-tooling or editor-config
-changes that touch no code, no build output, and no submodule pointer may be
-committed straight to `main` (e.g. `.claude/settings.json`, `.gitignore`
-entries). Anything a reviewer could have an opinion about still gets a PR. This
-exception never applies inside a submodule — those always go through the
+**One exception**, parent repo only. These may be committed straight to `main`,
+provided they touch no code, no build output, and no submodule pointer:
+
+- **Tooling/editor config** — `.claude/settings.json`, `.gitignore` entries.
+- **Simple docs-only changes** — typo and link fixes, status-table corrections,
+  Lessons Learned entries, rehoming a fact into its owning evergreen doc.
+
+Anything a reviewer could have an opinion about still gets a PR: new or
+substantially rewritten docs, new contracts, and any change to this file's
+rules. A status-table update that *belongs* to a track/phase PR still ships
+inside that PR (see **Documentation** below) — this exception is for correcting
+docs after the fact, not for splitting work out of the PR that earned it.
+
+This exception never applies inside a submodule — those always go through the
 upstream-PR flow.
 
 ### Commit message style
