@@ -270,5 +270,18 @@ Phase 3 completion also unblocks the upstream port PR — see
       recipe: `.claude/commands/emu-build-and-boot.md` (Manual / Debug
       Fallback → "Run FS-UAE interactively on the real display").
 - [ ] Tested on real Amiga 500 + PiStorm (Phase 4)
-- [~] Player name persisted via AppKey/ENVARC: (name loads each boot from a
-      pre-populated appkey; full write→reboot→read cycle not yet retested)
+- [~] Player name persisted via AppKey — read and write both verified
+      2026-07-28 against a live `fujinet-nio`; read-back after restart still
+      unconfirmed. Method: seed `fujinet-data/FujiNet/00010100.key` with a
+      sentinel, cold-boot the ADF, observe the name, change it, quit via the
+      game menu, re-inspect the file.
+      - **Read ✅** — cold boot displayed the seeded sentinel `OLDNAME`.
+      - **Write ✅** — quitting via the menu wrote `fuji2` (5 bytes) to
+        `00010100.key`; confirmed on disk with matching timestamp.
+      - **Read-back ⬜** — blocked by the `fn_transport_close()` leak
+        (`contracts/amiga-transport-api.md`): relaunching from the CLI in the
+        same session gets no serial device, so the reread never reached the
+        server. Needs a *cold reboot* to confirm, not a CLI relaunch.
+      - Note: `00010105.key` (lobby server URL) was left 0 bytes by a session
+        that ended with the FS-UAE window closed mid-write. Harmless — the
+        game falls back to its built-in URL and still reached the server.

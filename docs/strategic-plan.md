@@ -195,6 +195,15 @@ not a refactor.
   Diagnosis technique worth remembering: record the PipeWire sink monitor
   (`pw-record --target <sink> --properties '{stream.capture.sink=true}'`)
   and RMS-analyze to distinguish "silent guest" from "muted host".
+- **2026-07-28** — `fn_transport_close()` is defined by every nio-lib platform
+  backend but declared in no header, so nothing ever calls it. On Amiga that
+  leaks `serial.device` past process exit (`AllocMem` isn't reclaimed at exit),
+  and a second run of any FujiNet app silently behaves as if offline — no error
+  is surfaced, it just stops talking. Cost a confusing appkey debug session:
+  the persistence code was fine, the *second launch* was the broken thing.
+  Lesson: when an Amiga app "loses" the network on a re-run, suspect leaked
+  exec resources from the previous run before suspecting the feature under
+  test. Details and the deferred fix: `contracts/amiga-transport-api.md`.
 - **2026-07-12** — Three graphical-renderer gotchas surfaced during the Phase 3c
   scaffold, all rehomed to their owning docs: xwd screenshots scramble color
   channels on saturated colors while monochrome looks fine (capture artifact,
