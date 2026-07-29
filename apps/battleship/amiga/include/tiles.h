@@ -27,8 +27,10 @@
 /* ---- Palette (12-bit RGB4, LoadRGB4 order, indexed by PEN_*) ---- */
 
 static const uint16_t tile_palette[16] = {
-    0x000, 0xFFF, 0x05A, 0xD22, 0x2C4, 0xFC3, 0x888, 0x038,
-    0xF80, 0x0DE, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000
+    /*0 BG  1 TEXT 2 SEA  3 HIT  4 SHIP 5 ALT  6 DIM  7 SEA_DK */
+     0x000, 0xFFF, 0x05A, 0xD22, 0x888, 0xFC3, 0x888, 0x038,
+    /* 8 EXPL 9 CONN 10 SHIP_HI 11 SHIP_SHD 12 SEA_LT 13 FOAM 14 WOOD 15 - */
+       0xF80, 0x0DE, 0xBBB,     0x444,      0x4BE,    0xABF,  0x963,  0x000
 };
 
 /* ---- 2-color tile composer ---- */
@@ -51,6 +53,62 @@ static const uint16_t tile_palette[16] = {
     TPLANE(2, fg, bg, r0, r1, r2, r3, r4, r5, r6, r7),      \
     TPLANE(3, fg, bg, r0, r1, r2, r3, r4, r5, r6, r7) }
 
+/* ---- Multicolor tile composer (art pass) ----
+ *
+ * Author a full-color tile as an 8x8 grid of pen numbers (0-15), one pen per
+ * pixel, left-to-right then top-to-bottom (64 values). TILE_MC expands them
+ * into the same 32-word / 4-plane struct Image layout TILE_PAT produces, so a
+ * multicolor tile drops into tile_table[] with no engine change. Use this for
+ * hero tiles (sea, ships); keep TILE_PAT for flat 2-color art.
+ *
+ * Each value is a PEN_* number (see gfxcore.h) — its *color* comes from
+ * tile_palette[] above. You write pens, not colors. Lay the 64 values out as
+ * eight rows of eight so the source reads like the picture; whitespace and the
+ * row grouping are cosmetic (the preprocessor just sees 64 comma-separated
+ * values). Example — a sea tile with a diagonal foam streak and one bright
+ * crest pixel (S = PEN_SEA water, D = PEN_SEA_DK trough, F = PEN_FOAM):
+ *
+ *     #define S PEN_SEA
+ *     #define D PEN_SEA_DK
+ *     #define F PEN_FOAM
+ *     static const uint16_t tile_sea[32] = TILE_MC(
+ *         F, S, S, S, S, S, S, D,     row 0: crest at top-left, trough at right
+ *         S, F, S, S, S, S, D, S,     rows 1-6: foam streak runs down-right,
+ *         S, S, F, S, S, D, S, S,                the darker trough mirrors it
+ *         S, S, S, F, D, S, S, S,
+ *         S, S, S, D, F, S, S, S,
+ *         S, S, D, S, S, F, S, S,
+ *         S, D, S, S, S, S, F, S,
+ *         D, S, S, S, S, S, S, F);    row 7
+ *     #undef S
+ *     #undef D
+ *     #undef F
+ *
+ * The single-letter #defines are optional but make the grid legible; undef
+ * them after each tile (or reuse a shared set) so they do not leak. A pen you
+ * use must have a real color in tile_palette[] — an all-zero slot draws black. */
+
+/* One plane row: pack 8 pens' bit `pl` into a byte, MSB = leftmost pixel. */
+#define MROW(pl, q0, q1, q2, q3, q4, q5, q6, q7) \
+    ((uint16_t)( ((((q0) >> (pl)) & 1) << 7) | ((((q1) >> (pl)) & 1) << 6) | \
+                 ((((q2) >> (pl)) & 1) << 5) | ((((q3) >> (pl)) & 1) << 4) | \
+                 ((((q4) >> (pl)) & 1) << 3) | ((((q5) >> (pl)) & 1) << 2) | \
+                 ((((q6) >> (pl)) & 1) << 1) |  (((q7) >> (pl)) & 1) ) << 8)
+
+#define MPLANE(pl, \
+    a0,a1,a2,a3,a4,a5,a6,a7, b0,b1,b2,b3,b4,b5,b6,b7, \
+    c0,c1,c2,c3,c4,c5,c6,c7, d0,d1,d2,d3,d4,d5,d6,d7, \
+    e0,e1,e2,e3,e4,e5,e6,e7, f0,f1,f2,f3,f4,f5,f6,f7, \
+    g0,g1,g2,g3,g4,g5,g6,g7, h0,h1,h2,h3,h4,h5,h6,h7) \
+    MROW(pl,a0,a1,a2,a3,a4,a5,a6,a7), MROW(pl,b0,b1,b2,b3,b4,b5,b6,b7), \
+    MROW(pl,c0,c1,c2,c3,c4,c5,c6,c7), MROW(pl,d0,d1,d2,d3,d4,d5,d6,d7), \
+    MROW(pl,e0,e1,e2,e3,e4,e5,e6,e7), MROW(pl,f0,f1,f2,f3,f4,f5,f6,f7), \
+    MROW(pl,g0,g1,g2,g3,g4,g5,g6,g7), MROW(pl,h0,h1,h2,h3,h4,h5,h6,h7)
+
+#define TILE_MC(...) { \
+    MPLANE(0, __VA_ARGS__), MPLANE(1, __VA_ARGS__), \
+    MPLANE(2, __VA_ARGS__), MPLANE(3, __VA_ARGS__) }
+
 /* ---- Placeholder tiles ---- */
 
 static const uint16_t tile_blank[32] = TILE_PAT(PEN_BG, PEN_BG,
@@ -63,176 +121,236 @@ static const uint16_t tile_blank[32] = TILE_PAT(PEN_BG, PEN_BG,
     0x00,  /* 00000000 */
     0x00); /* 00000000 */
 
-static const uint16_t tile_sea[32] = TILE_PAT(PEN_SEA_DK, PEN_SEA,
-    0x00,  /* 00000000 */
-    0x00,  /* 00000000 */
-    0x04,  /* 00000100 */
-    0x00,  /* 00000000 */
-    0x00,  /* 00000000 */
-    0x20,  /* 00100000 */
-    0x00,  /* 00000000 */
-    0x00); /* 00000000 */
+#define S PEN_SEA
+#define D PEN_SEA_DK
+#define F PEN_FOAM
+static const uint16_t tile_sea[32] = TILE_MC(
+    D, D, D, D, D, D, D, D,     //row 0: crest at top-left, trough at right
+    D, S, S, S, S, S, S, S,     //rows 1-6: foam streak runs down-right,
+    D, S, S, S, S, S, S, S,    //            the darker trough mirrors it
+    D, S, F, S, S, S, S, S,
+    D, S, S, S, S, S, S, S,
+    D, S, S, S, S, F, S, S,
+    D, S, S, S, S, S, S, S,
+    D, S, S, S, S, S, S, S);    //row 7
+#undef F
 
-static const uint16_t tile_miss[32] = TILE_PAT(PEN_TEXT, PEN_SEA,
-    0x00,  /* 00000000 */
-    0x3C,  /* 00111100 */
-    0x42,  /* 01000010 */
-    0x42,  /* 01000010 */
-    0x42,  /* 01000010 */
-    0x3C,  /* 00111100 */
-    0x00,  /* 00000000 */
-    0x00); /* 00000000 */
+#define T PEN_TEXT
+static const uint16_t tile_miss[32] = TILE_MC(
+    D, D, D, D, D, D, D, D,     
+    D, S, S, S, S, S, S, S,     
+    D, S, S, T, T, S, S, S,    
+    D, S, T, T, T, T, S, S,
+    D, S, T, T, T, T, S, S,
+    D, S, S, T, T, S, S, S,
+    D, S, S, S, S, S, S, S,
+    D, S, S, S, S, S, S, S); 
+#undef T
+#undef S
+#undef D
 
-static const uint16_t tile_hit[32] = TILE_PAT(PEN_HIT, PEN_SEA,
-    0x81,  /* 10000001 */
-    0x42,  /* 01000010 */
-    0x24,  /* 00100100 */
-    0x18,  /* 00011000 */
-    0x18,  /* 00011000 */
-    0x24,  /* 00100100 */
-    0x42,  /* 01000010 */
-    0x81); /* 10000001 */
 
-static const uint16_t tile_hit2[32] = TILE_PAT(PEN_TEXT, PEN_SEA,
-    0x81,  /* 10000001 */
-    0x42,  /* 01000010 */
-    0x24,  /* 00100100 */
-    0x18,  /* 00011000 */
-    0x18,  /* 00011000 */
-    0x24,  /* 00100100 */
-    0x42,  /* 01000010 */
-    0x81); /* 10000001 */
+/* Enemy-board hit (red) and its blink partner (white): a clean X in the 7x7
+ * interior, under the PEN_SEA_DK top/left border, on sea. Same silhouette. */
+#define D PEN_SEA_DK
+#define S PEN_SEA
+#define B PEN_HIT
+#define T PEN_TEXT
+static const uint16_t tile_hit[32] = TILE_MC(
+    D, D, D, D, D, D, D, D,
+    D, B, S, S, S, S, S, B,
+    D, S, B, S, S, S, B, S,
+    D, S, S, B, S, B, S, S,
+    D, S, S, S, B, S, S, S,
+    D, S, S, B, S, B, S, S,
+    D, S, B, S, S, S, B, S,
+    D, B, S, S, S, S, S, B);
 
-static const uint16_t tile_legend_hit[32] = TILE_PAT(PEN_HIT, PEN_BG,
-    0x81,  /* 10000001 */
-    0x42,  /* 01000010 */
-    0x24,  /* 00100100 */
-    0x18,  /* 00011000 */
-    0x18,  /* 00011000 */
-    0x24,  /* 00100100 */
-    0x42,  /* 01000010 */
-    0x81); /* 10000001 */
+static const uint16_t tile_hit2[32] = TILE_MC(
+    D, D, D, D, D, D, D, D,
+    D, T, S, S, S, S, S, T,
+    D, S, T, S, S, S, T, S,
+    D, S, S, T, S, T, S, S,
+    D, S, S, S, T, S, S, S,
+    D, S, S, T, S, T, S, S,
+    D, S, T, S, S, S, T, S,
+    D, T, S, S, S, S, S, T);
+#undef D
+#undef S
+#undef B
+#undef T
 
-static const uint16_t tile_ship_bow_h[32] = TILE_PAT(PEN_SHIP, PEN_SEA,
-    0x00,  /* 00000000 */
-    0x3F,  /* 00111111 */
-    0x7F,  /* 01111111 */
-    0xFF,  /* 11111111 */
-    0xFF,  /* 11111111 */
-    0x7F,  /* 01111111 */
-    0x3F,  /* 00111111 */
-    0x00); /* 00000000 */
+/* Hit on one of your own ships: red X on the gray hull (distinct from
+ * tile_hit's red X on sea). See docs/archive/handoff-own-ship-hit-tile.md. */
+#define W PEN_SEA
+#define D PEN_SEA_DK
+#define S PEN_SHIP
+// #define H PEN_SHIP_HI
+// #define L PEN_SHIP_SHD
+#define B PEN_HIT
+#define F PEN_EXPL
+static const uint16_t tile_hit_ship[32] = TILE_MC(
+    D, D, D, D, D, D, D, D,
+    D, B, S, B, F, S, B, W,
+    D, S, B, B, F, B, S, W,
+    D, F, F, B, B, B, B, W,
+    D, B, B, B, B, F, F, W,
+    D, S, B, F, B, B, S, W,
+    D, B, S, F, B, S, B, W,
+    D, W, W, W, W, W, W, W);
 
-static const uint16_t tile_ship_mid_h[32] = TILE_PAT(PEN_SHIP, PEN_SEA,
-    0x00,  /* 00000000 */
-    0xFF,  /* 11111111 */
-    0xFF,  /* 11111111 */
-    0xFF,  /* 11111111 */
-    0xFF,  /* 11111111 */
-    0xFF,  /* 11111111 */
-    0xFF,  /* 11111111 */
-    0x00); /* 00000000 */
+static const uint16_t tile_legend_hit[32] = TILE_MC(
+    B, D, D, D, D, D, D, B,
+    D, B, W, W, W, W, B, W,
+    D, W, B, W, F, B, W, W,
+    D, W, F, B, B, W, W, W,
+    D, W, W, B, B, F, W, W,
+    D, W, B, F, W, B, W, W,
+    D, B, W, W, W, W, B, W,
+    B, W, W, W, W, W, W, B);
+#undef F
 
-static const uint16_t tile_ship_stern_h[32] = TILE_PAT(PEN_SHIP, PEN_SEA,
-    0x00,  /* 00000000 */
-    0xFC,  /* 11111100 */
-    0xFE,  /* 11111110 */
-    0xFF,  /* 11111111 */
-    0xFF,  /* 11111111 */
-    0xFE,  /* 11111110 */
-    0xFC,  /* 11111100 */
-    0x00); /* 00000000 */
+// #define W PEN_SEA
+// #define D PEN_SEA_DK
+// #define S PEN_SHIP
+#define H PEN_SHIP_HI
+#define L PEN_SHIP_SHD
 
-static const uint16_t tile_ship_bow_v[32] = TILE_PAT(PEN_SHIP, PEN_SEA,
-    0x18,  /* 00011000 */
-    0x3C,  /* 00111100 */
-    0x7E,  /* 01111110 */
-    0x7E,  /* 01111110 */
-    0x7E,  /* 01111110 */
-    0x7E,  /* 01111110 */
-    0x7E,  /* 01111110 */
-    0x7E); /* 01111110 */
+static const uint16_t tile_ship_mid_h[32] = TILE_MC(
+    D, D, D, D, D, D, D, D,
+    L, L, L, L, L, L, L, L,
+    S, S, S, S, S, S, S, S,
+    S, S, S, L, L, S, S, S,
+    S, S, S, L, L, S, S, S,
+    S, S, S, S, S, S, S, S,
+    L, L, L, L, L, L, L, L,
+    D, W, W, W, W, W, W, W);
 
-static const uint16_t tile_ship_mid_v[32] = TILE_PAT(PEN_SHIP, PEN_SEA,
-    0x7E,  /* 01111110 */
-    0x7E,  /* 01111110 */
-    0x7E,  /* 01111110 */
-    0x7E,  /* 01111110 */
-    0x7E,  /* 01111110 */
-    0x7E,  /* 01111110 */
-    0x7E,  /* 01111110 */
-    0x7E); /* 01111110 */
+static const uint16_t tile_ship_stern_h[32] = TILE_MC(
+    D, D, D, D, D, D, D, D,
+    L, L, L, L, L, L, L, W,
+    S, S, S, S, S, S, S, L,
+    S, S, S, L, L, S, S, L,
+    S, S, S, L, L, S, S, L,
+    S, S, S, S, S, S, S, L,
+    L, L, L, L, L, L, L, W,
+    D, W, W, W, W, W, W, W);
 
-static const uint16_t tile_ship_stern_v[32] = TILE_PAT(PEN_SHIP, PEN_SEA,
-    0x7E,  /* 01111110 */
-    0x7E,  /* 01111110 */
-    0x7E,  /* 01111110 */
-    0x7E,  /* 01111110 */
-    0x7E,  /* 01111110 */
-    0x7E,  /* 01111110 */
-    0x3C,  /* 00111100 */
-    0x18); /* 00011000 */
+static const uint16_t tile_ship_bow_h[32] = TILE_MC(
+    D, D, D, D, D, D, D, D,
+    D, W, L, L, L, L, L, L,
+    D, L, S, S, S, S, S, S,
+    L, S, S, L, L, S, S, S,
+    L, S, S, L, L, S, S, S,
+    D, L, S, S, S, S, S, S,
+    D, W, L, L, L, L, L, L,
+    D, W, W, W, W, W, W, W);
 
-/* Attack animation: expanding blast, then dissipating ring. */
-static const uint16_t tile_anim_0[32] = TILE_PAT(PEN_EXPL, PEN_SEA,
-    0x00,  /* 00000000 */
-    0x00,  /* 00000000 */
-    0x00,  /* 00000000 */
-    0x18,  /* 00011000 */
-    0x18,  /* 00011000 */
-    0x00,  /* 00000000 */
-    0x00,  /* 00000000 */
-    0x00); /* 00000000 */
+static const uint16_t tile_ship_bow_v[32] = TILE_MC(
+    D, D, D, L, L, D, D, D,
+    D, W, L, S, S, L, W, W,
+    D, L, S, S, S, S, L, W,
+    D, L, S, L, L, S, L, W,
+    D, L, S, L, L, S, L, W,
+    D, L, S, S, S, S, L, W,
+    D, L, S, S, S, S, L, W,
+    D, L, S, S, S, S, L, W);
 
-static const uint16_t tile_anim_1[32] = TILE_PAT(PEN_EXPL, PEN_SEA,
-    0x00,  /* 00000000 */
-    0x00,  /* 00000000 */
-    0x3C,  /* 00111100 */
-    0x3C,  /* 00111100 */
-    0x3C,  /* 00111100 */
-    0x3C,  /* 00111100 */
-    0x00,  /* 00000000 */
-    0x00); /* 00000000 */
+static const uint16_t tile_ship_mid_v[32] = TILE_MC(
+    D, L, S, S, S, S, L, D,
+    D, L, S, S, S, S, L, W,
+    D, L, S, S, S, S, L, W,
+    D, L, S, L, L, S, L, W,
+    D, L, S, L, L, S, L, W,
+    D, L, S, S, S, S, L, W,
+    D, L, S, S, S, S, L, W,
+    D, L, S, S, S, S, L, W);
 
-static const uint16_t tile_anim_2[32] = TILE_PAT(PEN_EXPL, PEN_SEA,
-    0x00,  /* 00000000 */
-    0x3C,  /* 00111100 */
-    0x7E,  /* 01111110 */
-    0x7E,  /* 01111110 */
-    0x7E,  /* 01111110 */
-    0x7E,  /* 01111110 */
-    0x3C,  /* 00111100 */
-    0x00); /* 00000000 */
+static const uint16_t tile_ship_stern_v[32] = TILE_MC(
+    D, L, S, S, S, S, L, D,
+    D, L, S, S, S, S, L, W,
+    D, L, S, S, S, S, L, W,
+    D, L, S, L, L, S, L, W,
+    D, L, S, L, L, S, L, W,
+    D, L, S, S, S, S, L, W,
+    D, L, S, S, S, S, L, W,
+    D, W, L, L, L, L, W, W);
 
-static const uint16_t tile_anim_3[32] = TILE_PAT(PEN_EXPL, PEN_SEA,
-    0x3C,  /* 00111100 */
-    0x7E,  /* 01111110 */
-    0xFF,  /* 11111111 */
-    0xFF,  /* 11111111 */
-    0xFF,  /* 11111111 */
-    0xFF,  /* 11111111 */
-    0x7E,  /* 01111110 */
-    0x3C); /* 00111100 */
+#undef W
+#undef D
+#undef S
+#undef H
+#undef L
+#undef B
 
-static const uint16_t tile_anim_4[32] = TILE_PAT(PEN_EXPL, PEN_SEA,
-    0xE7,  /* 11100111 */
-    0xC3,  /* 11000011 */
-    0x81,  /* 10000001 */
-    0x00,  /* 00000000 */
-    0x00,  /* 00000000 */
-    0x81,  /* 10000001 */
-    0xC3,  /* 11000011 */
-    0xE7); /* 11100111 */
+/* Attack animation: expanding blast, then dissipating ring. Re-fit into the
+ * 7x7 interior under the PEN_SEA_DK top/left border, matching the marker tiles.
+ * E = PEN_EXPL blast on S = PEN_SEA water. */
+#define D PEN_SEA_DK
+#define S PEN_SEA
+#define E PEN_EXPL
+static const uint16_t tile_anim_0[32] = TILE_MC(   /* 2x2 spark */
+    D, D, D, D, D, D, D, D,
+    D, S, S, S, S, S, S, S,
+    D, S, S, S, S, S, S, S,
+    D, S, S, E, E, S, S, S,
+    D, S, S, E, E, S, S, S,
+    D, S, S, S, S, S, S, S,
+    D, S, S, S, S, S, S, S,
+    D, S, S, S, S, S, S, S);
 
-static const uint16_t tile_anim_5[32] = TILE_PAT(PEN_EXPL, PEN_SEA,
-    0x81,  /* 10000001 */
-    0x00,  /* 00000000 */
-    0x00,  /* 00000000 */
-    0x00,  /* 00000000 */
-    0x00,  /* 00000000 */
-    0x00,  /* 00000000 */
-    0x00,  /* 00000000 */
-    0x81); /* 10000001 */
+static const uint16_t tile_anim_1[32] = TILE_MC(   /* 4x4 block */
+    D, D, D, D, D, D, D, D,
+    D, S, S, S, S, S, S, S,
+    D, S, S, E, E, S, S, S,
+    D, S, E, E, E, E, S, S,
+    D, S, E, E, E, E, S, S,
+    D, S, S, E, E, S, S, S,
+    D, S, S, S, S, S, S, S,
+    D, S, S, S, S, S, S, S);
+
+static const uint16_t tile_anim_2[32] = TILE_MC(   /* rounded blob */
+    D, D, D, D, D, D, D, D,
+    D, S, E, E, E, E, S, S,
+    D, E, E, E, E, E, E, S,
+    D, E, E, E, E, E, E, S,
+    D, E, E, E, E, E, E, S,
+    D, E, E, E, E, E, E, S,
+    D, S, E, E, E, E, S, S,
+    D, S, S, S, S, S, S, S);
+
+static const uint16_t tile_anim_3[32] = TILE_MC(   /* near-full blast */
+    D, E, E, E, E, E, E, D,
+    E, E, E, E, E, E, E, E,
+    E, E, E, E, E, E, E, E,
+    E, E, E, E, E, E, E, E,
+    E, E, E, E, E, E, E, E,
+    E, E, E, E, E, E, E, E,
+    E, E, E, E, E, E, E, E,
+    D, E, E, E, E, E, E, S);
+
+static const uint16_t tile_anim_4[32] = TILE_MC(   /* dissipating ring */
+    D, E, E, E, E, E, E, D,
+    E, E, E, E, E, E, E, E,
+    E, E, S, S, S, S, E, E,
+    E, E, S, S, S, S, E, E,
+    E, E, S, S, S, S, E, E,
+    E, E, S, S, S, S, E, E,
+    E, E, E, E, E, E, E, E,
+    D, E, E, E, E, E, E, S);
+
+static const uint16_t tile_anim_5[32] = TILE_MC(   /* corner remnants */
+    E, E, S, S, S, S, E, E,
+    E, E, S, S, S, S, E, E,
+    S, S, S, S, S, S, S, S,
+    S, S, S, S, S, S, S, S,
+    S, S, S, S, S, S, S, S,
+    S, S, S, S, S, S, S, S,
+    E, E, S, S, S, S, E, E,
+    E, E, S, S, S, S, E, E);
+#undef D
+#undef S
+#undef E
 
 static const uint16_t tile_border_h[32] = TILE_PAT(PEN_TEXT, PEN_BG,
     0x00,  /* 00000000 */
@@ -376,41 +494,46 @@ static const uint16_t *tile_table[TILE_COUNT] = {
     tile_clock,        /* TILE_CLOCK        */
     tile_conn_on,      /* TILE_CONN_ON      */
     tile_conn_off,     /* TILE_CONN_OFF     */
+    tile_hit_ship,     /* TILE_HIT_SHIP     */
 };
 
 /* ---- Attack cursor (hardware sprite 2, colors from registers 21-23) ----
  *
- * 16-wide sprite, corner brackets in the left 8 columns (the Atari
- * cursor_pmg pattern). Two images for the blink: image 0 uses sprite
- * plane A only (color 21), image 1 plane B only (color 22). Layout is
- * SimpleSprite data: posctl pair, height x (planeA, planeB), terminator. */
+ * 16-wide sprite, corner brackets framing the full 8px cell (the left 8
+ * columns). Two images for the blink: image 0 uses sprite plane A only
+ * (color 21), image 1 plane B only (color 22). Layout is SimpleSprite data:
+ * posctl pair, height x (planeA, planeB), terminator.
+ *
+ * Bracket art per row (high byte = the cell's 8px, bit 15 = leftmost):
+ *   0xC300 = ##....##   0x8100 = #......#   — corners top (rows 0-1) and
+ *   bottom (rows 6-7), open sides. */
 
 #define CURSOR_SPR_HEIGHT 8
 #define CURSOR_SPR_WORDS  (2 + CURSOR_SPR_HEIGHT * 2 + 2)
 
 static const uint16_t cursor_spr_a[CURSOR_SPR_WORDS] = {
     0x0000, 0x0000,
-    0xF000, 0x0000,
-    0x9000, 0x0000,
-    0x9000, 0x0000,
+    0xC300, 0x0000,
+    0x8100, 0x0000,
     0x0000, 0x0000,
     0x0000, 0x0000,
-    0x9000, 0x0000,
-    0x9000, 0x0000,
-    0xF000, 0x0000,
+    0x0000, 0x0000,
+    0x0000, 0x0000,
+    0x8100, 0x0000,
+    0xC300, 0x0000,
     0x0000, 0x0000
 };
 
 static const uint16_t cursor_spr_b[CURSOR_SPR_WORDS] = {
     0x0000, 0x0000,
-    0x0000, 0xF000,
-    0x0000, 0x9000,
-    0x0000, 0x9000,
+    0x0000, 0xC300,
+    0x0000, 0x8100,
     0x0000, 0x0000,
     0x0000, 0x0000,
-    0x0000, 0x9000,
-    0x0000, 0x9000,
-    0x0000, 0xF000,
+    0x0000, 0x0000,
+    0x0000, 0x0000,
+    0x0000, 0x8100,
+    0x0000, 0xC300,
     0x0000, 0x0000
 };
 

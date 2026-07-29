@@ -30,6 +30,14 @@ struct Window;   /* forward decl; input.c includes intuition headers itself */
 #define PEN_SEA_DK   7   /* dark blue sea detail        */
 #define PEN_EXPL     8   /* orange explosion            */
 #define PEN_CONN     9   /* cyan connection icon        */
+/* Art-pass shade pens — free slots the multicolor tiles draw with. Colors
+ * live in tile_palette[] (tiles.h); tune the RGB4 there, not here. */
+#define PEN_SHIP_HI  10  /* ship hull highlight / deck  */
+#define PEN_SHIP_SHD 11  /* ship hull shadow            */
+#define PEN_SEA_LT   12  /* water light / wave crest    */
+#define PEN_FOAM     13  /* white foam / bright detail  */
+#define PEN_WOOD     14  /* deck / superstructure wood  */
+#define PEN_SPARE    15  /* reserved                    */
 
 /* Open libraries, screen, window, palette, tile bank, sprite. Returns 1 on
  * success. On failure everything already opened is released and 0 returns.

@@ -157,7 +157,7 @@ not a refactor.
 | `http_get` demo app | ✅ Done | HTTPS auto-detect, NTSC mode, weather demo |
 | `fn_test` smoke test | ✅ Done | Validates serial transport end-to-end |
 | Track 1A — compat layer | ✅ Done (2026-07-01) | `libs/fujinet-compat-amiga`; header-sync procedure in `docs/updating-fujinet-compat-headers.md` |
-| Track 1B — Battleship port | 🚧 Phase 3c scaffolding done (2026-07-12) | 3a joystick ✅, 3b sound ✅. 3c graphical renderer: tile engine on custom 320×200×4 screen playable end-to-end in emulator with placeholder art (lobby → placement → gameplay → menu verified); art pass (Atari-modeled tiles/font/palette in `tiles.h`) remains. Then Phase 4 (real hardware) |
+| Track 1B — Battleship port | 🚧 Phase 3 complete (2026-07-28) | 3a joystick ✅, 3b sound ✅, 3c graphical renderer ✅. Tile engine on a custom 320×200×4 screen, playable end-to-end in emulator (lobby → placement → gameplay → menu); mouse aiming (#21) and mouse ship placement (#23) merged; tile art pass done (`tiles.h` — multicolor sea/ships/markers/explosion, previewed via the `tilegallery` harness). Phase 4 ADF boot test ✅ (2026-07-28: full game in FS-UAE off the ADF, 6706 FujiBus frames, no errors). Remaining: real Amiga 500 + PiStorm. Also unblocks the upstream port PR |
 | Track 2 Phase 1 — BSD sockets | 🔲 Not started | |
 | Track 2 Phase 2 — DNS | 🔲 Not started | |
 | Track 2 Phase 3 — TLS | 🔲 Not started | |
@@ -195,6 +195,15 @@ not a refactor.
   Diagnosis technique worth remembering: record the PipeWire sink monitor
   (`pw-record --target <sink> --properties '{stream.capture.sink=true}'`)
   and RMS-analyze to distinguish "silent guest" from "muted host".
+- **2026-07-28** — `fn_transport_close()` is defined by every nio-lib platform
+  backend but declared in no header, so nothing ever calls it. On Amiga that
+  leaks `serial.device` past process exit (`AllocMem` isn't reclaimed at exit),
+  and a second run of any FujiNet app silently behaves as if offline — no error
+  is surfaced, it just stops talking. Cost a confusing appkey debug session:
+  the persistence code was fine, the *second launch* was the broken thing.
+  Lesson: when an Amiga app "loses" the network on a re-run, suspect leaked
+  exec resources from the previous run before suspecting the feature under
+  test. Details and the deferred fix: `contracts/amiga-transport-api.md`.
 - **2026-07-12** — Three graphical-renderer gotchas surfaced during the Phase 3c
   scaffold, all rehomed to their owning docs: xwd screenshots scramble color
   channels on saturated colors while monochrome looks fine (capture artifact,

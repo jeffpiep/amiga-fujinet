@@ -94,6 +94,40 @@ const char *fn_platform_name(void) { return "amiga"; }
 
 ---
 
+## fn_transport_close() — KNOWN BUG (2026-07-28, unfixed)
+
+`fn_transport_close()` is **defined by every platform backend**
+(`platform/amiga/fn_transport.c:223`, `platform/msdos/*`, `common/
+fn_transport_stream.c`) but is **declared in no header** — `fn_platform.h`
+declares `fn_transport_init` / `_ready` / `_exchange` and omits `_close`.
+It is therefore unreachable API, and nothing in this repo calls it.
+
+**Consequence on Amiga:** an app that calls `fn_init()` and exits leaves
+`serial.device` open forever. `CreatePort`/`CreateExtIO` allocate via
+`AllocMem`, which AmigaDOS does *not* reclaim at process exit, so:
+
+- A second run of the app in the same session gets `OpenDevice` failure,
+  `_device_open` stays 0, and **every FujiNet operation fails silently** —
+  no error is surfaced to the user, the app just behaves as if offline.
+- The leaked `MsgPort` keeps `mp_SigTask` pointing at the exited process.
+  If `serial.device` ever replies to a pending IO afterwards it signals
+  freed task memory. Only a reboot clears the state.
+
+**Observed:** 2026-07-28. Battleship read an appkey correctly on a cold
+boot, wrote it correctly on menu-quit, then a second launch from the CLI
+produced *zero* FujiBus traffic — the appkey read failed, the game
+prompted for a name, and the entered name was never persisted. Diagnosed
+from `fujinet.log` having no activity after the first run's final write.
+
+**Fix (deferred, user's call 2026-07-28):** add
+`void fn_transport_close(void);` to `fn_platform.h` upstream (one line,
+benefits all platforms; fork → PR per `docs/syncing-upstream-submodules.md`),
+then have apps register `atexit(fn_transport_close)` alongside the existing
+`gfx_close` / `soundCleanup` handlers. Until then, **restart the Amiga
+between runs** — relaunching a FujiNet app from the CLI will not work.
+
+---
+
 ## Build System Changes
 
 ### makefiles/targets.mk — add:

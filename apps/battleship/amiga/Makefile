@@ -23,6 +23,11 @@ AMIGA_SRCS = src/graphics.c src/gfxcore.c src/cellmap.c src/keytrans.c src/mouse
 
 SRCS = $(COMMON_SRCS) $(AMIGA_SRCS)
 
+# Headers the sources #include (tiles.h is the art surface). Listed as build
+# prerequisites so editing a tile/header actually rebuilds the binary — without
+# this, make sees no changed .c file and silently ships the stale binary.
+AMIGA_HDRS = $(wildcard include/*.h)
+
 TARGET = battleship
 
 APP_NAME         = battleship
@@ -42,11 +47,33 @@ STRIP_SYMS = ../../../emu/scripts/strip-hunk-symbols.py
 
 all: $(TARGET)
 
-$(TARGET): $(SRCS) $(COMPAT_LIB) $(NIO_ALIB)
+$(TARGET): $(SRCS) $(AMIGA_HDRS) $(COMPAT_LIB) $(NIO_ALIB)
 	$(CC) $(CFLAGS) $(INCLUDES) -Wl,-x -o $@ $(SRCS) $(COMPAT_LIB) $(NIO_ALIB)
 
 strip: $(TARGET)
 	python3 $(STRIP_SYMS) $<
+
+# ---- Art-pass tile gallery (preview harness, docs/plan-track1b-battleship.md) ----
+# Standalone: gfxcore.c + tiles.h, no upstream game. `make tilegallery` builds
+# the binary; `make gallery-adf` wraps it in a bootable ADF via the emu tooling.
+GALLERY        = tilegallery
+GALLERY_SRCS   = src/gallery_main.c src/gfxcore.c
+# tiles.h (the art surface) is #included, not compiled — list the headers as
+# prerequisites so editing a tile actually rebuilds the binary (and thus the
+# ADF). Without this, `make gallery-adf` silently packages the stale binary.
+GALLERY_HDRS   = include/tiles.h include/gfxcore.h include/cellmap.h include/amiga_vars.h
+_GALLERY_ADF   = $(CURDIR)/$(GALLERY).adf
+
+$(GALLERY): $(GALLERY_SRCS) $(GALLERY_HDRS)
+	$(CC) $(CFLAGS) $(INCLUDES) -Wl,-x -o $@ $(GALLERY_SRCS)
+
+gallery-adf: $(GALLERY)
+	APP_NAME=$(GALLERY) \
+	APP_BINARY=$(abspath $(GALLERY)) \
+	ADF_OUT=$(_GALLERY_ADF) \
+	../../../emu/scripts/build-adf.sh
+
+.PHONY: gallery-adf
 
 include ../../../emu/template/emu.mk
 
@@ -65,6 +92,6 @@ test-host: $(HOST_TESTS)
 	@fail=0; for t in $(HOST_TESTS); do echo "== $$t =="; ./$$t || fail=1; done; exit $$fail
 
 clean:
-	rm -f $(TARGET) $(HOST_TESTS)
+	rm -f $(TARGET) $(GALLERY) $(_GALLERY_ADF) $(HOST_TESTS)
 
 .PHONY: all clean strip test-host

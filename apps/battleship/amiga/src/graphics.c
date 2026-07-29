@@ -32,6 +32,16 @@ extern char playerName[12];
 
 static uint8_t playerCount_g = 2;
 
+/*
+ * Own-ship footprint per quadrant (10x10). drawShip is only ever called for
+ * your own ships, so any quadrant that received a ship draw is a board whose
+ * ships you can see. Consulted when overlaying a hit so a hit on your own
+ * ship renders as TILE_HIT_SHIP instead of TILE_HIT. Cleared by drawBoard,
+ * maintained on every drawShip (set on SHOW, clear on HIDE).
+ * See docs/archive/handoff-own-ship-hit-tile.md.
+ */
+static uint8_t s_ship_map[4][100];
+
 void initGraphics(void)
 {
     if (!gfx_open()) {
@@ -129,6 +139,7 @@ void drawBoard(uint8_t playerCount)
 
     playerCount_g = playerCount;
     resetScreen();
+    memset(s_ship_map, 0, sizeof(s_ship_map));
 
     for (q = 0; q < playerCount && q < 4; q++) {
         /* 10x10 sea grid */
@@ -229,11 +240,18 @@ void drawShip(uint8_t quadrant, uint8_t size, uint8_t pos, bool hide)
 
     for (i = 0; i < size; i++) {
         uint8_t tile = hide ? TILE_SEA : cm_ship_tile(i, size, vertical);
+        uint8_t cx = vertical ? sx : (uint8_t)(sx + i);
+        uint8_t cy = vertical ? (uint8_t)(sy + i) : sy;
 
         if (vertical)
             gfx_draw_tile(ox + sx, oy + sy + i, tile);
         else
             gfx_draw_tile(ox + sx + i, oy + sy, tile);
+
+        /* Track the own-ship footprint so a later hit overlay can pick
+         * TILE_HIT_SHIP. Set on SHOW, clear on HIDE. */
+        if (quadrant < 4 && cx < 10 && cy < 10)
+            s_ship_map[quadrant][cy * 10 + cx] = hide ? 0 : 1;
     }
 }
 
@@ -265,9 +283,13 @@ void drawGamefield(uint8_t quadrant, uint8_t *field)
         for (col = 0; col < 10; col++) {
             uint8_t cell = field[row * 10 + col];
 
+            uint8_t on_ship;
+
             if (cell != FIELD_ATTACK && cell != FIELD_MISS)
                 continue;
-            gfx_draw_tile(ox + col, oy + row, cm_field_tile(cell));
+            on_ship = (quadrant < 4) ? s_ship_map[quadrant][row * 10 + col] : 0;
+            gfx_draw_tile(ox + col, oy + row,
+                          cm_field_tile(cell, on_ship));
         }
     }
 }
@@ -275,13 +297,15 @@ void drawGamefield(uint8_t quadrant, uint8_t *field)
 void drawGamefieldUpdate(uint8_t quadrant, uint8_t *gamefield,
                          uint8_t attackPos, uint8_t anim)
 {
-    uint8_t ox, oy;
+    uint8_t ox, oy, on_ship;
 
     gfx_cursor_hide();
     gfx_aim_clear();
     cm_quadrant_origin(playerCount_g, quadrant, &ox, &oy);
+    on_ship = (quadrant < 4 && attackPos < 100)
+                  ? s_ship_map[quadrant][attackPos] : 0;
     gfx_draw_tile(ox + attackPos % 10, oy + attackPos / 10,
-                  cm_update_tile(gamefield[attackPos], anim));
+                  cm_update_tile(gamefield[attackPos], anim, on_ship));
 }
 
 void drawGamefieldCursor(uint8_t quadrant, uint8_t x, uint8_t y,

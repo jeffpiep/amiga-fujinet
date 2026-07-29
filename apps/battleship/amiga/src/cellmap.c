@@ -74,16 +74,16 @@ uint8_t cm_ship_tile(uint8_t i, uint8_t size, uint8_t vertical)
     return vertical ? TILE_SHIP_MID_V : TILE_SHIP_MID_H;
 }
 
-uint8_t cm_field_tile(uint8_t cell)
+uint8_t cm_field_tile(uint8_t cell, uint8_t on_ship)
 {
     if (cell == CM_FIELD_ATTACK)
-        return TILE_HIT;
+        return on_ship ? TILE_HIT_SHIP : TILE_HIT;
     if (cell == CM_FIELD_MISS)
         return TILE_MISS;
     return TILE_SEA;
 }
 
-uint8_t cm_update_tile(uint8_t cell, uint8_t anim)
+uint8_t cm_update_tile(uint8_t cell, uint8_t anim, uint8_t on_ship)
 {
     if (anim > 9) {
         uint8_t frame = (uint8_t)(anim - 10);
@@ -93,7 +93,7 @@ uint8_t cm_update_tile(uint8_t cell, uint8_t anim)
         return (uint8_t)(TILE_ANIM_0 + frame);
     }
     if (cell == CM_FIELD_ATTACK)
-        return anim ? TILE_HIT2 : TILE_HIT;
+        return anim ? TILE_HIT2 : (on_ship ? TILE_HIT_SHIP : TILE_HIT);
     if (cell == CM_FIELD_MISS)
         return TILE_MISS;
     return TILE_SEA;

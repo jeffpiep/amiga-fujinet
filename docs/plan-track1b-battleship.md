@@ -229,10 +229,10 @@ Phase 3 completion also unblocks the upstream port PR — see
 - [x] Joystick moves cursor (Phase 3a) — verified 2026-07-06 in live play via
       FS-UAE keyboard-joystick emulation (cursor keys + Right Alt fire)
 - [x] Sound effects play on hit/miss/sink (Phase 3b) — merged 2026-07-09 (#17)
-- [~] Graphical renderer: full game on a custom 320×200 screen (Phase 3c) —
+- [x] Graphical renderer: full game on a custom 320×200 screen (Phase 3c) —
       scaffolding verified in emulator 2026-07-12 (lobby, placement, gameplay
       with hits/misses/sunk legend, sprite cursor, in-game menu save/restore);
-      placeholder art — Atari-modeled art pass pending
+      art pass completed 2026-07-28 on `feature/battleship-art-pass`
 - [x] Mouse aiming (Phase 3c extension) — merged 2026-07-13 (#21) — hover an
       enemy field to snap the attack cursor to the cell (Intuition pointer
       blanks over the field), left-click fires; coexists live with
@@ -246,7 +246,47 @@ Phase 3 completion also unblocks the upstream port PR — see
       cycle (drawShip hook), so no upstream changes. Verified in emulator
       2026-07-13: drag, edge clamp, rotate, click-place, auto re-arm on the
       next ship
-- [ ] Boots from ADF in emulator, plays full game (Phase 4)
+- [x] Own-ship hit tile (Phase 3c art) — on `feature/battleship-art-pass` —
+      hits on your own ships render as a distinct tile (`TILE_HIT_SHIP`, red X on
+      the gray hull) vs. the red X on sea used for water/enemy hits. Driven by a
+      per-quadrant own-ship footprint in the platform layer (`graphics.c`
+      `s_ship_map`, populated from `drawShip`); no upstream changes. Host tests
+      pass; verified in a live game 2026-07-20. Tile art is a flat-gray MVP the
+      user may refine. Design rationale archived in
+      `docs/archive/handoff-own-ship-hit-tile.md`.
+- [x] Tile art pass (Phase 3c art) — completed 2026-07-28 on
+      `feature/battleship-art-pass`. Multicolor palette + `TILE_MC` authoring
+      macro, textured sea, gray ship hulls (both orientations), white-peg miss,
+      red-X hit with white blink partner, own-ship hit on hull, and a six-frame
+      explosion sequence — all fitted to the 7×7 tile interior under the
+      `PEN_SEA_DK` top/left border so markers align with the sea seam.
+      Previewed via the `tilegallery` harness (`make gallery-adf`); host tests
+      pass.
+- [x] Boots from ADF in emulator, plays full game (Phase 4) — verified
+      2026-07-28 in a windowed FS-UAE session (A500 / KS 1.3 / NTSC) against a
+      live `fujinet-nio` over the socat PTY bridge: ~12 minutes of play, 6706
+      FujiBus frames to the carr-designs game server, zero errors or warnings
+      in `fujinet.log`. Art-pass tiles confirmed in real play. Orchestration
+      recipe: `.claude/commands/emu-build-and-boot.md` (Manual / Debug
+      Fallback → "Run FS-UAE interactively on the real display").
 - [ ] Tested on real Amiga 500 + PiStorm (Phase 4)
-- [~] Player name persisted via AppKey/ENVARC: (name loads each boot from a
-      pre-populated appkey; full write→reboot→read cycle not yet retested)
+- [x] Player name persisted via AppKey — full write→reboot→read cycle verified
+      2026-07-28 against a live `fujinet-nio`. Method: seed
+      `fujinet-data/FujiNet/00010100.key` with a
+      sentinel, cold-boot the ADF, observe the name, change it, quit via the
+      game menu, re-inspect the file.
+      - **Read ✅** — cold boot displayed the seeded sentinel `OLDNAME`.
+      - **Write ✅** — quitting via the menu wrote `fuji2` (5 bytes) to
+        `00010100.key`; confirmed on disk with matching timestamp.
+      - **Read-back ✅** — a Ctrl+Amiga+Amiga soft reset re-read the key and
+        displayed `fuji2`; third FileRead of `00010100.key` visible in
+        `fujinet.log`.
+      - **Must reset, not relaunch.** An earlier CLI relaunch in the same
+        session produced *zero* FujiBus traffic and falsely looked like a
+        persistence failure — the `fn_transport_close()` leak
+        (`contracts/amiga-transport-api.md`) leaves `serial.device` open, and
+        only a reset releases it. Always soft-reset between runs when
+        retesting this.
+      - Note: `00010105.key` (lobby server URL) was left 0 bytes by a session
+        that ended with the FS-UAE window closed mid-write. Harmless — the
+        game falls back to its built-in URL and still reached the server.

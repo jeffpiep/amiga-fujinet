@@ -67,6 +67,8 @@ enum {
     TILE_CONN_ON,
     TILE_CONN_OFF,
 
+    TILE_HIT_SHIP,      /* hit on one of your own ships (red X on hull) */
+
     TILE_COUNT
 };
 
@@ -95,11 +97,14 @@ void cm_legend_offset(uint8_t index, uint8_t *dx, uint8_t *dy);
 /* Tile for segment i (0-based) of a size-cell ship. */
 uint8_t cm_ship_tile(uint8_t i, uint8_t size, uint8_t vertical);
 
-/* Tile overlaying a gamefield cell during a full drawGamefield() pass. */
-uint8_t cm_field_tile(uint8_t cell);
+/* Tile overlaying a gamefield cell during a full drawGamefield() pass.
+ * on_ship marks a cell occupied by one of your own ships, so a settled hit
+ * there renders as TILE_HIT_SHIP (red X on hull) instead of TILE_HIT. */
+uint8_t cm_field_tile(uint8_t cell, uint8_t on_ship);
 
 /* Tile for drawGamefieldUpdate(): anim 10..15 selects an explosion frame,
- * anim 1..9 blinks a fresh hit (TILE_HIT2), anim 0 shows the final state. */
-uint8_t cm_update_tile(uint8_t cell, uint8_t anim);
+ * anim 1..9 blinks a fresh hit (TILE_HIT2), anim 0 shows the final state.
+ * on_ship swaps the settled hit to TILE_HIT_SHIP over your own ships. */
+uint8_t cm_update_tile(uint8_t cell, uint8_t anim, uint8_t on_ship);
 
 #endif /* CELLMAP_H */
