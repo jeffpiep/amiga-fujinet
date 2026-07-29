@@ -46,6 +46,13 @@ feature/<short-description>
 Feature branches are short-lived and focused. `main`/`master` is never committed
 to directly — all changes arrive via squash-merge PR. No `dev` branch.
 
+**One exception**, parent repo only: trivial local-tooling or editor-config
+changes that touch no code, no build output, and no submodule pointer may be
+committed straight to `main` (e.g. `.claude/settings.json`, `.gitignore`
+entries). Anything a reviewer could have an opinion about still gets a PR. This
+exception never applies inside a submodule — those always go through the
+upstream-PR flow.
+
 ### Commit message style
 
 Subject in imperative present tense ("Add X", not "Added X"), ≤72 chars.
@@ -142,6 +149,7 @@ first, then get merged/squash-merged to `main` via PR.
 - Edit submodule files without first creating a branch inside that submodule
 - Commit the parent repo without first committing inside any modified submodule
 - Commit directly to `main` or `master` — always use a feature branch + PR
+  (narrow exception for trivial parent-repo tooling config — see "Branch naming")
 - Merge `master`/`main` into a **submodule** feature branch — rebase instead (upstream requires linear history). For the parent repo, rebase is preferred but not required.
 - Use `git add .` or `git add -A` — always stage specific files
 - Edit files in the shared checkout from a background Claude Code job — use `EnterWorktree` first
