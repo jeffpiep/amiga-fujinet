@@ -270,18 +270,23 @@ Phase 3 completion also unblocks the upstream port PR — see
       recipe: `.claude/commands/emu-build-and-boot.md` (Manual / Debug
       Fallback → "Run FS-UAE interactively on the real display").
 - [ ] Tested on real Amiga 500 + PiStorm (Phase 4)
-- [~] Player name persisted via AppKey — read and write both verified
-      2026-07-28 against a live `fujinet-nio`; read-back after restart still
-      unconfirmed. Method: seed `fujinet-data/FujiNet/00010100.key` with a
+- [x] Player name persisted via AppKey — full write→reboot→read cycle verified
+      2026-07-28 against a live `fujinet-nio`. Method: seed
+      `fujinet-data/FujiNet/00010100.key` with a
       sentinel, cold-boot the ADF, observe the name, change it, quit via the
       game menu, re-inspect the file.
       - **Read ✅** — cold boot displayed the seeded sentinel `OLDNAME`.
       - **Write ✅** — quitting via the menu wrote `fuji2` (5 bytes) to
         `00010100.key`; confirmed on disk with matching timestamp.
-      - **Read-back ⬜** — blocked by the `fn_transport_close()` leak
-        (`contracts/amiga-transport-api.md`): relaunching from the CLI in the
-        same session gets no serial device, so the reread never reached the
-        server. Needs a *cold reboot* to confirm, not a CLI relaunch.
+      - **Read-back ✅** — a Ctrl+Amiga+Amiga soft reset re-read the key and
+        displayed `fuji2`; third FileRead of `00010100.key` visible in
+        `fujinet.log`.
+      - **Must reset, not relaunch.** An earlier CLI relaunch in the same
+        session produced *zero* FujiBus traffic and falsely looked like a
+        persistence failure — the `fn_transport_close()` leak
+        (`contracts/amiga-transport-api.md`) leaves `serial.device` open, and
+        only a reset releases it. Always soft-reset between runs when
+        retesting this.
       - Note: `00010105.key` (lobby server URL) was left 0 bytes by a session
         that ended with the FS-UAE window closed mid-write. Harmless — the
         game falls back to its built-in URL and still reached the server.
