@@ -269,17 +269,25 @@ Serial port is configured at runtime via environment variables:
 The top-level Claude Code session coordinates work across submodules.
 
 **Pattern:**
-1. Top-level session writes or updates a contract in `contracts/`
-2. Top-level session invokes a submodule session:
-   ```bash
-   cd fujinet-nio-lib
-   claude --print "implement X per ../contracts/amiga-transport-api.md"
-   ```
-3. Submodule session reads the contract, reads existing code, implements, commits
-4. Top-level session updates the submodule pointer in the parent repo
+1. Write or update the contract in `contracts/` first — before any code.
+2. Implement against it in the current session by default, committing inside the
+   submodule on its own feature branch.
+3. Update the submodule pointer in the parent repo.
 
-**Key rule:** `contracts/` is the handoff point. Never rely on passing large context
-between sessions — put the spec in a contract file and reference it by path.
+**Key rule:** `contracts/` is the handoff point. The spec lives in a file and is
+referenced by path, so it survives `/clear`, a new session, or a reviewer who
+wasn't there — never in conversation history alone.
+
+### Delegation
+
+Delegate to a subagent only for genuinely independent, sizeable tracks — a wide
+multi-file investigation, or two tracks being worked in parallel worktrees. A
+separate submodule session (`cd fujinet-nio-lib && claude --print "implement X
+per ../contracts/amiga-transport-api.md"`) is one such case, and it still reads
+the contract by path rather than inheriting context.
+
+Don't delegate work you can finish in a handful of tool calls, and don't use a
+subagent to check your own work. One agent beats several.
 
 ## Contracts
 

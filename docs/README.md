@@ -4,6 +4,13 @@ This directory holds two fundamentally different kinds of document. They are
 maintained in opposite ways, so decide which kind you're writing before you
 start.
 
+## Length
+
+Match a document's length to what it has to carry. Cover the substance, then
+stop — no filler sections, no restating the same decision in a summary and a
+conclusion, no boilerplate headings kept empty for symmetry. A contract that
+fits on one screen is a good contract.
+
 ## 1. Evergreen docs — edit in place
 
 Procedures, references, strategy, architecture. These must always reflect the
