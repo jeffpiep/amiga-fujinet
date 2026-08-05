@@ -9,6 +9,11 @@ via RS-232 serial to an Amiga computer.
 - `fujinet-nio-lib/` — Client library (runs on Amiga) — git submodule
 - `contracts/` — Protocol & hardware specs — source of truth for cross-submodule work
 - `apps/` — Amiga programs (amiga-gcc / m68k-amigaos)
+- `libs/` — Amiga static libraries shared by the apps:
+  - `fujinet-compat-amiga/` → `libfn_compat_amiga.a` — FujiNet API shim upstream games expect
+  - `amiga-gamekit/` → `libamiga_gamekit.a` — game platform layer (custom screen +
+    tile/sprite engine, keyboard and joystick decode, waveform bakers, jiffy clock,
+    PRNG). Takes palette/art/geometry as data; owns no game-specific names.
 
 ## Git Workflow
 
@@ -180,13 +185,17 @@ first, then get merged/squash-merged to `main` via PR.
 
 `apps/fujitzee/` is the second port following that pattern (Track 1C). Its
 upstream is pinned; the Amiga layer is not written yet — start from
-`docs/plan-track1c-fujitzee.md`, whose Phase 0 extracts the reusable Amiga
-platform code out of `apps/battleship/amiga/` into `libs/amiga-gamekit`.
+`docs/plan-track1c-fujitzee.md`. Its Phase 0 (extracting `libs/amiga-gamekit`
+out of `apps/battleship/amiga/`) is done, so a new port writes only its own
+`graphics.c` / `input.c` / `sound.c` / `util.c` against the gamekit.
 
 Copy `fn_test` or `http_get`'s `Makefile` as a starting point for new apps.
 All Amiga Makefiles get the toolchain (`CC`, `AR`, canonical `CFLAGS`) and the
-nio-lib/compat-layer paths from **`make/amiga.mk`** — include it first, append
-per-app flags with `CFLAGS +=`, never redefine the toolchain locally.
+nio-lib / compat-layer / gamekit paths from **`make/amiga.mk`** — include it
+first, append per-app flags with `CFLAGS +=`, never redefine the toolchain
+locally. Listing `$(COMPAT_LIB)` or `$(GAMEKIT_LIB)` as a prerequisite builds
+that library automatically; `$(NIO_ALIB)` is not auto-built (submodule
+boundary).
 
 These apps are on-target (T2) smoke tests. For fast host-side unit tests of
 pure-logic code, see the **Testing** section below and `docs/testing.md`.
@@ -205,7 +214,7 @@ cd fujinet-nio
 # Build fujinet-nio-lib for Amiga
 cd fujinet-nio-lib && make amiga
 
-# Build all Amiga apps (includes battleship; auto-builds the compat shim)
+# Build all Amiga apps (includes battleship; auto-builds the compat shim + gamekit)
 make -C apps
 
 # Or per app
@@ -234,7 +243,7 @@ rationale + how to add tests: **`docs/testing.md`**.
 ```bash
 # T1 — fast host unit tests (pure-logic Amiga C, native cc, no backend)
 make test-host                                 # repo-wide
-make -C libs/fujinet-compat-amiga test-host    # one module
+make -C libs/amiga-gamekit test-host           # one module
 
 # T2 — slow emulator smoke tests (needs FS-UAE + a running fujinet-nio)
 make emu-test                                  # repo-wide

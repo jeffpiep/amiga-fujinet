@@ -24,6 +24,7 @@
 #include <proto/exec.h>
 
 #include "gfxcore.h"
+#include "aim.h"
 #include "keytrans.h"
 #include "mousemap.h"
 

@@ -3,10 +3,8 @@
  *
  * The graphical renderer's window listens for IDCMP_VANILLAKEY (cooked
  * ASCII) and IDCMP_RAWKEY (needed only for the four cursor keys, which have
- * no vanilla form). input.c feeds each message's class/code here; pure logic
- * so it is T1 host-testable (test/host/test_keytrans.c).
- *
- * See: docs/plan-track1b-battleship.md (Phase 3c)
+ * no vanilla form). The game's input.c feeds each message's class/code here;
+ * pure logic so it is T1 host-testable (test/host/test_keytrans.c).
  */
 #ifndef KEYTRANS_H
 #define KEYTRANS_H
@@ -26,8 +24,7 @@
 /*
  * Translate one IDCMP keyboard event. is_rawkey selects the event class
  * (1 = IDCMP_RAWKEY, 0 = IDCMP_VANILLAKEY); code is IntuiMessage->Code.
- * Returns the game key char (matching the KEY_* values in amiga_vars.h)
- * or KT_NONE.
+ * Returns the game key char (the GK_KEY_* values in gkinput.h) or KT_NONE.
  */
 int16_t kt_decode(uint8_t is_rawkey, uint16_t code);
 

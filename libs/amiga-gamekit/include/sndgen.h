@@ -3,9 +3,9 @@
 
 #include <stdint.h>
 
-/* Waveform bakers for the battleship sound effects. Pure integer C — no
- * AmigaOS, no floats — so they are T1 host-testable; the audio.device
- * playback lives in sound.c. All generators write signed 8-bit samples
+/* Waveform bakers for game sound effects. Pure integer C — no AmigaOS, no
+ * floats — so they are T1 host-testable; the audio.device playback lives in
+ * each game's sound.c. All generators write signed 8-bit samples
  * meant for playback at SNDGEN_RATE (Paula period SND_PERIOD in sound.c).
  * Volumes are sample amplitudes 0..127; each generator ramps linearly
  * from vol_start to vol_end across the buffer (decay = ramp to 0). */

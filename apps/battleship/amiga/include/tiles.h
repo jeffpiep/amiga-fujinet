@@ -22,7 +22,7 @@
 
 #include <stdint.h>
 #include "cellmap.h"   /* TILE_* ids — tile_table[] is indexed by them */
-#include "gfxcore.h"   /* PEN_* numbers the palette below gives color to */
+#include "pens.h"      /* PEN_* numbers the palette below gives color to */
 
 /* ---- Palette (12-bit RGB4, LoadRGB4 order, indexed by PEN_*) ---- */
 
@@ -464,7 +464,7 @@ static const uint16_t tile_conn_off[32] = TILE_PAT(PEN_DIM, PEN_BG,
 
 /* ---- Tile table (indexed by the TILE_* enum in cellmap.h) ---- */
 
-static const uint16_t *tile_table[TILE_COUNT] = {
+static const uint16_t *const tile_table[TILE_COUNT] = {
     tile_blank,        /* TILE_BLANK        */
     tile_sea,          /* TILE_SEA          */
     tile_miss,         /* TILE_MISS         */
