@@ -20,6 +20,7 @@ via RS-232 serial to an Amiga computer.
 | `fujinet-nio/` | jeffpiep/fujinet-nio | markjfisher/fujinet-nio |
 | `fujinet-nio-lib/` | jeffpiep/fujinet-nio-lib | markjfisher/fujinet-nio-lib |
 | `battleship/` | jeffpiep/battleship | FujiNetWIFI/battleship |
+| `apps/fujitzee/upstream` | — (read-only pin) | FujiNetWIFI/fujinet-fujitzee |
 | `apps/pacmantests/amiga-pac-man` | — (read-only pin) | tschak909/amiga-pac-man |
 
 Routine submodule syncing (fast-forwards, PR-branch pins, squash-merge
@@ -177,6 +178,11 @@ first, then get merged/squash-merged to `main` via PR.
 `apps/<game>/upstream/` (read-only pinned submodule) + `apps/<game>/amiga/`
 (Makefile + platform layer), linking `libs/fujinet-compat-amiga`.
 
+`apps/fujitzee/` is the second port following that pattern (Track 1C). Its
+upstream is pinned; the Amiga layer is not written yet — start from
+`docs/plan-track1c-fujitzee.md`, whose Phase 0 extracts the reusable Amiga
+platform code out of `apps/battleship/amiga/` into `libs/amiga-gamekit`.
+
 Copy `fn_test` or `http_get`'s `Makefile` as a starting point for new apps.
 All Amiga Makefiles get the toolchain (`CC`, `AR`, canonical `CFLAGS`) and the
 nio-lib/compat-layer paths from **`make/amiga.mk`** — include it first, append
@@ -206,8 +212,9 @@ make -C apps
 make -C apps/http_get
 make -C apps/battleship/amiga battleship   # note: explicit target; bare `make` builds the ADF
 
-# Battleship one-time extra dep
-git submodule update --init apps/battleship/upstream   # game sources (not initialized by default)
+# Game-port one-time extra deps (game sources; not initialized by default)
+git submodule update --init apps/battleship/upstream
+git submodule update --init apps/fujitzee/upstream
 ```
 
 See `fujinet-nio/docs/developer_onboarding.md` for full build options, ESP32 setup,
