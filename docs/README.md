@@ -18,7 +18,7 @@ Procedures, references, strategy, architecture. These must always reflect the
 stays true. Never move an evergreen doc aside — git history is its archive.
 
 Examples: `strategic-plan.md`, `updating-fujinet-compat-headers.md`,
-`upstreaming-battleship.md`, `audit-track1a-gap-table.md`.
+`upstreaming-amiga-ports.md`, `audit-track1a-gap-table.md`.
 
 Canonical build/run steps live in the top-level `CLAUDE.md`, not here — this
 directory is for deeper narrative and reference than the always-loaded index.
@@ -65,8 +65,9 @@ archived per §2 instead of left with a `Complete` header.
 | `syncing-upstream-submodules.md` | Submodule pointer states, squash-merge recovery, drift checks |
 | `updating-fujinet-compat-headers.md` | Refreshing compat-layer headers from `FujiNetWIFI/fujinet-lib` |
 | `audit-track1a-gap-table.md` | Symbol-by-symbol map: fujinet-lib headers → nio-lib |
-| `upstreaming-battleship.md` | Plan + blockers for contributing the Amiga port upstream |
+| `upstreaming-amiga-ports.md` | Plan + blockers for contributing the Amiga ports upstream |
 | `plan-track1b-battleship.md` | Battleship port phases (in progress) |
+| `plan-track1c-fujitzee.md` | Fujitzee port phases (not started) |
 | `plan-track2-bsdsocket.md` | BSD socket layer phases (not started) |
 
 Point-in-time docs still in flight (audit findings, plans awaiting execution)

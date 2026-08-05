@@ -209,7 +209,7 @@ Renderer items to take a real position on (the console version fakes them):
 animation frames, and `drawGamefieldCursor()` blink sprites.
 
 Phase 3 completion also unblocks the upstream port PR — see
-`docs/upstreaming-battleship.md`.
+`docs/upstreaming-amiga-ports.md`.
 
 ### Phase 4 — ADF boot test
 
