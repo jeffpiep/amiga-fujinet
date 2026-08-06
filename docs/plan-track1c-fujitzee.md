@@ -95,7 +95,7 @@ permanently. Extract first, then port:
 | `util.c` (timer/random) | battleship | ✅ Split: clock → `gktimer.c`/`gkclock.c`, PRNG → `gkrandom.c`. Battleship's `util.c` is now a ~10-line adapter holding only `__stack`, `itoa`, and the upstream-facing names |
 | *(new)* `gkinput.h` | — | ✅ Added. The key/joy values the decoders emit were previously duplicated between `keytrans.c` and `amiga_vars.h`; they are now one published contract each port names |
 | `mousemap.c` | battleship | Left in place — generalize if fujitzee ever wants mouse; not required |
-| `cellmap.c`, `graphics.c`, `sound.c`, `input.c`, `tiles.h` | battleship | Stayed game-specific, as planned |
+| `cellmap.c`, `graphics.c`, `sound.c`, `input.c`, `tiles.h` | battleship | Stayed game-specific, as planned. Note that `sound.c` and `input.c` still hold reusable AmigaOS machinery (`audio.device` playback, the IDCMP pump, raw joystick register reads) that Phase 3a/3b will want — see the extraction note there |
 
 The palette/pen names moved into each game's own header; the gamekit takes a
 palette array and tile bank as data. Battleship had to build and pass its T1 and
@@ -231,11 +231,25 @@ forces it.
 
 ### Phase 3 — Full platform layer
 
+> **Phase 0 extracted less than 3a/3b need — plan for a second extraction
+> round here.** The gamekit got the *pure* halves of sound and input:
+> `sndgen` (waveform bakers) and `joydecode` (counter word → direction bits).
+> The AmigaOS halves stayed in `apps/battleship/amiga/` because they are
+> genuinely entangled with the game — the `audio.device` open/allocate/play
+> machinery and the FS-UAE `AUDxVOL` workaround live in its `sound.c`, and the
+> IDCMP event pump plus the raw `JOYxDAT`/`CIAA` register reads live in its
+> `input.c`. Neither is fujitzee-specific, so the choice at 3a/3b is: extract
+> them into the gamekit first (paying the Battleship regression cost a second
+> time, as in Phase 0), or duplicate ~150 lines and accept the fork. Decide
+> deliberately rather than by default — the cheap-second-port thesis this
+> whole track is testing is what is being measured.
+
 - **3a — Sound.** 13 effects via gamekit `sndgen` + `audio.device`. Remember the
   FS-UAE `AUDxVOL` workaround (`pokeVolume()`, strategic-plan Lessons Learned
-  2026-07-08).
+  2026-07-08). See the extraction note above.
 - **3b — Joystick.** Gamekit `joydecode`; smaller than Battleship's since
-  fujitzee's `readJoystick()` takes no port argument.
+  fujitzee's `readJoystick()` takes no port argument. See the extraction note
+  above.
 - **3c — Art pass.** Dice faces, the Fujitzee logo, connection/clock icons,
   player highlight colors. Reuse Battleship's `tilegallery` harness pattern for
   previewing.
