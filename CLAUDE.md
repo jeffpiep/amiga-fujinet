@@ -25,7 +25,7 @@ via RS-232 serial to an Amiga computer.
 | `fujinet-nio/` | jeffpiep/fujinet-nio | markjfisher/fujinet-nio |
 | `fujinet-nio-lib/` | jeffpiep/fujinet-nio-lib | markjfisher/fujinet-nio-lib |
 | `battleship/` | jeffpiep/battleship | FujiNetWIFI/battleship |
-| `apps/fujitzee/upstream` | — (read-only pin) | FujiNetWIFI/fujinet-fujitzee |
+| `apps/fujitzee/upstream` | jeffpiep/fujinet-fujitzee | FujiNetWIFI/fujinet-fujitzee |
 | `apps/pacmantests/amiga-pac-man` | — (read-only pin) | tschak909/amiga-pac-man |
 
 Routine submodule syncing (fast-forwards, PR-branch pins, squash-merge
@@ -41,6 +41,12 @@ git -C fujinet-nio remote add upstream https://github.com/markjfisher/fujinet-ni
 git -C fujinet-nio-lib remote add upstream https://github.com/markjfisher/fujinet-nio-lib.git
 # (battleship, when added)
 # git -C battleship remote add upstream https://github.com/FujiNetWIFI/battleship.git
+
+# apps/fujitzee/upstream started as a read-only pin, so its remotes were set
+# up the other way round; it was renamed when the port needed an upstream PR:
+#   git -C apps/fujitzee/upstream remote rename origin upstream
+#   git -C apps/fujitzee/upstream remote add origin \
+#       https://github.com/jeffpiep/fujinet-fujitzee.git
 ```
 
 ### Branch naming
@@ -190,17 +196,31 @@ first, then get merged/squash-merged to `dev` via PR.
 | `http_get` | `apps/http_get/` | HTTP and HTTPS GET — curl-like tool, auto-detects `https://` scheme |
 | `battleship` | `apps/battleship/amiga/` | Full FujiNet game — lobby + gameplay over FujiBus. Sources in `apps/battleship/upstream/` submodule; links `libs/fujinet-compat-amiga`. |
 | `compat_test` | `apps/compat_test/` | Compat-layer smoke test on the emulator — exercises `libs/fujinet-compat-amiga` end to end. |
+| `fujitzee` | `apps/fujitzee/amiga/` | Second FujiNet game port (Track 1C). Sources in `apps/fujitzee/upstream/`; links `libs/amiga-gamekit` + `libs/fujinet-compat-amiga`. Platform layer is stubs until Phase 2. |
 | `pacmantests` | `apps/pacmantests/` | Exploratory (non-shipping) bitplane-graphics harnesses for the battleship Phase 3 renderer. Includes the `amiga-pac-man` submodule (tschak909). |
 
 `apps/battleship/` establishes the pattern for future game ports:
 `apps/<game>/upstream/` (read-only pinned submodule) + `apps/<game>/amiga/`
 (Makefile + platform layer), linking `libs/fujinet-compat-amiga`.
 
-`apps/fujitzee/` is the second port following that pattern (Track 1C). Its
-upstream is pinned; the Amiga layer is not written yet — start from
-`docs/plan-track1c-fujitzee.md`. Its Phase 0 (extracting `libs/amiga-gamekit`
-out of `apps/battleship/amiga/`) is done, so a new port writes only its own
-`graphics.c` / `input.c` / `sound.c` / `util.c` against the gamekit.
+`apps/fujitzee/` is the second port following that pattern (Track 1C) — start
+from `docs/plan-track1c-fujitzee.md`. Phase 0 (extracting `libs/amiga-gamekit`
+out of `apps/battleship/amiga/`) and Phase 1 (scaffold + link) are done, so
+what is left is filling in its own `graphics.c` / `input.c` / `sound.c`
+against the gamekit; they are no-op stubs today.
+
+Two things about fujitzee differ from battleship and are easy to trip over:
+
+- Its upstream `platform-specific/vars.h` has **no `PLATFORM_VARS` hook**, so
+  `apps/fujitzee/amiga/include/amiga_vars.h` is force-included with
+  `-include` instead. That header also claims the shared `KEYMAP_H` guard and
+  declares the cc65-isms upstream expects.
+- The server payload is memcpy'd straight into upstream's `Game` struct, so
+  **struct packing is load-bearing**: the Makefile passes
+  `-DFUJITZEE_PACK_STRUCTS` (upstream opt-in, fujinet-fujitzee#9) and
+  `test/host/test_wireformat.c` pins the resulting offsets. That PR is also
+  why `apps/fujitzee/upstream` is currently *Riding a PR* rather than
+  tracking upstream — see `docs/syncing-upstream-submodules.md`.
 
 Copy `fn_test` or `http_get`'s `Makefile` as a starting point for new apps.
 All Amiga Makefiles get the toolchain (`CC`, `AR`, canonical `CFLAGS`) and the

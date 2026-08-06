@@ -26,7 +26,13 @@ parent-repo bump commit message should say which.
 2. **Riding a PR** — pinned to a feature branch on your fork (`origin`)
    because the parent repo needs work that upstream hasn't merged yet.
    Legitimate but *temporary*; every routine sync should try to exit this
-   state. `fujinet-nio-lib` is here now.
+   state. `fujinet-nio-lib` is here now, and so is `apps/fujitzee/upstream`
+   (`feature/pack-structs-opt-in`, one commit — the packed-struct opt-in the
+   Amiga port needs to parse the server wire format;
+   [fujinet-fujitzee#9](https://github.com/FujiNetWIFI/fujinet-fujitzee/pull/9)).
+   A game-port submodule can enter this state even though its normal role is
+   a read-only pin; that also means its remotes may need the `origin`/
+   `upstream` swap described in CLAUDE.md.
 3. **Dirty** — local checkout differs from the recorded pointer. Never commit
    the parent in this state except as a deliberate bump.
 
