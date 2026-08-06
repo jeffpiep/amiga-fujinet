@@ -27,6 +27,10 @@
  * literals (libs/amiga-gamekit/include/gkinput.h). */
 #include "gkinput.h"
 
+/* Screen geometry and the board's column arithmetic live with the layout
+ * code that is host-tested against them, not as literals here. */
+#include "fjlayout.h"
+
 /* cc65/CMOC headers upstream includes unconditionally. Pulled in here rather
  * than left to misc.h because the packing shim at the bottom of this file
  * suppresses misc.h's own copies of these two includes. */
@@ -48,11 +52,10 @@ char *itoa(int value, char *buf, int radix);
 
 /* Cell grid of the graphical renderer: 40x25 cells of 8x8 pixels on a
  * 320x200 custom screen. The Atari port is 40x26; we lose one row to the
- * 200-line PAL/NTSC-common display. Phase 2 decides whether the scorecard
- * needs a wider grid than this — nothing forces 40 columns on a 320-pixel
- * screen but the 8x8 font. */
-#define WIDTH  40
-#define HEIGHT 25
+ * 200-line PAL/NTSC-common display, which is exactly the DOS port's
+ * situation, so the layout follows that one. See fjlayout.h. */
+#define WIDTH  FJ_WIDTH
+#define HEIGHT FJ_HEIGHT
 
 /* ---- Icons ------------------------------------------------------------ */
 /* The Atari values are internal-charset codes; ours are ASCII placeholders
@@ -67,11 +70,18 @@ char *itoa(int value, char *buf, int radix);
 #define ICON_CURSOR_BLIP '.'
 
 /* ---- Keyboard map ----------------------------------------------------- */
-#define KEY_LEFT_ARROW    GK_KEY_LEFT
+
+/* The cursor keys arrive as the gamekit's control-code spelling
+ * (KT_CURSOR_CTRL, selected in src/input.c), NOT as WASD the way
+ * battleship takes them. Fujitzee reads plain letters everywhere — the
+ * lobby menu is on s/r/c/h/q and the name-entry screen accepts any letter
+ * as text — so an arrow key that decoded to 'w' would type a W and an
+ * arrow-down would toggle the sound. See gkinput.h. */
+#define KEY_LEFT_ARROW    GK_KEY_CUR_LEFT
 #define KEY_LEFT_ARROW_2  '<'
 #define KEY_LEFT_ARROW_3  ','
 
-#define KEY_RIGHT_ARROW   GK_KEY_RIGHT
+#define KEY_RIGHT_ARROW   GK_KEY_CUR_RIGHT
 #define KEY_RIGHT_ARROW_2 '>'
 #define KEY_RIGHT_ARROW_3 '.'
 
@@ -80,11 +90,11 @@ char *itoa(int value, char *buf, int radix);
  * they must be distinct from each other AND from the letters screens.c
  * handles itself — 'q' in particular is Quit. Control codes are safe because
  * kt_decode() never emits them. */
-#define KEY_UP_ARROW      GK_KEY_UP
+#define KEY_UP_ARROW      GK_KEY_CUR_UP
 #define KEY_UP_ARROW_2    '-'
 #define KEY_UP_ARROW_3    2
 
-#define KEY_DOWN_ARROW    GK_KEY_DOWN
+#define KEY_DOWN_ARROW    GK_KEY_CUR_DOWN
 #define KEY_DOWN_ARROW_2  '='
 #define KEY_DOWN_ARROW_3  3
 
@@ -106,10 +116,12 @@ char *itoa(int value, char *buf, int radix);
 #define JOY_BTN_1_MASK GK_JOY_BTN_1_MASK
 
 /* ---- Layout constants ------------------------------------------------- */
-/* Values follow the Atari 40-column port; Phase 2 revisits them against the
- * real scorecard. */
+/* Values follow upstream's DOS port, which shares our 40x25 grid — the
+ * Atari's are one row taller and one column further right. Phase 2 settled
+ * these against the real scorecard: six player columns fit
+ * (FJ_PLAYERS_SHOWN), which is what every other 40-column port shows. */
 #define BOTTOM_HEIGHT      4   /* height of the bottom panel                */
-#define SCORES_X           11  /* X start of the scoreboard                 */
+#define SCORES_X           FJ_SCORES_X  /* X start of the scoreboard        */
 #define GAMEOVER_PROMPT_Y  (HEIGHT - 3)
 #define TIMER_X            12
 #define TIMER_NUM_OFFSET_X 0

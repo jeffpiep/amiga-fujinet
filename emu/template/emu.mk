@@ -28,7 +28,7 @@ EMU_TIMEOUT      ?= 60
 EMU_STARTUP_ARGS ?=
 ADF_STATIC_DIR   ?=
 
-.PHONY: emu-adf emu-test emu-clean
+.PHONY: emu-adf emu-test emu-play emu-clean
 
 emu-adf: $(APP_BINARY)
 	APP_NAME=$(APP_NAME) \
@@ -45,6 +45,13 @@ emu-test: emu-adf
 	FAIL_PATTERN="$(EMU_FAIL_PATTERN)" \
 	TIMEOUT_S=$(EMU_TIMEOUT) \
 	$(_EMU_DIR)/run.sh
+
+# Interactive: visible FS-UAE window, no pass/fail polling. For the manual
+# checks the headless harness cannot do (anything that needs typing).
+emu-play: emu-adf
+	APP_NAME=$(APP_NAME) \
+	ADF_PATH=$(_APP_ADF) \
+	$(_EMU_DIR)/play.sh
 
 emu-clean:
 	rm -f $(_APP_ADF)

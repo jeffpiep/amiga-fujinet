@@ -37,5 +37,19 @@ int main(void)
     /* Unrelated counter bits (mouse-style high counts) must not leak in. */
     CHECK_EQ(joyDecode(0xFCFC, 0), 0);
 
+    /* ---- port-2 wrapper: CIAAPRA fire is active LOW ---- */
+    /* Idle port: bit 7 high means the button is NOT pressed. Getting this
+     * backwards would report a permanently held trigger. */
+    CHECK_EQ(joyDecodePort2(0x0000, 0xFF), 0);
+    CHECK_EQ(joyDecodePort2(0x0000, 0x80), 0);
+    /* Button held pulls bit 7 low. */
+    CHECK_EQ(joyDecodePort2(0x0000, 0x7F), GK_JOY_BTN_1_MASK);
+    CHECK_EQ(joyDecodePort2(0x0000, 0x00), GK_JOY_BTN_1_MASK);
+    /* Direction and fire together. */
+    CHECK_EQ(joyDecodePort2(0x0100, 0x7F), 0x11); /* up + fire */
+    CHECK_EQ(joyDecodePort2(0x0003, 0xFF), 0x08); /* right, no fire */
+    /* Bit 6 is port 1's (the mouse's) button and must not register. */
+    CHECK_EQ(joyDecodePort2(0x0000, 0xBF), 0);
+
     return fn_test_report("test_joydecode");
 }

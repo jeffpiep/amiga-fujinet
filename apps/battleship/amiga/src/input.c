@@ -1,16 +1,17 @@
 /*
  * input.c - keyboard (IDCMP) and joystick input
  *
- * Keyboard comes from the backdrop window's IDCMP port (gfxcore.c opens
- * the window with RAWKEY|VANILLAKEY). kbhit() drains pending messages into
- * a small ring buffer and never blocks — upstream's readCommonInput polls
- * the joystick in the same loop. cgetc() pops the buffer, Wait()ing on the
- * window signal only when it is empty (which is exactly when upstream
- * expects to block). Translation is pure logic in keytrans.c (T1-tested).
+ * Keyboard is the gamekit's shared queue (gkkeyq.h): it drains the backdrop
+ * window's IDCMP port into a ring buffer, so kbhit() never blocks —
+ * upstream's readCommonInput polls the joystick in the same loop — and
+ * cgetc() blocks only when the buffer is empty, which is exactly when
+ * upstream expects to block. Battleship keeps the default KT_CURSOR_WASD
+ * arrow mapping; its menus don't compete for those letters.
  *
  * Joystick port 2 — the customary Amiga game port (port 1 has the mouse,
- * whose movement would register as phantom directions). Read-only peeks at
- * the counter/CIA registers; conventional and safe alongside the OS.
+ * whose movement would register as phantom directions). The register reads
+ * moved to the gamekit in Track 1C Phase 3b (gkjoy.h); what stays here is
+ * battleship's own mouse aiming, blended into the same result.
  *
  * Requires: intuition.library (window from gfxcore.c), exec.library
  * Compiler: m68k-amigaos-gcc (amiga-gcc)
@@ -21,81 +22,23 @@
 
 #include <exec/types.h>
 #include <intuition/intuition.h>
-#include <proto/exec.h>
 
 #include "gfxcore.h"
 #include "aim.h"
-#include "keytrans.h"
+#include "gkkeyq.h"
 #include "mousemap.h"
-
-/* Power-of-two ring buffer for decoded keys. */
-#define KEYBUF_SIZE 8
-#define KEYBUF_MASK (KEYBUF_SIZE - 1)
-static char _keybuf[KEYBUF_SIZE];
-static uint8_t _keybuf_head;
-static uint8_t _keybuf_tail;
-
-/* Left mouse button held (from IDCMP MOUSEBUTTONS). */
-static uint8_t _mouse_button;
-
-/* Drain every pending IDCMP message, pushing decoded keys into the ring
- * buffer (oldest keys drop if the game falls far behind) and tracking the
- * left mouse button state. */
-static void drainKeyMessages(void)
-{
-    struct IntuiMessage *msg;
-
-    if (!gfx_window)
-        return;
-    while ((msg = (struct IntuiMessage *)GetMsg(gfx_window->UserPort))) {
-        ULONG cls = msg->Class;
-        UWORD code = msg->Code;
-        int16_t key;
-
-        ReplyMsg((struct Message *)msg);
-        if (cls == MOUSEBUTTONS) {
-            if (code == SELECTDOWN)
-                _mouse_button = 1;
-            else if (code == SELECTUP)
-                _mouse_button = 0;
-            continue;
-        }
-        if (cls != RAWKEY && cls != VANILLAKEY)
-            continue;
-        key = kt_decode(cls == RAWKEY, code);
-        if (key == KT_NONE)
-            continue;
-        if ((uint8_t)(_keybuf_head - _keybuf_tail) >= KEYBUF_SIZE)
-            _keybuf_tail++;
-        _keybuf[_keybuf_head & KEYBUF_MASK] = (char)key;
-        _keybuf_head++;
-    }
-}
 
 unsigned char kbhit(void)
 {
-    drainKeyMessages();
-    return _keybuf_head != _keybuf_tail;
+    return gk_key_hit();
 }
 
 char cgetc(void)
 {
-    char ch;
-
-    drainKeyMessages();
-    while (_keybuf_head == _keybuf_tail) {
-        Wait(1UL << gfx_window->UserPort->mp_SigBit);
-        drainKeyMessages();
-    }
-    ch = _keybuf[_keybuf_tail & KEYBUF_MASK];
-    _keybuf_tail++;
-    return ch;
+    return gk_key_get();
 }
 
-#include "joydecode.h"
-
-#define JOY1DAT (*(volatile uint16_t *)0xDFF00C)
-#define CIAAPRA (*(volatile uint8_t *)0xBFE001) /* bit 7 = port-2 fire, active low */
+#include "gkjoy.h"
 
 /*
  * Mouse aiming (attack cursor only — armed by drawGamefieldCursor via
@@ -144,7 +87,6 @@ static uint8_t mouseAimBits(uint8_t real_joy)
         _mouse_last_mode = mode;
     }
 
-    drainKeyMessages();   /* freshen button state */
     mx = gfx_window->MouseX;
     my = gfx_window->MouseY;
     if (mode == GFX_AIM_PLACE) {
@@ -185,14 +127,16 @@ static uint8_t mouseAimBits(uint8_t real_joy)
     _mouse_last_mx = mx;
     _mouse_last_my = my;
 
-    if (_mouse_button && in_field && cx == tx && cy == ty)
+    /* gk_mouse_button() drains the port first, so the button state is as
+     * fresh as the MouseX/MouseY read above. */
+    if (gk_mouse_button() && in_field && cx == tx && cy == ty)
         bits |= MM_FIRE;
     return bits;
 }
 
 uint8_t readJoystick(void)
 {
-    uint8_t joy = joyDecode(JOY1DAT, (uint8_t)!(CIAAPRA & 0x80));
+    uint8_t joy = gk_joy_read_port2();
 
     return joy | mouseAimBits(joy);
 }

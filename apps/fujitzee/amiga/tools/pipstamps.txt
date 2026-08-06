@@ -1,0 +1,118 @@
+# Candidate pip designs for tools/dicepreview.py --stamps.
+#
+#   tools/dicepreview.py --stamps tools/pipstamps.txt -o /tmp/pips.png
+#
+# Each stamp is an 8x8 block laid over one cell of the die's plain frame:
+# '.' keeps whatever the frame already has there (face colour, bevel edge,
+# corner bite), and any other letter is one of tiles.h's own pen aliases —
+# B background, K pip ink, H lit edge, S shaded edge. That is exactly how
+# the DIE_CELL_*_PIP macros are built, so what this draws is what shipping
+# the design would draw.
+#
+# The rejected candidates are kept deliberately. They are the cheap part of
+# an art pass to redo and the expensive part to re-learn.
+
+# Extra pen letters beyond tiles.h's own B/K/H/S aliases.
+= D PEN_DIM
+
+# A stamp is a pip *shape*; where each one lands is this placement rule.
+# 'inset 1' pulls every outer pip one pixel toward the die's centre — left
+# column right, right column left, top row down, bottom row up — and leaves
+# the centre pip alone. tiles.h bakes the same rule into its _PIP macros, so
+# the shipped stamp below plus this inset renders exactly what ships.
+~ inset 1
+
+# --- what ships (Phase 3c refinement) ---------------------------------
+#
+# A drilled hole: 5x5 round body with a lit lip on the bottom-right arc,
+# the same bevel trick the die body plays one scale up. Light comes from
+# the top-left, so the far inner wall of a hole is what catches it.
+#
+# Sits at rows/cols 1-5. An odd width cannot centre on a 24px die, so the
+# ink lands a pixel up-left of centre — which the lip extending down-right
+# balances out.
+@ drilled 5x5 (shipped)
+........
+..KKK...
+.KKKKK..
+.KKKKK..
+.KKKKH..
+..KHH...
+........
+........
+
+# --- rejected ---------------------------------------------------------
+
+# Flat dot. Legible and exactly centred — an even width is the only one
+# that can be, leaving equal 2px margins — but next to the drilled version
+# it reads as printed on rather than cut in.
+@ flat 4x4
+........
+........
+..KKKK..
+..KKKK..
+..KKKK..
+..KKKK..
+........
+........
+
+# The original Phase 3c pip. Too small: at 24px it reads as a speck, and
+# 3px cannot centre either, so the left and right margins differed by one.
+@ flat 3x3
+........
+........
+........
+...KKK..
+...KKK..
+...KKK..
+........
+........
+
+# The drilled shape shifted a pixel down-right. Crowds the pips into the
+# bevel; on face 6 the corner pips nearly touch the edge.
+@ drilled 5x5 @2-6
+........
+........
+...KKK..
+..KKKKK.
+..KKKKK.
+..KKKKH.
+...KHH..
+........
+
+# Softer lip in PEN_DIM. Reads cleanly on all three face colours but loses
+# the specular pop that makes the hole look like a hole.
+@ drilled 5x5, dim lip
+........
+..KKK...
+.KKKKK..
+.KKKKK..
+.KKKKD..
+..KDD...
+........
+........
+
+# Full two-tone drill: shaded arc above-left, lit arc below-right. Too
+# heavy at this size — the shaded arc merges with the die's own bottom-right
+# shade edge, and on face 6 the corner pips punch through the silhouette.
+@ drilled 5x5, 2-tone
+..SSS...
+.SKKK...
+SKKKKKH.
+SKKKKKH.
+SKKKKKH.
+..KKKH..
+..HHH...
+........
+
+# One off-colour pixel on a flat dot, as a cheap recess hint. Invisible on
+# the plain die and a lone grey speck on gold and blue.
+@ flat 4x4, lit corner
+........
+........
+..KKKK..
+..KKKK..
+..KKKK..
+..KKKH..
+........
+........

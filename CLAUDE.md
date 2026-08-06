@@ -12,8 +12,10 @@ via RS-232 serial to an Amiga computer.
 - `libs/` — Amiga static libraries shared by the apps:
   - `fujinet-compat-amiga/` → `libfn_compat_amiga.a` — FujiNet API shim upstream games expect
   - `amiga-gamekit/` → `libamiga_gamekit.a` — game platform layer (custom screen +
-    tile/sprite engine, keyboard and joystick decode, waveform bakers, jiffy clock,
-    PRNG). Takes palette/art/geometry as data; owns no game-specific names.
+    tile/sprite engine, tile-art composer macros, the IDCMP keyboard queue,
+    keyboard and joystick decode, the game-port joystick read, waveform
+    bakers, jiffy clock, PRNG). Takes
+    palette/art/geometry as data; owns no game-specific names.
 
 ## Git Workflow
 
@@ -196,7 +198,7 @@ first, then get merged/squash-merged to `dev` via PR.
 | `http_get` | `apps/http_get/` | HTTP and HTTPS GET — curl-like tool, auto-detects `https://` scheme |
 | `battleship` | `apps/battleship/amiga/` | Full FujiNet game — lobby + gameplay over FujiBus. Sources in `apps/battleship/upstream/` submodule; links `libs/fujinet-compat-amiga`. |
 | `compat_test` | `apps/compat_test/` | Compat-layer smoke test on the emulator — exercises `libs/fujinet-compat-amiga` end to end. |
-| `fujitzee` | `apps/fujitzee/amiga/` | Second FujiNet game port (Track 1C). Sources in `apps/fujitzee/upstream/`; links `libs/amiga-gamekit` + `libs/fujinet-compat-amiga`. Platform layer is stubs until Phase 2. |
+| `fujitzee` | `apps/fujitzee/amiga/` | Second FujiNet game port (Track 1C). Sources in `apps/fujitzee/upstream/`; links `libs/amiga-gamekit` + `libs/fujinet-compat-amiga`. Renderer and keyboard are real (Phase 2), joystick (Phase 3b) and art (Phase 3c) too; sound is stubbed until Phase 3a. |
 | `pacmantests` | `apps/pacmantests/` | Exploratory (non-shipping) bitplane-graphics harnesses for the battleship Phase 3 renderer. Includes the `amiga-pac-man` submodule (tschak909). |
 
 `apps/battleship/` establishes the pattern for future game ports:
@@ -204,12 +206,31 @@ first, then get merged/squash-merged to `dev` via PR.
 (Makefile + platform layer), linking `libs/fujinet-compat-amiga`.
 
 `apps/fujitzee/` is the second port following that pattern (Track 1C) — start
-from `docs/plan-track1c-fujitzee.md`. Phase 0 (extracting `libs/amiga-gamekit`
-out of `apps/battleship/amiga/`) and Phase 1 (scaffold + link) are done, so
-what is left is filling in its own `graphics.c` / `input.c` / `sound.c`
-against the gamekit; they are no-op stubs today.
+from `docs/plan-track1c-fujitzee.md`. Phases 0-2, 3b and 3c are done (gamekit
+extraction, scaffold + link, the real renderer + keyboard, the joystick, and
+the art); the only stub left is Phase 3a — `sound.c`.
 
-Two things about fujitzee differ from battleship and are easy to trip over:
+All of the port's art is data in `apps/fujitzee/amiga/include/tiles.h`:
+palette, board lattice, dice, wordmark, icons. Change the arrays, keep the
+names, and no engine code moves.
+
+Its scorecard only renders inside a live multiplayer game, so the layout has
+its own preview harness: `make -C apps/fujitzee/amiga preview-adf` builds a
+bootable ADF that draws a full board from fake values. Use it to check layout
+or art changes without a server — the equivalent of battleship's
+`make gallery-adf` one level up.
+
+For the dice specifically there is a faster loop that skips the toolchain
+entirely. `make -C apps/fujitzee/amiga dice-preview` renders every face in
+every face colour straight out of `tiles.h` to a PNG, and `dice-stamps` lays
+candidate pip designs (`tools/pipstamps.txt`, rejected ones kept) over the
+real frame cells so trying one costs an 8x8 text block rather than an edit to
+seven macros. Both need Pillow, not amiga-gcc. Narrow candidates down there,
+then confirm the winner with `preview-adf` — pixel geometry the renderer gets
+exactly right, but the Amiga's non-square pixels and the real display's
+contrast are things only a boot settles.
+
+Three things about fujitzee differ from battleship and are easy to trip over:
 
 - Its upstream `platform-specific/vars.h` has **no `PLATFORM_VARS` hook**, so
   `apps/fujitzee/amiga/include/amiga_vars.h` is force-included with
@@ -221,6 +242,11 @@ Two things about fujitzee differ from battleship and are easy to trip over:
   `test/host/test_wireformat.c` pins the resulting offsets. That PR is also
   why `apps/fujitzee/upstream` is currently *Riding a PR* rather than
   tracking upstream — see `docs/syncing-upstream-submodules.md`.
+- **Its cursor keys are not W/A/S/D.** Battleship maps them to those letters;
+  fujitzee cannot, because its lobby menu is on `s`/`r`/`c`/`h`/`q` and its
+  name-entry screen takes every letter as text. `src/input.c` selects
+  `KT_CURSOR_CTRL`, so arrows arrive as `GK_KEY_CUR_*` control codes
+  (`libs/amiga-gamekit/include/gkinput.h`).
 
 Copy `fn_test` or `http_get`'s `Makefile` as a starting point for new apps.
 All Amiga Makefiles get the toolchain (`CC`, `AR`, canonical `CFLAGS`) and the
@@ -297,6 +323,43 @@ at T2. Do **not** modify the T3 suite from the parent repo — test changes insi
 Use the `/emu-build-and-boot` skill to build an ADF, boot it in FS-UAE, and
 capture a screenshot automatically. See `.claude/commands/emu-build-and-boot.md`
 for the full workflow.
+
+There are three emulator modes, all sharing the same socat + `fujinet-nio`
+wiring:
+
+| Script | Display | Input | Use |
+|--------|---------|-------|-----|
+| `emu/run.sh` | Xvfb | none | `make emu-test` — CI pass/fail on a grep pattern |
+| `emu/drive.sh` | Xvfb | scripted | keyboard-driven checks over SSH; captures pixel-exact shots |
+| `emu/play.sh` | visible | you | `make emu-play` — hands-on, needs a desktop |
+
+`drive.sh` is what makes the "manual" checks reachable from a remote CLI — it
+types a token script through `emu/scripts/emukey.py` (XTEST) and dumps FS-UAE's
+internal screenshots at labeled points:
+
+```bash
+APP_NAME=fujitzee ADF_PATH=apps/fujitzee/amiga/fujitzee.adf \
+  KEYS="shot:lobby Return sleep50 space shot:table" bash emu/drive.sh
+```
+
+`shot:<label>` writes `<label>.png`; every other token is an emukey keysym or
+`sleepN` (tenths of a second). `NO_SERVER=1` skips `fujinet-nio` for offline
+harnesses — that is what `make -C apps/fujitzee/amiga preview-play` uses.
+
+`JOYSTICK=1` tests **stick** input instead: it puts FS-UAE's built-in
+`keyboard` controller in the game port, so the arrow keysyms move the emulated
+joystick and `Control_R` is its fire button. They then stop reaching the
+emulated keyboard, which is the whole trick — and also the reason a joystick
+run needs its own key script.
+
+Two things that cost time to find:
+
+- **`emukey.py` needs python-xlib**, which the system python3 lacks. The repo
+  keeps a venv at `emu/.venv` (gitignored); `drive.sh` prefers it.
+- **Free the joystick port before expecting arrow keys.** With no joystick
+  attached, FS-UAE maps the host arrow keys to joystick port 1, so they never
+  reach the emulated keyboard. `drive.sh` sets `joystick_port_1 = nothing`
+  unless `JOYSTICK=1` asks for the opposite.
 
 Quick setup:
 ```bash
