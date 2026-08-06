@@ -12,8 +12,9 @@ via RS-232 serial to an Amiga computer.
 - `libs/` — Amiga static libraries shared by the apps:
   - `fujinet-compat-amiga/` → `libfn_compat_amiga.a` — FujiNet API shim upstream games expect
   - `amiga-gamekit/` → `libamiga_gamekit.a` — game platform layer (custom screen +
-    tile/sprite engine, keyboard and joystick decode, waveform bakers, jiffy clock,
-    PRNG). Takes palette/art/geometry as data; owns no game-specific names.
+    tile/sprite engine, tile-art composer macros, the IDCMP keyboard queue,
+    keyboard and joystick decode, waveform bakers, jiffy clock, PRNG). Takes
+    palette/art/geometry as data; owns no game-specific names.
 
 ## Git Workflow
 
@@ -196,7 +197,7 @@ first, then get merged/squash-merged to `dev` via PR.
 | `http_get` | `apps/http_get/` | HTTP and HTTPS GET — curl-like tool, auto-detects `https://` scheme |
 | `battleship` | `apps/battleship/amiga/` | Full FujiNet game — lobby + gameplay over FujiBus. Sources in `apps/battleship/upstream/` submodule; links `libs/fujinet-compat-amiga`. |
 | `compat_test` | `apps/compat_test/` | Compat-layer smoke test on the emulator — exercises `libs/fujinet-compat-amiga` end to end. |
-| `fujitzee` | `apps/fujitzee/amiga/` | Second FujiNet game port (Track 1C). Sources in `apps/fujitzee/upstream/`; links `libs/amiga-gamekit` + `libs/fujinet-compat-amiga`. Platform layer is stubs until Phase 2. |
+| `fujitzee` | `apps/fujitzee/amiga/` | Second FujiNet game port (Track 1C). Sources in `apps/fujitzee/upstream/`; links `libs/amiga-gamekit` + `libs/fujinet-compat-amiga`. Renderer and keyboard are real (Phase 2); sound and joystick are stubs until Phase 3. |
 | `pacmantests` | `apps/pacmantests/` | Exploratory (non-shipping) bitplane-graphics harnesses for the battleship Phase 3 renderer. Includes the `amiga-pac-man` submodule (tschak909). |
 
 `apps/battleship/` establishes the pattern for future game ports:
@@ -204,12 +205,17 @@ first, then get merged/squash-merged to `dev` via PR.
 (Makefile + platform layer), linking `libs/fujinet-compat-amiga`.
 
 `apps/fujitzee/` is the second port following that pattern (Track 1C) — start
-from `docs/plan-track1c-fujitzee.md`. Phase 0 (extracting `libs/amiga-gamekit`
-out of `apps/battleship/amiga/`) and Phase 1 (scaffold + link) are done, so
-what is left is filling in its own `graphics.c` / `input.c` / `sound.c`
-against the gamekit; they are no-op stubs today.
+from `docs/plan-track1c-fujitzee.md`. Phases 0-2 are done (gamekit extraction,
+scaffold + link, and the real renderer + keyboard); what is left is Phase 3 —
+`sound.c` and `readJoystick()`, both still no-op stubs, and the art pass.
 
-Two things about fujitzee differ from battleship and are easy to trip over:
+Its scorecard only renders inside a live multiplayer game, so the layout has
+its own preview harness: `make -C apps/fujitzee/amiga preview-adf` builds a
+bootable ADF that draws a full board from fake values. Use it to check layout
+or art changes without a server — the equivalent of battleship's
+`make gallery-adf` one level up.
+
+Three things about fujitzee differ from battleship and are easy to trip over:
 
 - Its upstream `platform-specific/vars.h` has **no `PLATFORM_VARS` hook**, so
   `apps/fujitzee/amiga/include/amiga_vars.h` is force-included with
@@ -221,6 +227,11 @@ Two things about fujitzee differ from battleship and are easy to trip over:
   `test/host/test_wireformat.c` pins the resulting offsets. That PR is also
   why `apps/fujitzee/upstream` is currently *Riding a PR* rather than
   tracking upstream — see `docs/syncing-upstream-submodules.md`.
+- **Its cursor keys are not W/A/S/D.** Battleship maps them to those letters;
+  fujitzee cannot, because its lobby menu is on `s`/`r`/`c`/`h`/`q` and its
+  name-entry screen takes every letter as text. `src/input.c` selects
+  `KT_CURSOR_CTRL`, so arrows arrive as `GK_KEY_CUR_*` control codes
+  (`libs/amiga-gamekit/include/gkinput.h`).
 
 Copy `fn_test` or `http_get`'s `Makefile` as a starting point for new apps.
 All Amiga Makefiles get the toolchain (`CC`, `AR`, canonical `CFLAGS`) and the

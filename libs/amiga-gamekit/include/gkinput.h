@@ -31,14 +31,30 @@
 #define GK_JOY_BTN_2(v) ((v) & GK_JOY_BTN_2_MASK)
 
 /* ---- Key values produced by kt_decode() ----
- * The four cursor keys have no cooked (VANILLAKEY) form, so kt_decode maps
- * their raw codes onto the WASD letters the games already accept. The other
- * three are cooked ASCII and pass straight through; they are named here
- * because ports need to match them. */
+ * The four cursor keys have no cooked (VANILLAKEY) form, so the decoder has
+ * to invent values for them. Two sets exist because ports differ in what
+ * they can afford to spend (see KT_CURSOR_* in keytrans.h):
+ *
+ *   GK_KEY_UP/DOWN/LEFT/RIGHT      - the WASD letters (KT_CURSOR_WASD).
+ *     Fine when the game has no letter menus or text entry competing for
+ *     them; battleship is that game.
+ *   GK_KEY_CUR_UP/DOWN/LEFT/RIGHT  - control codes (KT_CURSOR_CTRL).
+ *     For games where the letters are already spoken for — fujitzee has a
+ *     lobby menu on 's'/'r'/'c'/'h'/'q' and types player names — so an
+ *     arrow key must not read as a letter. 0x1C-0x1F are unreachable any
+ *     other way: the vanilla path passes 32..126 plus 0x0D/0x08/0x1B only.
+ *
+ * The other three keys are cooked ASCII and pass straight through; they are
+ * named here because ports need to match them. */
 #define GK_KEY_UP        'w'
 #define GK_KEY_DOWN      's'
 #define GK_KEY_LEFT      'a'
 #define GK_KEY_RIGHT     'd'
+
+#define GK_KEY_CUR_UP    0x1C
+#define GK_KEY_CUR_DOWN  0x1D
+#define GK_KEY_CUR_LEFT  0x1E
+#define GK_KEY_CUR_RIGHT 0x1F
 
 #define GK_KEY_RETURN    '\r'   /* 0x0D */
 #define GK_KEY_BACKSPACE 8      /* 0x08 */

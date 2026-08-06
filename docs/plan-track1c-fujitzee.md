@@ -3,10 +3,11 @@
 **Depends on:** Track 1A (`libfn_compat_amiga.a`) ✅; Track 1B (Battleship) for the
 platform-layer code being extracted in Phase 0
 **Blocks:** nothing
-**Status:** Phase 1 complete (2026-08-05) — `apps/fujitzee/amiga/` scaffolded,
-upstream compiles and links under `m68k-amigaos-gcc` with stub platform
-functions, and the server wire format is packed correctly and pinned by a T1
-test. Next: Phase 2 (real renderer, playable end to end).
+**Status:** Phase 2 complete (2026-08-06) — the real renderer is in: board,
+dice, cursors and text on the gamekit's 320x200x4 screen, keyboard input
+through a newly shared gamekit key queue, and a `boardpreview` harness that
+boots a full scorecard without a server. Sound and joystick are still stubs
+(Phase 3a/3b). Next: Phase 3.
 
 ---
 
@@ -197,18 +198,22 @@ apps/fujitzee/
     include/
       amiga_vars.h   ← force-included via -include
       conio.h  joystick.h  peekpoke.h    ← cc65/CMOC shims
-      tiles.h        ← dice pips, icons (art surface)
+      fjlayout.h     ← geometry, tile ids, dice math (host-tested)
+      tiles.h        ← dice pips, lattice, icons (art surface)
+      pens.h  gfxsetup.h
     src/
-      graphics.c  input.c  sound.c  util.c
+      graphics.c  gfxsetup.c  fjlayout.c
+      input.c  sound.c  util.c
+      preview_main.c ← board preview harness (make preview-adf)
     test/host/
     Makefile
 ```
 
 ```
-libs/amiga-gamekit/          ← shipped in Phase 0
-  include/  gfxcore.h  gkinput.h  keytrans.h  joydecode.h
-            sndgen.h   gktimer.h  gkrandom.h
-  src/      gfxcore.c  keytrans.c joydecode.c sndgen.c
+libs/amiga-gamekit/          ← Phase 0, plus the Phase 2 additions
+  include/  gfxcore.h  tilepat.h  gkinput.h  keytrans.h  gkkeyq.h
+            joydecode.h  sndgen.h  gktimer.h  gkrandom.h
+  src/      gfxcore.c  keytrans.c gkkeyq.c  joydecode.c sndgen.c
             gktimer.c  gkclock.c  gkrandom.c
   test/host/
   Makefile                   → libamiga_gamekit.a
@@ -268,17 +273,70 @@ Eight warnings remain, all in upstream sources (`void main`, an unused
 static, `-Wparentheses` on chained assignments); nothing in our platform
 layer warns. Left alone rather than patched — the pin stays read-only.
 
-### Phase 2 — Playable end to end
+### Phase 2 — Playable end to end ✅ (2026-08-06)
 
-Real `graphics.c` on the gamekit screen, keyboard input, timer/random, sound
-stubs. Goal: join the lobby, sit at a table, roll dice, score a category, and
-finish a game against other players.
+Real `graphics.c` on the gamekit screen (board lattice, dice, both cursors,
+the active-player brackets, text), keyboard input, timer/random from Phase 1.
+Sound stays stubbed for 3a, joystick for 3b — the game is keyboard-playable
+without either.
 
-The scorecard is the layout problem: 13+ categories × up to 12 players against a
-40-column-equivalent grid. Take a position early on how many players the Amiga
-build displays and whether it uses a wider grid than the 40×26 Atari layout —
-we have 320×200 and an 8×8 font, so 40×25 is the natural cell grid, but nothing
-forces it.
+**The scorecard question is settled: 40×25 cells, six player columns, the DOS
+layout.** The natural reading was to port the Atari renderer, but the Atari is
+40×**26** and spends that extra row: its bottom panel starts at `HEIGHT-5`,
+which on 25 rows lands on the score box's own bottom border. Upstream's DOS
+port is 40×25 for exactly the same reason we are (`msdos/graphics.c`), and had
+already re-derived every offset the missing row shifts — including moving
+`SCORES_X` from 11 to 10 so the seventh divider lands on column 39 instead of
+falling off the grid. We follow that one, so `FJ_DIV_X(6) == FJ_WIDTH-1` and
+six players fit exactly, which is what every other 40-column port shows. Tables
+may seat up to `PLAYER_MAX`; upstream itself only draws the first six
+(`gamelogic.c` skips `i>5`).
+
+Decisions and findings worth keeping:
+
+- **Arrow keys cannot be WASD here** — the phase's real surprise, and the
+  reason the gamekit changed. Battleship takes cursor keys as `w/a/s/d`
+  because nothing else wants those letters. Fujitzee's lobby menu answers to
+  `s` (sound), `r`, `c`, `h`, `q`, and its name-entry screen accepts every
+  letter as text: arrow-down would have toggled the sound, and typing a name
+  would have moved the cursor. `kt_decode_ex()` now takes a `KT_CURSOR_*`
+  mode, with `GK_KEY_CUR_*` (0x1C-0x1F) as the second spelling — unreachable
+  from the cooked path, which passes only 32..126 plus `\r`, `\b`, ESC.
+  `kt_decode()` is unchanged for battleship.
+- **The IDCMP key pump moved to the gamekit** (`gkkeyq.c`), ahead of the
+  Phase 3 extraction note below. It was 60 lines of battleship's `input.c`
+  that fujitzee needed verbatim, it depends on nothing but `gfx_window` and
+  the decoder, and duplicating it would have forked the first thing both
+  ports touch. Mouse-button tracking came along because it arrives on the
+  same port and a key drain would otherwise swallow it (`gk_mouse_button()`);
+  battleship's mouse aiming reads it from there now.
+- **The tile composers moved too** (`tilepat.h`): `TILE_PAT`/`TILE_MC` are
+  how both ports author art, not battleship's private macros. Note
+  `TILE_PAT_V`, added for fujitzee's dice: the preprocessor counts a macro's
+  arguments *before* expanding them, so passing the eight rows as one macro
+  needs a variadic forwarder.
+- **Dice are 16 tiles × 3 face colors.** A die is 3×3 cells and the pip grid
+  *is* the cell grid, so each cell is a frame position with or without a pip
+  (top-centre and bottom-centre never have one — hence 16, not 18). Colour
+  lives in the tile, so kept and highlighted dice are separate sets rather
+  than a recolour.
+- **`setHighlight` brackets the column** instead of tinting it. The Atari
+  drives a player-missile overlay and the DOS port rewrites every pixel of
+  the column's background; swapping the two dividers for coloured tiles says
+  the same thing, survives score redraws inside the column, and costs three
+  tiles.
+- **The screenshots lie about colour.** The headless FS-UAE capture renders
+  each Amiga pixel as an RGB triad, so anything that is not pure white or
+  black comes out as fine vertical stripes — the dark-blue table background
+  looked like corduroy until it was checked against a black one. It is the
+  capture, not the bitmap. `PEN_BG` is black anyway now, which keeps T2
+  screenshots reviewable.
+- **Not verified headlessly:** an actual multi-player game. The board only
+  renders once a game is under way, and the T2 harness cannot type. That is
+  what `make -C apps/fujitzee/amiga preview-adf` exists for — it boots a full
+  scorecard with fake values (`src/preview_main.c`), which is how the layout
+  above was checked. Playing a real game to the end is a manual step, and it
+  is the one open item on the Phase 2 checklist.
 
 ### Phase 3 — Full platform layer
 
@@ -294,6 +352,17 @@ forces it.
 > time, as in Phase 0), or duplicate ~150 lines and accept the fork. Decide
 > deliberately rather than by default — the cheap-second-port thesis this
 > whole track is testing is what is being measured.
+>
+> **Phase 2 answered half of this: extract.** The IDCMP keyboard pump is now
+> `libs/amiga-gamekit/src/gkkeyq.c` and both ports call it; battleship's
+> `input.c` lost 60 lines and kept only its joystick and mouse-aiming code.
+> The regression cost was one rebuild plus T1 and T2 — cheap, because the
+> pump depends on `gfx_window` and nothing else. What is left for 3a/3b is
+> the `audio.device` machinery and the raw joystick register reads. Expect
+> the same answer for the joystick (fujitzee's `readJoystick()` takes no port
+> argument, so the *policy* differs but the register read does not) and
+> weigh sound on its own: battleship's `sound.c` mixes effect definitions
+> with playback, and only the playback half is shareable.
 
 - **3a — Sound.** 13 effects via gamekit `sndgen` + `audio.device`. Remember the
   FS-UAE `AUDxVOL` workaround (`pokeVolume()`, strategic-plan Lessons Learned
@@ -323,8 +392,15 @@ relaunch — see the `fn_transport_close()` leak note in
       format (packed via upstream's Watcom pragma path; `offsetof(Game,
       players)` 95 / `sizeof(Game)` 599 confirmed on m68k and pinned by
       `test_wireformat.c`)
+- [x] Phase 2 — renderer boots against a live `fujinet-nio`: welcome screen
+      draws, the game reaches its first server call (`make -C
+      apps/fujitzee/amiga emu-test`, PASS in 12 s), and battleship still
+      passes T1 + T2 after the gamekit extraction
+- [x] Phase 2 — scorecard readable with the maximum supported player count:
+      six columns, verified on the `boardpreview` ADF with all six filled
 - [ ] Phase 2 — join lobby, sit at table, roll, score, finish a game
-- [ ] Phase 2 — scorecard readable with the maximum supported player count
+      *(manual: needs a live table with other players; the headless T2
+      harness cannot type)*
 - [ ] Phase 3a — all 13 sound effects audible in FS-UAE
 - [ ] Phase 3b — joystick drives the dice/score cursors
 - [ ] Phase 3c — dice, logo, and icons rendered from tile art

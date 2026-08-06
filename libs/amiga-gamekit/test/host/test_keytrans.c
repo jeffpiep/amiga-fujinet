@@ -39,5 +39,30 @@ int main(void)
     CHECK_EQ(kt_decode(0, 0x7F), KT_NONE);
     CHECK_EQ(kt_decode(0, 0xE9), KT_NONE);
 
+    /* ---- KT_CURSOR_CTRL: arrows as control codes, for ports whose game
+     * reads plain letters (fujitzee's lobby menu and name entry). ---- */
+    CHECK_EQ(kt_decode_ex(1, KT_RAW_UP,    KT_CURSOR_CTRL), GK_KEY_CUR_UP);
+    CHECK_EQ(kt_decode_ex(1, KT_RAW_DOWN,  KT_CURSOR_CTRL), GK_KEY_CUR_DOWN);
+    CHECK_EQ(kt_decode_ex(1, KT_RAW_LEFT,  KT_CURSOR_CTRL), GK_KEY_CUR_LEFT);
+    CHECK_EQ(kt_decode_ex(1, KT_RAW_RIGHT, KT_CURSOR_CTRL), GK_KEY_CUR_RIGHT);
+
+    /* Releases and unmapped raw codes are still dropped in this mode. */
+    CHECK_EQ(kt_decode_ex(1, KT_RAW_UP | 0x80, KT_CURSOR_CTRL), KT_NONE);
+    CHECK_EQ(kt_decode_ex(1, 0x20, KT_CURSOR_CTRL), KT_NONE);
+
+    /* The mode changes the raw path only — cooked keys are untouched, so a
+     * typed 'w' stays a 'w' and cannot be confused with an arrow. */
+    CHECK_EQ(kt_decode_ex(0, 'w', KT_CURSOR_CTRL), 'w');
+    CHECK_EQ(kt_decode_ex(0, 's', KT_CURSOR_CTRL), 's');
+    CHECK_EQ(kt_decode_ex(0, 0x1B, KT_CURSOR_CTRL), GK_KEY_ESCAPE);
+
+    /* The control codes must stay unreachable from the cooked path, or the
+     * two spellings would collide. */
+    CHECK_EQ(kt_decode(0, GK_KEY_CUR_UP), KT_NONE);
+    CHECK_EQ(kt_decode(0, GK_KEY_CUR_RIGHT), KT_NONE);
+
+    /* kt_decode() is exactly the WASD spelling. */
+    CHECK_EQ(kt_decode(1, KT_RAW_UP), kt_decode_ex(1, KT_RAW_UP, KT_CURSOR_WASD));
+
     return fn_test_report("test_keytrans");
 }
