@@ -120,8 +120,39 @@ void clearBelowBoard(void)
 
 /* ---- Text ------------------------------------------------------------- */
 
+/*
+ * Both text entry points first ask whether this draw is a score that has
+ * grown wider than its column (see fj_score_spill). If it has, the digits
+ * are squeezed into the column rather than allowed to start on the divider
+ * and cut the board lattice in half. Returns 1 when it handled the draw.
+ *
+ * The squeeze reaches FJ_SPILL_BLEED pixels into each neighbouring divider
+ * cell, and an ordinary draw over the same column later would not clear
+ * them again — gfx_text only owns whole cells. Harmless here, because a
+ * committed score never changes and resetScreen() clears the board between
+ * games, but it is why this stays a leaf case instead of becoming the way
+ * text is drawn generally.
+ */
+static uint8_t drawSpilledScore(unsigned char x, unsigned char y, char *s,
+                                uint8_t pen)
+{
+    uint8_t col = fj_score_spill(x, y, s);
+    uint8_t len;
+
+    if (col == FJ_NO_SPILL)
+        return 0;
+
+    for (len = 0; s[len]; len++)
+        ;
+    gfx_text_tight((uint16_t)(col * GFX_CELL_W - FJ_SPILL_BLEED), y, s,
+                   pen, PEN_BG, FJ_SPILL_SPAN, fj_spill_advance(len));
+    return 1;
+}
+
 void drawText(unsigned char x, unsigned char y, char *s)
 {
+    if (drawSpilledScore(x, y, s, PEN_TEXT))
+        return;
     gfx_text(x, y, s, PEN_TEXT, PEN_BG);
 }
 
@@ -140,6 +171,8 @@ void drawTextAlt(unsigned char x, unsigned char y, char *s)
     uint8_t isKey;
 
     if (!s || !*s)
+        return;
+    if (drawSpilledScore(x, y, s, PEN_ALT))
         return;
 
     isKey = fj_alt_is_key(*s);
@@ -167,13 +200,21 @@ void drawChar(unsigned char x, unsigned char y, char c, unsigned char alt)
 }
 
 /*
- * Icons are single characters: amiga_vars.h defines every ICON_* as ASCII
- * (the Atari and DOS ports point them at custom charset slots, which is a
- * Phase 3c art item for us).
+ * Icons are single characters — amiga_vars.h defines every ICON_* as ASCII,
+ * where the Atari and DOS ports point them at custom charset slots. The two
+ * that carry meaning in play (whose turn it is, and where the score cursor
+ * is) are tiles; the lobby's remaining markers are still glyphs, which is
+ * what fj_icon_tile() decides.
  */
 void drawIcon(unsigned char x, unsigned char y, unsigned char icon)
 {
+    uint8_t tile = fj_icon_tile(icon);
     char buf[2];
+
+    if (tile != FJ_ICON_NO_TILE) {
+        gfx_draw_tile(x, y, tile);
+        return;
+    }
 
     buf[0] = (char)icon;
     buf[1] = '\0';
@@ -181,14 +222,19 @@ void drawIcon(unsigned char x, unsigned char y, unsigned char icon)
 }
 
 /*
- * The fujitzee score row's label. Upstream's other ports draw a six-glyph
- * logo starting one cell left of x; ours is a five-letter abbreviation on
- * the label column itself, which is all the score-name box is wide.
- * Phase 3c replaces it with logo tiles.
+ * The fujitzee score row's label, and the sign-off on the help screen.
+ * Upstream's other ports draw a six-glyph wordmark ("/|\TZEE" out of their
+ * custom charset) starting one cell left of x; ours is five tiles on the
+ * label column itself, which is all the score-name box is wide — the
+ * mountain carries the /|\ and TZEE follows it.
  */
 void drawFujitzee(unsigned char x, unsigned char y)
 {
-    gfx_text(x, y, "fujtz", PEN_ALT, PEN_BG);
+    gfx_draw_tile(x,                 y, TILE_LOGO_M);
+    gfx_draw_tile((uint8_t)(x + 1),  y, TILE_LOGO_T);
+    gfx_draw_tile((uint8_t)(x + 2),  y, TILE_LOGO_Z);
+    gfx_draw_tile((uint8_t)(x + 3),  y, TILE_LOGO_E);
+    gfx_draw_tile((uint8_t)(x + 4),  y, TILE_LOGO_E);
 }
 
 /* ---- Primitives ------------------------------------------------------- */

@@ -93,6 +93,20 @@ enum {
     TILE_CONN_L,
     TILE_CONN_R,
 
+    /* The fujitzee wordmark: a mountain then T, Z, E, E (drawFujitzee).
+     * Five cells, which is exactly what the score-name box is wide. */
+    TILE_LOGO_M,
+    TILE_LOGO_T,
+    TILE_LOGO_Z,
+    TILE_LOGO_E,
+
+    /* Icons upstream passes to drawIcon() as characters — fj_icon_tile()
+     * maps the ones we have art for; the rest still render as glyphs. */
+    TILE_ICON_MARK,        /* whose turn it is: player list + column head  */
+    TILE_ICON_CURSOR,      /* score cursor, resting                        */
+    TILE_ICON_CURSOR_ALT,  /* score cursor, score committed                */
+    TILE_ICON_BLIP,        /* score cursor blink phase / lobby dim mark    */
+
     /* Die faces: FJ_DIE_STYLES sets of FJ_DIE_TILES cells each. Always
      * last — the sets are addressed as TILE_DIE + style*FJ_DIE_TILES. */
     TILE_DIE
@@ -149,6 +163,44 @@ uint8_t fj_frame_tile(uint8_t cell, uint8_t style);
  * (FJ_S_ROLL_MIN..MAX): the rolls remaining, or 'x' when none are. Returns
  * 0 for any other `s`. Placeholder for the Phase 3c "ROLL" art. */
 char fj_roll_label(uint8_t s);
+
+/* Tile for one of upstream's ICON_* characters, or FJ_ICON_NO_TILE when we
+ * have no art for it and it should be drawn as a font glyph. */
+#define FJ_ICON_NO_TILE 0xFF
+uint8_t fj_icon_tile(uint8_t icon);
+
+/*
+ * A score column is three cells wide and upstream right-aligns into it with
+ * no clamp (gamelogic.c draws at validX+3-strlen), so a four-digit score
+ * starts one cell left of the column — on the divider that draws the board
+ * lattice. That is reachable: the end-of-game grand total is a fourth digit
+ * on a good table, and a desynced server could send anything.
+ *
+ * Rather than let it eat the rule (or truncate the leading digit, which
+ * silently misreports the score), the renderer squeezes an over-wide number
+ * into the three cells it owns. This returns the column's left cell for a
+ * string that has spilled, or FJ_NO_SPILL when the draw is ordinary.
+ *
+ * The row test matters: scoreY[15], the grand total, is row 21 — *below*
+ * FJ_BOARD_BOTTOM, where there is no lattice to protect and the number is
+ * free to be as wide as it likes.
+ */
+#define FJ_NO_SPILL 0xFF
+uint8_t fj_score_spill(uint8_t x, uint8_t y, const char *s);
+
+/*
+ * How wide a spilled score may actually be. The column is 24 px, but the
+ * dividers either side are 2 px of rule in an 8 px cell, so three pixels of
+ * each are free — 30 px in all, starting FJ_SPILL_BLEED px left of the
+ * column. Four digits at a 7 px advance fit that with topaz-8's ink to
+ * spare, where squeezing the same four into 24 px makes them touch.
+ */
+#define FJ_SPILL_BLEED 3
+#define FJ_SPILL_SPAN  (24 + 2 * FJ_SPILL_BLEED)
+
+/* Pixel advance per character for a `len`-digit score across FJ_SPILL_SPAN.
+ * Never wider than the 8 px character box. */
+uint8_t fj_spill_advance(uint8_t len);
 
 /* drawTextAlt() renders a string in the alternate pen *except* for capital
  * letters, which upstream uses to call out the key that triggers a menu

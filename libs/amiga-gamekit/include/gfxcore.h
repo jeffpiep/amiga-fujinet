@@ -82,6 +82,22 @@ void gfx_draw_tile(uint8_t cx, uint8_t cy, uint8_t tile);
  * cell background, so text self-erases like a char-mapped display). */
 void gfx_text(uint8_t cx, uint8_t cy, const char *s, uint8_t pen, uint8_t bpen);
 
+/*
+ * Render s on row cy at an arbitrary pixel column, with a custom
+ * per-character advance — for a string one glyph wider than the box it has
+ * to go in. `span` pixels are cleared to bpen first and the glyphs are then
+ * drawn transparently (JAM1) at px, px+advance, px+2*advance, …
+ *
+ * This is the one call that escapes the cell grid, and it exists because
+ * the pixels either side of a box are usually not all spoken for: an 8 px
+ * cell holding a 2 px rule has six free, and borrowing them is what lets a
+ * number stay legible instead of being squeezed until its digits touch.
+ * The caller picks px, span and advance to fit what is actually free;
+ * nothing here clips to a cell boundary.
+ */
+void gfx_text_tight(uint16_t px, uint8_t cy, const char *s, uint8_t pen,
+                    uint8_t bpen, uint8_t span, uint8_t advance);
+
 /* Fill a w x h cell rectangle with a pen. */
 void gfx_fill(uint8_t cx, uint8_t cy, uint8_t w, uint8_t h, uint8_t pen);
 

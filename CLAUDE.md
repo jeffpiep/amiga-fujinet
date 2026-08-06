@@ -198,7 +198,7 @@ first, then get merged/squash-merged to `dev` via PR.
 | `http_get` | `apps/http_get/` | HTTP and HTTPS GET — curl-like tool, auto-detects `https://` scheme |
 | `battleship` | `apps/battleship/amiga/` | Full FujiNet game — lobby + gameplay over FujiBus. Sources in `apps/battleship/upstream/` submodule; links `libs/fujinet-compat-amiga`. |
 | `compat_test` | `apps/compat_test/` | Compat-layer smoke test on the emulator — exercises `libs/fujinet-compat-amiga` end to end. |
-| `fujitzee` | `apps/fujitzee/amiga/` | Second FujiNet game port (Track 1C). Sources in `apps/fujitzee/upstream/`; links `libs/amiga-gamekit` + `libs/fujinet-compat-amiga`. Renderer and keyboard are real (Phase 2), joystick too (Phase 3b); sound is stubbed until Phase 3a. |
+| `fujitzee` | `apps/fujitzee/amiga/` | Second FujiNet game port (Track 1C). Sources in `apps/fujitzee/upstream/`; links `libs/amiga-gamekit` + `libs/fujinet-compat-amiga`. Renderer and keyboard are real (Phase 2), joystick (Phase 3b) and art (Phase 3c) too; sound is stubbed until Phase 3a. |
 | `pacmantests` | `apps/pacmantests/` | Exploratory (non-shipping) bitplane-graphics harnesses for the battleship Phase 3 renderer. Includes the `amiga-pac-man` submodule (tschak909). |
 
 `apps/battleship/` establishes the pattern for future game ports:
@@ -206,9 +206,13 @@ first, then get merged/squash-merged to `dev` via PR.
 (Makefile + platform layer), linking `libs/fujinet-compat-amiga`.
 
 `apps/fujitzee/` is the second port following that pattern (Track 1C) — start
-from `docs/plan-track1c-fujitzee.md`. Phases 0-2 and 3b are done (gamekit
-extraction, scaffold + link, the real renderer + keyboard, and the joystick);
-what is left is Phase 3a — `sound.c`, still a no-op stub — and 3c, the art pass.
+from `docs/plan-track1c-fujitzee.md`. Phases 0-2, 3b and 3c are done (gamekit
+extraction, scaffold + link, the real renderer + keyboard, the joystick, and
+the art); the only stub left is Phase 3a — `sound.c`.
+
+All of the port's art is data in `apps/fujitzee/amiga/include/tiles.h`:
+palette, board lattice, dice, wordmark, icons. Change the arrays, keep the
+names, and no engine code moves.
 
 Its scorecard only renders inside a live multiplayer game, so the layout has
 its own preview harness: `make -C apps/fujitzee/amiga preview-adf` builds a

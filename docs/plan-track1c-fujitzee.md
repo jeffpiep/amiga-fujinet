@@ -3,12 +3,12 @@
 **Depends on:** Track 1A (`libfn_compat_amiga.a`) ✅; Track 1B (Battleship) for the
 platform-layer code being extracted in Phase 0
 **Blocks:** nothing
-**Status:** Phase 3b complete (2026-08-06) — the joystick is real (game port 2
-via the gamekit's new `gkjoy`), on top of Phase 2's renderer: board, dice,
-cursors and text on the gamekit's 320x200x4 screen, keyboard input through a
-shared gamekit key queue, and a `boardpreview` harness that boots a full
-scorecard without a server. Sound is the last stub. Next: Phase 3a (sound)
-and 3c (art).
+**Status:** Phase 3c complete (2026-08-06) — the art is drawn: bevelled dice, a
+wordmark on the fujitzee score row, and real turn/cursor icons, on top of
+Phase 3b's joystick and Phase 2's renderer (board, dice, cursors and text on
+the gamekit's 320x200x4 screen, keyboard through a shared gamekit key queue,
+and a `boardpreview` harness that boots a full scorecard without a server).
+**Sound (3a) is the only stub left.**
 
 ---
 
@@ -402,9 +402,56 @@ Decisions and findings worth keeping:
   the previous stub build produced four **pixel-identical** screenshots,
   which is what proves the arrows travelled the joystick path and not the
   keyboard.
-- **3c — Art pass.** Dice faces, the Fujitzee logo, connection/clock icons,
-  player highlight colors. Reuse Battleship's `tilegallery` harness pattern for
-  previewing.
+- **3c — Art pass.** ✅ Done 2026-08-06. All of it is data in
+  `apps/fujitzee/amiga/include/tiles.h`; no engine change was needed.
+
+  - **Dice.** The 16 cell shapes moved from 2-colour `TILE_PAT` row masks to
+    multicolor `TILE_MC` grids: a rounded body with a two-pixel corner bite,
+    lit along its top-left edge and shaded along its bottom-right. There is
+    no dark outline — the background is black, so the bevel is what draws
+    the silhouette. `PEN_TEXT` and `PEN_SHADE` serve as that light/dark pair
+    for all three face colours, because the palette has no room for a pair
+    per face; `PEN_DIE` dropped to 0xCCC so the white highlight has
+    something to say against it.
+  - **Wordmark.** `drawFujitzee()` draws five tiles — a snow-capped mountain
+    in the board's own teal, then a heavier-than-topaz T Z E E — where the
+    Atari spells `/|\TZEE` from its custom charset. Five cells is exactly
+    what the score-name box is wide, which is why the mountain carries the
+    `/|\` rather than getting a cell of its own.
+  - **Icons.** `fj_icon_tile()` maps the ICON_* characters we have art for:
+    a solid wedge for the turn marker and a hollow chevron for the score
+    cursor (they point the same way because they mean the same thing — this
+    row, this player), the chevron's tip alone for the blink phase, and a
+    diamond for a committed score. The lobby's remaining markers are still
+    font glyphs.
+  - **Per-player colours** (`cycleNextColor`) stay stubbed, as on Atari and
+    DOS: the 16 pens are spoken for, and two of them are now the dice bevel.
+
+  Not reused from Battleship: its `tilegallery` previews tiles in isolation,
+  where the thing worth looking at here is the composition, which
+  `preview-adf` already draws. Candidate mountains were compared by
+  rendering the 8x8 grids offline rather than by booting the emulator once
+  per attempt.
+
+- **3c.1 — Scores wider than their column.** Found during the art pass. A
+  score column is three cells and upstream right-aligns into it with no
+  clamp (`gamelogic.c`: `drawTextAlt(validX+3-strlen(...))`), so a
+  four-digit number starts on the divider and eats the board lattice. The
+  endianness bug (3d) made this visible with every opponent score; fixing it
+  removed the symptom but not the exposure — the end-of-game grand total is
+  a genuine fourth digit, and a desynced server can send anything.
+
+  The renderer now catches that geometrically (`fj_score_spill()`, T1-tested)
+  and squeezes the digits into the space that is actually free: 24 px of
+  column plus three pixels either side, borrowed from the blank halves of
+  the two 2-px dividers. Four digits at a 7 px advance fit that with topaz-8
+  ink to spare, where squeezing the same four into 24 px makes them touch.
+  The one new primitive, `gfx_text_tight()` in the gamekit, is the only call
+  in the engine that escapes the cell grid.
+
+  Worth knowing: `scoreY[15]`, the grand total, is row 21 — *below*
+  `FJ_BOARD_BOTTOM`, where a wide number has no lattice to damage. That row
+  is deliberately excluded, so it still draws exactly as upstream asks.
 
 - **3d — Byte-swap the wire format.** ✅ Done 2026-08-06
   ([fujinet-fujitzee#10](https://github.com/FujiNetWIFI/fujinet-fujitzee/pull/10),
@@ -472,7 +519,11 @@ relaunch — see the `fn_transport_close()` leak note in
       Ctrl (fire) rolled. The same script on the pre-change stub build gave
       four pixel-identical shots, which is the control that rules out the
       arrows having reached the keyboard instead
-- [ ] Phase 3c — dice, logo, and icons rendered from tile art
+- [x] Phase 3c — dice, logo, and icons rendered from tile art. Bevelled
+      rounded dice (multicolor tiles, one shared light/dark pair across all
+      three face colours), a five-cell `/|\ TZEE` wordmark on the game's own
+      score row, and tiles for the turn marker and score cursor. Checked in
+      the `boardpreview` harness and in a live game against the bot table
 - [ ] Phase 4 — boots from ADF, full game against live `fujinet-nio`
 - [ ] Phase 4 — prefs AppKey survives a soft reset
 - [ ] Phase 4 — tested on real Amiga 500 + PiStorm

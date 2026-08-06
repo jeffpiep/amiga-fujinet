@@ -306,6 +306,35 @@ void gfx_text(uint8_t cx, uint8_t cy, const char *s, uint8_t pen, uint8_t bpen)
     Text(rp, (CONST_STRPTR)s, (ULONG)len);
 }
 
+void gfx_text_tight(uint16_t px, uint8_t cy, const char *s, uint8_t pen,
+                    uint8_t bpen, uint8_t span, uint8_t advance)
+{
+    struct RastPort *rp;
+    WORD x, top, base;
+
+    if (!_cfg || !gfx_window || !s || !*s || !advance || !span)
+        return;
+    if (cy >= _cfg->grid_h || px >= _cfg->screen_w)
+        return;
+    if (px + span > _cfg->screen_w)
+        span = (uint8_t)(_cfg->screen_w - px);
+
+    rp = gfx_window->RPort;
+    top = (WORD)cy * GFX_CELL_H;
+
+    SetAPen(rp, bpen);
+    SetDrMd(rp, JAM1);
+    RectFill(rp, (WORD)px, top, (WORD)(px + span - 1), (WORD)(top + GFX_CELL_H - 1));
+
+    SetAPen(rp, pen);
+    SetDrMd(rp, JAM1);   /* transparent: the cleared span is the background */
+    base = (WORD)(top + rp->TxBaseline);
+    for (x = (WORD)px; *s; s++, x = (WORD)(x + advance)) {
+        Move(rp, x, base);
+        Text(rp, (CONST_STRPTR)s, 1);
+    }
+}
+
 void gfx_fill(uint8_t cx, uint8_t cy, uint8_t w, uint8_t h, uint8_t pen)
 {
     struct RastPort *rp;

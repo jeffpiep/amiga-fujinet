@@ -13,6 +13,10 @@
 
 #include "../../src/fjlayout.c"
 
+/* For the ICON_* characters upstream hands to drawIcon(). The game build
+ * force-includes this header; here it is an ordinary include. */
+#include "amiga_vars.h"
+
 /* Upstream's own formula, restated so a change on either side shows up. */
 #define UPSTREAM_VALID_X(p) (FJ_SCORES_X + 6 + (p) * 4)
 
@@ -147,6 +151,64 @@ int main(void)
     CHECK(!fj_alt_is_key(':'));
     CHECK(!fj_alt_is_key(' '));
     CHECK(!fj_alt_is_key('7'));
+
+    /* ---- Icons with art (Phase 3c) ---- */
+
+    /* fjlayout.c spells the icon characters out rather than including
+     * amiga_vars.h, which the game build force-includes and this one does
+     * not. Pin the two against each other so they cannot drift. */
+    CHECK_EQ(fj_icon_tile(ICON_MARK), TILE_ICON_MARK);
+    CHECK_EQ(fj_icon_tile(ICON_CURSOR), TILE_ICON_CURSOR);
+    CHECK_EQ(fj_icon_tile(ICON_CURSOR_ALT), TILE_ICON_CURSOR_ALT);
+    CHECK_EQ(fj_icon_tile(ICON_CURSOR_BLIP), TILE_ICON_BLIP);
+    CHECK_EQ(fj_icon_tile(ICON_MARK_ALT), TILE_ICON_BLIP);
+
+    /* Everything else still draws as a font glyph. */
+    CHECK_EQ(fj_icon_tile(ICON_PLAYER), FJ_ICON_NO_TILE);
+    CHECK_EQ(fj_icon_tile(ICON_SPEC), FJ_ICON_NO_TILE);
+    CHECK_EQ(fj_icon_tile(ICON_TEXT_CURSOR), FJ_ICON_NO_TILE);
+
+    /* Tiles that exist have art in the table gfxsetup.c publishes. */
+    CHECK(TILE_ICON_BLIP < TILE_COUNT);
+    CHECK(TILE_LOGO_E < TILE_COUNT);
+
+    /* ---- Scores too wide for their column ---- */
+
+    /* Four digits right-aligned into a 3-cell column start on the divider,
+     * which is upstream's arithmetic, not a bug we introduced: restate it
+     * so the test fails if either side moves. */
+    for (p = 0; p < FJ_PLAYERS_SHOWN; p++) {
+        uint8_t at = (uint8_t)(UPSTREAM_VALID_X(p) + 3 - 4);
+
+        CHECK_EQ(at, (uint8_t)FJ_DIV_X(p));
+        CHECK_EQ(fj_score_spill(at, 13, "1575"), (uint8_t)FJ_COL_X(p));
+        /* Three digits fit as drawn and must be left alone. */
+        CHECK_EQ(fj_score_spill((uint8_t)(at + 1), 13, "575"), FJ_NO_SPILL);
+    }
+
+    /* scoreY[15] — the grand total — is row 21, below the lattice, where a
+     * wide number has nothing to damage and is drawn as upstream asks. */
+    CHECK(21 > FJ_BOARD_BOTTOM);
+    CHECK_EQ(fj_score_spill((uint8_t)FJ_DIV_X(0), 21, "1575"), FJ_NO_SPILL);
+    CHECK_EQ(fj_score_spill((uint8_t)FJ_DIV_X(0), FJ_BOARD_TOP, "1575"),
+             FJ_NO_SPILL);
+
+    /* Only numbers, and only on a divider: ordinary text that happens to be
+     * four characters long is not a score. */
+    CHECK_EQ(fj_score_spill((uint8_t)FJ_DIV_X(0), 13, "1o75"), FJ_NO_SPILL);
+    CHECK_EQ(fj_score_spill((uint8_t)FJ_DIV_X(0), 13, "s run"), FJ_NO_SPILL);
+    CHECK_EQ(fj_score_spill((uint8_t)(FJ_DIV_X(0) + 2), 13, "1575"),
+             FJ_NO_SPILL);
+    CHECK_EQ(fj_score_spill(1, 13, "1575"), FJ_NO_SPILL);
+    CHECK_EQ(fj_score_spill((uint8_t)FJ_DIV_X(0), 13, NULL), FJ_NO_SPILL);
+
+    /* The squeeze has to fit the span it is given, and never stretch past
+     * the 8 px character box. */
+    CHECK_EQ(fj_spill_advance(4) * 4 <= FJ_SPILL_SPAN, 1);
+    CHECK_EQ(fj_spill_advance(5) * 5 <= FJ_SPILL_SPAN, 1);
+    CHECK_EQ(fj_spill_advance(4), 7);
+    CHECK(fj_spill_advance(1) <= 8);
+    CHECK(fj_spill_advance(0) <= 8);
 
     return fn_test_report("test_fjlayout");
 }

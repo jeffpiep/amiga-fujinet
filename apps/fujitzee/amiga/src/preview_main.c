@@ -79,6 +79,19 @@ int main(void)
         drawScoreColumn(i, (uint8_t)(15 - i));
     }
 
+    /*
+     * A score wider than its column, drawn exactly as gamelogic.c would:
+     * right-aligned at validX+3-strlen, which for four digits starts on the
+     * divider. The renderer is expected to catch that and squeeze it back
+     * into the three cells it owns (fj_score_spill).
+     */
+    drawText((unsigned char)(FJ_COL_X(1) + 3 - 4), scoreY[12], "1575");
+
+    /* The score cursor and the turn marker, the two icons with real art. */
+    drawIcon((unsigned char)FJ_COL_X(2), scoreY[9], ICON_CURSOR);
+    drawIcon((unsigned char)FJ_COL_X(3), scoreY[11], ICON_CURSOR_ALT);
+    drawIcon((unsigned char)FJ_COL_X(2), 1, ICON_MARK);
+
     /* Left panel: round counter and the player list. */
     drawTextAlt(1, 3, "round ");
     drawText(7, 3, "7");
