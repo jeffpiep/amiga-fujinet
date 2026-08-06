@@ -309,6 +309,13 @@ Use the `/emu-build-and-boot` skill to build an ADF, boot it in FS-UAE, and
 capture a screenshot automatically. See `.claude/commands/emu-build-and-boot.md`
 for the full workflow.
 
+That path is headless (Xvfb) and pass/fail — nothing can type at it. For the
+manual checks that need a keyboard (playing a game to the end, walking a menu),
+use `make -C <app> emu-play`: same socat + `fujinet-nio` wiring on a **visible**
+FS-UAE window, running until you quit it (`emu/play.sh`). Offline harnesses that
+never open the serial port take `NO_SERVER=1` — that is what
+`make -C apps/fujitzee/amiga preview-play` does for the board preview.
+
 Quick setup:
 ```bash
 sudo apt install fs-uae socat xvfb jq   # emulator, serial bridge, headless display

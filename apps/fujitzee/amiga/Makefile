@@ -105,9 +105,16 @@ preview-adf: $(PREVIEW)
 	ADF_OUT=$(_PREVIEW_ADF) \
 	../../../emu/scripts/build-adf.sh
 
+# The preview harness never opens the serial port, so it needs no server.
+preview-play: preview-adf
+	APP_NAME=$(PREVIEW) \
+	ADF_PATH=$(_PREVIEW_ADF) \
+	NO_SERVER=1 \
+	../../../emu/play.sh
+
 clean:
 	rm -f $(TARGET) $(PREVIEW) $(_PREVIEW_ADF) $(HOST_TESTS)
 
-.PHONY: all clean test-host preview-adf
+.PHONY: all clean test-host preview-adf preview-play
 
 include ../../../emu/template/emu.mk
