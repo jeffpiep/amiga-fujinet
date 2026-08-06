@@ -27,9 +27,13 @@ parent-repo bump commit message should say which.
    because the parent repo needs work that upstream hasn't merged yet.
    Legitimate but *temporary*; every routine sync should try to exit this
    state. `fujinet-nio-lib` is here now, and so is `apps/fujitzee/upstream`
-   (`feature/pack-structs-opt-in`, one commit — the packed-struct opt-in the
-   Amiga port needs to parse the server wire format;
-   [fujinet-fujitzee#9](https://github.com/FujiNetWIFI/fujinet-fujitzee/pull/9)).
+   (`feature/byteswap-scores`, one commit on top of merged upstream — the
+   big-endian wire-format opt-in the Amiga port needs;
+   [fujinet-fujitzee#10](https://github.com/FujiNetWIFI/fujinet-fujitzee/pull/10)).
+   Its predecessor, the packed-struct opt-in
+   [#9](https://github.com/FujiNetWIFI/fujinet-fujitzee/pull/9), merged on
+   2026-08-06 and the branch was rebased away — the normal exit from this
+   state, and worth reading as the worked example.
    A game-port submodule can enter this state even though its normal role is
    a read-only pin; that also means its remotes may need the `origin`/
    `upstream` swap described in CLAUDE.md.

@@ -374,7 +374,10 @@ Decisions and findings worth keeping:
   player highlight colors. Reuse Battleship's `tilegallery` harness pattern for
   previewing.
 
-- **3d — Byte-swap the wire format.** Found 2026-08-06 by playing a real game
+- **3d — Byte-swap the wire format.** ✅ Done 2026-08-06
+  ([fujinet-fujitzee#10](https://github.com/FujiNetWIFI/fujinet-fujitzee/pull/10),
+  `-DFUJITZEE_BIG_ENDIAN`, pinned by `test/host/test_endian.c`). Found by
+  playing a real game
   against the bot table (see below). `Player.scores` is `int16_t[16]` and the
   server sends it little-endian; m68k reads it big-endian, so every opponent
   score displays as `value << 8` (a real 11 renders as 2816, and wide values
@@ -421,11 +424,14 @@ relaunch — see the `fn_transport_close()` leak note in
       (`emu/scripts/emukey.py`, XTEST), and the server hosts an **"ai room —
       4 bots"** table, so no second human is needed. The run reached round 2
       of 13 with bots taking turns and surfaced the 3d endianness bug
-- [ ] Phase 2 — confirm arrow keys move the dice and score cursors. First
-      attempt showed no movement, but the cause was FS-UAE mapping the host
-      arrows to joystick port 1 (fixed in `drive.sh`); the retry never landed
-      a keypress inside our own turn, so the `KT_CURSOR_CTRL` path is still
-      unconfirmed either way
+- [x] Phase 2 — arrow keys reach the game. The first attempt showed no
+      movement, but the cause was FS-UAE mapping the host arrows to joystick
+      port 1 when no stick is attached, not the `KT_CURSOR_CTRL` decode;
+      `drive.sh` now sets `joystick_port_1 = nothing`. Confirmed indirectly:
+      after `Up` + `Return` the score landed in a score row, which upstream
+      only reaches at `cursorPos >= 10` — i.e. only if `Up` moved the cursor
+      off the dice. A frame showing the cursor mid-move was not captured,
+      because the persistent server table keeps rejoining a game in progress
 - [ ] Phase 2 — finish a full 13-round game to the end screen
 - [ ] Phase 3a — all 13 sound effects audible in FS-UAE
 - [ ] Phase 3b — joystick drives the dice/score cursors
