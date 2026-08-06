@@ -31,7 +31,7 @@
 #define N_SCURSOR   160  /* 20 ms blip, 347 Hz — a tone above the board one */
 #define N_TICK      160  /* 20 ms low click, 159 Hz */
 #define N_ROLLBTN   528  /* two-note button press */
-#define N_ROLLDICE  240  /* 30 ms dice clatter */
+#define N_ROLLDICE 1680  /* three-pulse dice clatter, 210 ms */
 #define N_KEEP      664  /* rising sweep, die held */
 #define N_RELEASE   936  /* falling sweep, die let go */
 #define N_SCORE     536  /* rising sweep, score taken */
@@ -65,9 +65,22 @@ static void bakeEffects(void)
 
     /* atari: sound(0, 150 + (rand()%20)*5, 8, 8) — a random-pitch clatter.
      * Noise is the closer Paula equivalent of "different every roll" than
-     * re-baking a tone at run time would be. */
-    sndgen_noise(gk_snd_carve(&fxRollDice, N_ROLLDICE), N_ROLLDICE,
-                 100, 0, 0x1D57);
+     * re-baking a tone at run time would be, but one short burst reads as a
+     * cut-off waveform rather than dice landing. Three pulses instead: each
+     * decays, and the train decays across them, which is what tumbling dice
+     * actually do. A different LFSR seed per pulse keeps them from sounding
+     * like one sample repeated.
+     *
+     * The spacing widens (35 ms then 55 ms) and the lengths differ, because
+     * evenly spaced identical pulses read as a machine gun rather than as
+     * dice — the ear hears a regular rhythm as mechanical. Widening gaps
+     * sound like something losing energy and settling. */
+    p = gk_snd_carve(&fxRollDice, N_ROLLDICE);
+    sndgen_noise(p, 320, 100, 55, 0x1D57);      /* 40 ms */
+    sndgen_silence(p + 320, 280);               /* 35 ms */
+    sndgen_noise(p + 600, 256, 75, 40, 0x7A3B); /* 32 ms */
+    sndgen_silence(p + 856, 440);               /* 55 ms */
+    sndgen_noise(p + 1296, 384, 55, 0, 0x2E9D); /* 48 ms, settles */
 
     /* Held / released / scored: the three sweeps, matching the Atari's
      * stepped loops (159→198 up, 141→125 down, 395→627 up). */
