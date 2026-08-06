@@ -45,9 +45,15 @@ feature/<short-description>
 ```
 
 Feature branches are short-lived and focused. `main`/`master` is never committed
-to directly — all changes arrive via squash-merge PR. No `dev` branch.
+to directly — all changes arrive via squash-merge PR.
 
-**One exception**, parent repo only. These may be committed straight to `main`,
+**Parent repo integration branch.** `amiga-fujinet` has a long-lived `dev`
+branch. Feature branches are cut from `dev` and squash-merge back into `dev`;
+`dev` merges into `main` at release points. `main` therefore only ever moves
+via a `dev` → `main` PR. Submodules have no `dev` — their feature branches are
+still cut from and contributed back to `master`/`main` upstream.
+
+**One exception**, parent repo only. These may be committed straight to `dev`,
 provided they touch no code, no build output, and no submodule pointer:
 
 - **Tooling/editor config** — `.claude/settings.json`, `.gitignore` entries.
@@ -115,21 +121,25 @@ git -C fujinet-nio-lib branch -D feature/my-change
 
 ### Parent repo (amiga-fujinet) workflow
 
-Same feature-branch model; no upstream to contribute to.
+Same feature-branch model; no upstream to contribute to. Integration branch is
+`dev`, not `main`.
 
 ```bash
-# Start work
-git checkout main
+# Start work — always from an up-to-date dev
+git switch dev && git pull
 git checkout -b feature/my-topic
 
 # Commit (bump submodule pointers as needed)
 git add contracts/foo.md apps/bar/main.c fujinet-nio-lib
 git commit -m "Add foo contract and bar app"
 
-# Merge to main via squash PR, then delete branch
-git switch main && git pull
+# Merge to dev via squash PR (gh pr create --base dev), then delete branch
+git switch dev && git pull
 git branch -D feature/my-topic
 ```
+
+Releasing: open a `dev` → `main` PR and merge it (a real merge, not a squash —
+`main` should keep the individual feature commits `dev` accumulated).
 
 ### Worktrees
 
@@ -153,13 +163,16 @@ git branch -D worktree-my-track
 ```
 
 Worktree branches follow the same rules as feature branches: commits land there
-first, then get merged/squash-merged to `main` via PR.
+first, then get merged/squash-merged to `dev` via PR.
 
 ### Never
 - Edit submodule files without first creating a branch inside that submodule
 - Commit the parent repo without first committing inside any modified submodule
 - Commit directly to `main` or `master` — always use a feature branch + PR
-  (narrow exception for trivial parent-repo tooling config — see "Branch naming")
+  (narrow exception for trivial parent-repo tooling config, which goes to `dev`
+  — see "Branch naming")
+- Open a parent-repo feature PR against `main` — the base is `dev`; only a
+  release PR targets `main`
 - Merge `master`/`main` into a **submodule** feature branch — rebase instead (upstream requires linear history). For the parent repo, rebase is preferred but not required.
 - Use `git add .` or `git add -A` — always stage specific files
 - Edit files in the shared checkout from a background Claude Code job — use `EnterWorktree` first
