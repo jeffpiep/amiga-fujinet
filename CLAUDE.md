@@ -220,6 +220,16 @@ bootable ADF that draws a full board from fake values. Use it to check layout
 or art changes without a server — the equivalent of battleship's
 `make gallery-adf` one level up.
 
+For the dice specifically there is a faster loop that skips the toolchain
+entirely. `make -C apps/fujitzee/amiga dice-preview` renders every face in
+every face colour straight out of `tiles.h` to a PNG, and `dice-stamps` lays
+candidate pip designs (`tools/pipstamps.txt`, rejected ones kept) over the
+real frame cells so trying one costs an 8x8 text block rather than an edit to
+seven macros. Both need Pillow, not amiga-gcc. Narrow candidates down there,
+then confirm the winner with `preview-adf` — pixel geometry the renderer gets
+exactly right, but the Amiga's non-square pixels and the real display's
+contrast are things only a boot settles.
+
 Three things about fujitzee differ from battleship and are easy to trip over:
 
 - Its upstream `platform-specific/vars.h` has **no `PLATFORM_VARS` hook**, so

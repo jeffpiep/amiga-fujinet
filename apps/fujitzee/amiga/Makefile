@@ -123,9 +123,21 @@ preview-play: preview-adf
 	NO_SERVER=1 \
 	../../../emu/play.sh
 
-clean:
-	rm -f $(TARGET) $(PREVIEW) $(_PREVIEW_ADF) $(HOST_TESTS)
+# Offline art preview: renders the dice straight from tiles.h to a PNG, no
+# toolchain and no boot involved. Narrow art candidates down with these,
+# then confirm the winner with preview-adf — the emulator is the only judge
+# of the real display's contrast and non-square pixels.
+dice-preview:
+	tools/dicepreview.py -o $(CURDIR)/dice-preview.png
 
-.PHONY: all clean test-host preview-adf preview-play
+dice-stamps:
+	tools/dicepreview.py --stamps tools/pipstamps.txt \
+	    -o $(CURDIR)/dice-stamps.png
+
+clean:
+	rm -f $(TARGET) $(PREVIEW) $(_PREVIEW_ADF) $(HOST_TESTS) \
+	    $(CURDIR)/dice-preview.png $(CURDIR)/dice-stamps.png
+
+.PHONY: all clean test-host preview-adf preview-play dice-preview dice-stamps
 
 include ../../../emu/template/emu.mk

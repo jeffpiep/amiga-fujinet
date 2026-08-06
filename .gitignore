@@ -12,3 +12,7 @@ apps/**/*.adf
 libs/**/test/host/*.test
 apps/**/test/host/*.test
 emu/.venv/
+
+# Generated art previews (apps/fujitzee/amiga/tools/dicepreview.py)
+apps/**/dice-preview.png
+apps/**/dice-stamps.png
