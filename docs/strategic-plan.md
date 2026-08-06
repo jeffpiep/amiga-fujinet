@@ -141,7 +141,11 @@ The headline change was **Phase 0: extract `libs/amiga-gamekit`** — pull the
 reusable screen/tile engine, key translation, joystick decode, waveform
 generation and timer out of `apps/battleship/amiga/src/` into a shared library,
 proven by Battleship still passing its T1 and T2 suites. Done 2026-08-05.
-Everything after that is fujitzee-specific renderer, sound, and art.
+Everything after that is fujitzee-specific renderer, sound, and art. Phase 1
+(2026-08-05) scaffolded `apps/fujitzee/amiga/` and got the upstream sources
+compiling and linking on stubs — the cheap-second-port thesis is holding so
+far: no compat-layer work was needed, and the only real obstacle was the
+server wire format's struct packing.
 
 Full plan, including the five other process changes from 1B:
 `docs/plan-track1c-fujitzee.md`.
@@ -181,7 +185,7 @@ not a refactor.
 | `fn_test` smoke test | ✅ Done | Validates serial transport end-to-end |
 | Track 1A — compat layer | ✅ Done (2026-07-01) | `libs/fujinet-compat-amiga`; header-sync procedure in `docs/updating-fujinet-compat-headers.md` |
 | Track 1B — Battleship port | 🚧 Phase 4 complete (2026-07-28) — awaiting real hardware | 3a joystick ✅, 3b sound ✅, 3c graphical renderer ✅. Tile engine on a custom 320×200×4 screen, playable end-to-end in emulator (lobby → placement → gameplay → menu); mouse aiming (#21) and mouse ship placement (#23) merged; tile art pass done (`tiles.h` — multicolor sea/ships/markers/explosion, previewed via the `tilegallery` harness). Phase 4 ADF boot test ✅ (2026-07-28: full game in FS-UAE off the ADF, 6706 FujiBus frames, no errors). Remaining: real Amiga 500 + PiStorm. Also unblocks the upstream port PR |
-| Track 1C — Fujitzee port | 🚧 Phase 0 complete (2026-08-05) | Upstream pinned at `apps/fujitzee/upstream`; port surface audited (same six FujiNet functions as Battleship — no compat-layer work expected); phases agreed in `docs/plan-track1c-fujitzee.md`. Phase 0 ✅: `libs/amiga-gamekit` extracted (screen/tile/sprite core, key + joystick decode, waveform bakers, jiffy clock, PRNG); Battleship rebuilt against it and passes T1 + T2 with the lobby rendering unchanged. Next: Phase 1 — scaffold `apps/fujitzee/amiga/` and get upstream compiling under m68k |
+| Track 1C — Fujitzee port | 🚧 Phase 1 complete (2026-08-05) | Upstream pinned at `apps/fujitzee/upstream`; port surface audited (same six FujiNet functions as Battleship — no compat-layer work expected); phases in `docs/plan-track1c-fujitzee.md`. Phase 0 ✅: `libs/amiga-gamekit` extracted (screen/tile/sprite core, key + joystick decode, waveform bakers, jiffy clock, PRNG); Battleship rebuilt against it and passes T1 + T2 with the lobby rendering unchanged. Phase 1 ✅: `apps/fujitzee/amiga/` scaffolded (force-included `amiga_vars.h` — fujitzee has no `PLATFORM_VARS` hook —, three cc65 shim headers, stub platform layer); upstream compiles and links under m68k (55 KB binary). Server wire format needed upstream's Watcom `#pragma pack` path enabled or `Game.players[]` read one byte out of phase — pinned by `test_wireformat.c`. Next: Phase 2 — real renderer on the gamekit screen, playable end to end |
 | Track 2 Phase 1 — BSD sockets | 🔲 Not started | |
 | Track 2 Phase 2 — DNS | 🔲 Not started | |
 | Track 2 Phase 3 — TLS | 🔲 Not started | |

@@ -3,9 +3,10 @@
 **Depends on:** Track 1A (`libfn_compat_amiga.a`) ✅; Track 1B (Battleship) for the
 platform-layer code being extracted in Phase 0
 **Blocks:** nothing
-**Status:** Phase 0 complete (2026-08-05) — `libs/amiga-gamekit` extracted and
-Battleship rebuilt against it. Upstream submodule pinned, port surface audited,
-phases below agreed. Next: Phase 1.
+**Status:** Phase 1 complete (2026-08-05) — `apps/fujitzee/amiga/` scaffolded,
+upstream compiles and links under `m68k-amigaos-gcc` with stub platform
+functions, and the server wire format is packed correctly and pinned by a T1
+test. Next: Phase 2 (real renderer, playable end to end).
 
 ---
 
@@ -52,7 +53,7 @@ Fujitzee's surface is **wider but shallower** than Battleship's: more drawing
 entry points, but no blitter-heavy animation, no ship-placement mode, and no
 mouse requirement. The renderer is a character-grid + a handful of tiles.
 
-### Two upstream-integration wrinkles
+### Three upstream-integration wrinkles
 
 1. **No `PLATFORM_VARS` hook.** Battleship's `platform-specific/vars.h` includes
    `PLATFORM_VARS`, which let us point it at our own header. Fujitzee's version
@@ -71,6 +72,25 @@ mouse requirement. The renderer is a character-grid + a handful of tiles.
    `conio.h` (kbhit/cgetc, same as Battleship's), `joystick.h` (the `JOY_*`
    accessor macros over our bit layout), and an empty `peekpoke.h` (fujitzee
    includes it but never calls `PEEK`/`POKE`).
+
+3. **Struct packing is load-bearing** (found in Phase 1 — the risk the phase
+   flagged was real). `stateclient.c` `network_read()`s the server response
+   straight into `clientState`, so upstream's `Game` struct *is* the wire
+   format, in cc65's tightly-packed layout. `m68k-amigaos-gcc` aligns
+   `int16_t` to 2 bytes and inserts one pad byte before `Game.players[]`:
+   `offsetof` 96 instead of 95, `sizeof` 600 instead of 599 — every player
+   record read one byte out of phase. Upstream already fixes this for Open
+   Watcom (same fault, same cause) with `#pragma pack(push,1)` under
+   `#ifdef __WATCOMC__`, and GCC honours that pragma. `amiga_vars.h`
+   therefore pulls `misc.h` in with `__WATCOMC__` briefly defined, then
+   undefines it before any `.c` file is parsed, so the structs are packed
+   everywhere while `misc.c`/`gamelogic.c` still compile their non-Watcom
+   paths. Verified on both compilers; pinned by
+   `apps/fujitzee/amiga/test/host/test_wireformat.c`.
+
+   The nicer long-term shape is a two-line upstream change widening that
+   guard to a `FUJITZEE_PACK_STRUCTS` opt-in — worth proposing alongside the
+   `PLATFORM_VARS` hook, and like it, the port does not wait on it.
 
 ---
 
@@ -206,16 +226,37 @@ Verified: Battleship builds against `libamiga_gamekit.a` and passes
 rendering identically to before the extraction. The `tilegallery` harness builds
 too. No fujitzee files in this PR.
 
-### Phase 1 — Compile and link
+### Phase 1 — Compile and link ✅ (2026-08-05)
 
-Scaffold `apps/fujitzee/amiga/` with stub platform functions, the three
-cc65-shim headers, `amiga_vars.h`, and the Makefile. Goal: the upstream
-`src/*.c` compile clean under `m68k-amigaos-gcc` and every symbol resolves.
+Scaffolded `apps/fujitzee/amiga/` with stub platform functions, the three
+cc65-shim headers, `amiga_vars.h`, and the Makefile. The upstream `src/*.c`
+compile under `m68k-amigaos-gcc` and every symbol resolves — a 55 KB
+`fujitzee` binary. Wired into `apps/Makefile` and the repo-wide
+`make test-host`.
 
-Expected friction: `int` width assumptions in the packed `Game`/`Player`
-structs (the server sends a cc65 tightly-packed layout — see upstream's Watcom
-`#pragma pack` comment; verify m68k struct layout matches, this is a real
-wire-format risk), `char` signedness, and `itoa`/`utoa` style non-C99 helpers.
+The friction was mostly where expected, with one surprise:
+
+- **Struct packing** — real, and the biggest finding of the phase. See
+  wrinkle 3 above.
+- **`KEYMAP_H` is a shared guard.** Every upstream platform `vars.h` uses the
+  same `#ifndef KEYMAP_H`; whichever one the toolchain macros select claims
+  it. `amiga_vars.h` must claim it too — otherwise the packing shim's brief
+  `__WATCOMC__` lets `msdos/vars.h` in and its `WIDTH`/`HEIGHT`/`KEY_*`
+  silently override ours.
+- **`KEY_ESCAPE_ALT` cannot be `'q'`.** Battleship's key map is not
+  transferable wholesale: fujitzee's `screens.c` already handles `'q'` as
+  Quit, and every `KEY_*_ALT` macro is a `case` label in the same switch, so
+  a collision is a compile error. Placeholders follow the Atari port (1/2/3).
+- **`fujinet-fuji.h` needs `amiga_compat.h` first.** Fujitzee's `main.c` and
+  `misc.c` include it directly (battleship's sources do not), and it declares
+  `fuji_create_new(NewDisk *)` with `NewDisk` defined only under
+  per-platform `#ifdef`s. `amiga_vars.h` pulls the compat bridge type in.
+- **`itoa`** — declared in `amiga_vars.h`, defined in `src/util.c`, same as
+  battleship. No `utoa`, and no `char`-signedness problems surfaced.
+
+Eight warnings remain, all in upstream sources (`void main`, an unused
+static, `-Wparentheses` on chained assignments); nothing in our platform
+layer warns. Left alone rather than patched — the pin stays read-only.
 
 ### Phase 2 — Playable end to end
 
@@ -268,7 +309,10 @@ relaunch — see the `fn_transport_close()` leak note in
 
 - [x] Phase 0 — Battleship builds and passes T1 + T2 against `libamiga_gamekit.a`
 - [x] Phase 0 — ~~`getJiffiesPerSecond()` returns 60 on NTSC, 50 on PAL~~ withdrawn: 50 is correct for a DateStamp-based clock (see change 5), pinned by `test_gkclock.c`
-- [ ] Phase 1 — fujitzee binary links; struct layout matches the server wire format
+- [x] Phase 1 — fujitzee binary links; struct layout matches the server wire
+      format (packed via upstream's Watcom pragma path; `offsetof(Game,
+      players)` 95 / `sizeof(Game)` 599 confirmed on m68k and pinned by
+      `test_wireformat.c`)
 - [ ] Phase 2 — join lobby, sit at table, roll, score, finish a game
 - [ ] Phase 2 — scorecard readable with the maximum supported player count
 - [ ] Phase 3a — all 13 sound effects audible in FS-UAE
