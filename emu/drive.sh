@@ -20,6 +20,10 @@
 #   BOOT_WAIT  - seconds to wait after launch before the first token (default 25)
 #   NO_SERVER  - 1 to skip fujinet-nio (offline harnesses)
 #   FN_BIN     - fujinet-nio binary override
+#   JOYSTICK   - 1 to put a keyboard-driven joystick in the game port, so a
+#                scripted run can test stick input: the arrow keysyms then
+#                move the *stick* (and Control_R fires) instead of reaching
+#                the emulated keyboard. Default 0.
 #
 # KEYS tokens are emukey.py keysyms ('space', 'Escape', 's', 'Up', combos
 # with '+'), plus:
@@ -48,6 +52,7 @@ fi
 
 BOOT_WAIT="${BOOT_WAIT:-25}"
 NO_SERVER="${NO_SERVER:-0}"
+JOYSTICK="${JOYSTICK:-0}"
 
 PATHS_ENV="$SCRIPT_DIR/config/paths.env"
 if [ ! -f "$PATHS_ENV" ]; then
@@ -103,6 +108,25 @@ cp "$ADF_PATH" "$FLOPPIES_DIR/$ADF_BASENAME"
 # Stale save-disk files cache old ADF contents and boot an outdated image.
 rm -f "$HOME/Documents/FS-UAE/Save States/run/${ADF_BASENAME%.adf}.sdf"
 
+# Port 1 (the Amiga's port 2 / game port — FS-UAE numbers from 0, where port
+# 0 is the mouse) is either freed for the keyboard or driven *by* it:
+#
+#   JOYSTICK=0  no stick. FS-UAE would otherwise steal the host arrow keys
+#               for a fallback joystick and they'd never reach the emulated
+#               keyboard, so the port is explicitly emptied.
+#   JOYSTICK=1  FS-UAE's built-in "keyboard" controller sits in the port and
+#               the host arrows become stick directions, Right Ctrl/Right Alt
+#               the fire button (share/fs-uae/input/default_keyboard.conf).
+#               Arrows then do NOT reach the keyboard — that is the point:
+#               it is how a scripted run exercises a joystick it cannot plug
+#               in. Every other key still types normally.
+if [ "$JOYSTICK" = 1 ]; then
+    JOYSTICK_PORT_1=keyboard
+else
+    JOYSTICK_PORT_1=nothing
+fi
+echo "Joy:   port 1 = $JOYSTICK_PORT_1"
+
 FSUAE_CONFIG="$LOG_DIR/drive.fs-uae"
 cat > "$FSUAE_CONFIG" <<EOF
 [fs-uae]
@@ -112,9 +136,7 @@ floppy_drive_0 = $ADF_BASENAME
 console_debugger = 0
 ntsc_mode = 1
 screenshots_output_dir = $SHOT_DIR
-# With no joystick attached FS-UAE falls back to mapping the host arrow keys
-# to joystick port 1, so they never reach the emulated *keyboard*. Free them.
-joystick_port_1 = nothing
+joystick_port_1 = $JOYSTICK_PORT_1
 # serial_port is passed on the command line as --serial_port=<PTY>
 # DO NOT add serial_port here: TCP mode causes IOERR_OPENFAIL in guest software
 EOF

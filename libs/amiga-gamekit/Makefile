@@ -2,8 +2,8 @@ include ../../make/amiga.mk
 
 INCLUDES = -Iinclude
 
-SRCS = src/gfxcore.c src/keytrans.c src/gkkeyq.c src/joydecode.c src/sndgen.c \
-       src/gktimer.c src/gkclock.c src/gkrandom.c
+SRCS = src/gfxcore.c src/keytrans.c src/gkkeyq.c src/joydecode.c src/gkjoy.c \
+       src/sndgen.c src/gktimer.c src/gkclock.c src/gkrandom.c
 OBJS = $(SRCS:.c=.o)
 
 TARGET = libamiga_gamekit.a

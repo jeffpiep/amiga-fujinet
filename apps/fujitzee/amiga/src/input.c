@@ -16,10 +16,14 @@
  * Requires: intuition.library (window from gfxcore.c), exec.library
  * Compiler: m68k-amigaos-gcc (amiga-gcc)
  *
+ * Joystick is game port 2 via the gamekit (gkjoy.h) — see readJoystick()
+ * below for why "either port" collapses to one on this machine.
+ *
  * See: docs/plan-track1c-fujitzee.md (Phase 2 keyboard, Phase 3b joystick)
  */
 #include "misc.h"
 
+#include "gkjoy.h"
 #include "gkkeyq.h"
 #include "keytrans.h"
 
@@ -49,14 +53,19 @@ char cgetc(void)
 }
 
 /*
- * Phase 3b. Fujitzee's readJoystick() takes no port argument — the Atari
- * port polls both sticks and returns whichever is active — so it differs
- * from battleship's port-2-only read, and the raw JOYxDAT/CIAA reads it
- * needs still live in apps/battleship/amiga/src/input.c. See the Phase 3
- * extraction note in docs/plan-track1c-fujitzee.md before duplicating
- * them. Until then the game is keyboard-driven, which is enough to play.
+ * Fujitzee's readJoystick() takes no port argument: the Atari port polls
+ * both sticks and returns whichever is active. On the Amiga "both" is not
+ * an option — port 1 shares its counter with the mouse, so polling it would
+ * turn every mouse twitch into a phantom direction and make the game
+ * unplayable for anyone who bumps the desk. So the answer to "either
+ * joystick" here is game port 2, the port a stick is actually plugged into,
+ * and the read itself is the gamekit's (gkjoy.h, extracted from battleship
+ * in Phase 3b).
+ *
+ * With nothing plugged in this returns 0 every frame, which is what
+ * readCommonInput() needs in order to fall through to the keyboard.
  */
 unsigned char readJoystick(void)
 {
-    return 0;
+    return gk_joy_read_port2();
 }

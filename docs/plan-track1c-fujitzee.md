@@ -3,11 +3,12 @@
 **Depends on:** Track 1A (`libfn_compat_amiga.a`) ✅; Track 1B (Battleship) for the
 platform-layer code being extracted in Phase 0
 **Blocks:** nothing
-**Status:** Phase 2 complete (2026-08-06) — the real renderer is in: board,
-dice, cursors and text on the gamekit's 320x200x4 screen, keyboard input
-through a newly shared gamekit key queue, and a `boardpreview` harness that
-boots a full scorecard without a server. Sound and joystick are still stubs
-(Phase 3a/3b). Next: Phase 3.
+**Status:** Phase 3b complete (2026-08-06) — the joystick is real (game port 2
+via the gamekit's new `gkjoy`), on top of Phase 2's renderer: board, dice,
+cursors and text on the gamekit's 320x200x4 screen, keyboard input through a
+shared gamekit key queue, and a `boardpreview` harness that boots a full
+scorecard without a server. Sound is the last stub. Next: Phase 3a (sound)
+and 3c (art).
 
 ---
 
@@ -367,9 +368,40 @@ Decisions and findings worth keeping:
 - **3a — Sound.** 13 effects via gamekit `sndgen` + `audio.device`. Remember the
   FS-UAE `AUDxVOL` workaround (`pokeVolume()`, strategic-plan Lessons Learned
   2026-07-08). See the extraction note above.
-- **3b — Joystick.** Gamekit `joydecode`; smaller than Battleship's since
-  fujitzee's `readJoystick()` takes no port argument. See the extraction note
-  above.
+- **3b — Joystick.** ✅ Done 2026-08-06. `readJoystick()` is real: game port 2
+  via the new `libs/amiga-gamekit/src/gkjoy.c`.
+
+  **Extraction, as the note above predicted** — and it cost almost nothing,
+  because what was left to share turned out to be two register reads. The
+  split follows the same seam as every other gamekit module: the *pure* half,
+  `joyDecodePort2(joy1dat, ciaapra)`, joins `joydecode.c` and is T1-tested;
+  the impure half is `gk_joy_read_port2()`, three lines that peek JOY1DAT and
+  CIAAPRA. Battleship's `input.c` lost its two `#define`s and kept its mouse
+  aiming, which is the genuinely game-specific part.
+
+  The new pure function exists so the fire-line polarity is pinned by a test:
+  CIAAPRA bit 7 is active *low*, and getting it backwards yields a stick that
+  fires continuously until pressed — a bug that boots fine and only shows up
+  in a game. `test_joydecode.c` now checks both polarities, and that bit 6
+  (port 1's button, i.e. the mouse's) does not register.
+
+  **"Either joystick" resolves to port 2 only.** Upstream's Atari
+  `readJoystick()` polls both sticks and returns whichever is live, which is
+  why it takes no port argument. That is not portable here: Amiga port 1
+  shares its counter with the mouse, so polling it would turn every mouse
+  twitch into a phantom direction. Port 2 is where a stick is actually
+  plugged in, so the answer is one port, documented at the call site.
+
+  **T2 verification is now possible headlessly** — `emu/drive.sh` gained
+  `JOYSTICK=1`, which drops FS-UAE's built-in `keyboard` controller into the
+  game port so scripted arrow keysyms move the *stick* (Right Ctrl fires)
+  instead of reaching the emulated keyboard. Driving a real game against the
+  bot table: `Up` moved the cursor from the dice row into the scorecard,
+  `Left` brought it back to the roll button, and Right Ctrl rolled the dice.
+  The control run matters as much as the result: the same key script against
+  the previous stub build produced four **pixel-identical** screenshots,
+  which is what proves the arrows travelled the joystick path and not the
+  keyboard.
 - **3c — Art pass.** Dice faces, the Fujitzee logo, connection/clock icons,
   player highlight colors. Reuse Battleship's `tilegallery` harness pattern for
   previewing.
@@ -434,7 +466,12 @@ relaunch — see the `fn_transport_close()` leak note in
       because the persistent server table keeps rejoining a game in progress
 - [ ] Phase 2 — finish a full 13-round game to the end screen
 - [ ] Phase 3a — all 13 sound effects audible in FS-UAE
-- [ ] Phase 3b — joystick drives the dice/score cursors
+- [x] Phase 3b — joystick drives the dice/score cursors. Driven headlessly
+      with `JOYSTICK=1 bash emu/drive.sh` against the bot table: up moved the
+      cursor into the scorecard, left returned it to the roll button, Right
+      Ctrl (fire) rolled. The same script on the pre-change stub build gave
+      four pixel-identical shots, which is the control that rules out the
+      arrows having reached the keyboard instead
 - [ ] Phase 3c — dice, logo, and icons rendered from tile art
 - [ ] Phase 4 — boots from ADF, full game against live `fujinet-nio`
 - [ ] Phase 4 — prefs AppKey survives a soft reset

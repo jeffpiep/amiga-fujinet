@@ -13,7 +13,8 @@ via RS-232 serial to an Amiga computer.
   - `fujinet-compat-amiga/` → `libfn_compat_amiga.a` — FujiNet API shim upstream games expect
   - `amiga-gamekit/` → `libamiga_gamekit.a` — game platform layer (custom screen +
     tile/sprite engine, tile-art composer macros, the IDCMP keyboard queue,
-    keyboard and joystick decode, waveform bakers, jiffy clock, PRNG). Takes
+    keyboard and joystick decode, the game-port joystick read, waveform
+    bakers, jiffy clock, PRNG). Takes
     palette/art/geometry as data; owns no game-specific names.
 
 ## Git Workflow
@@ -197,7 +198,7 @@ first, then get merged/squash-merged to `dev` via PR.
 | `http_get` | `apps/http_get/` | HTTP and HTTPS GET — curl-like tool, auto-detects `https://` scheme |
 | `battleship` | `apps/battleship/amiga/` | Full FujiNet game — lobby + gameplay over FujiBus. Sources in `apps/battleship/upstream/` submodule; links `libs/fujinet-compat-amiga`. |
 | `compat_test` | `apps/compat_test/` | Compat-layer smoke test on the emulator — exercises `libs/fujinet-compat-amiga` end to end. |
-| `fujitzee` | `apps/fujitzee/amiga/` | Second FujiNet game port (Track 1C). Sources in `apps/fujitzee/upstream/`; links `libs/amiga-gamekit` + `libs/fujinet-compat-amiga`. Renderer and keyboard are real (Phase 2); sound and joystick are stubs until Phase 3. |
+| `fujitzee` | `apps/fujitzee/amiga/` | Second FujiNet game port (Track 1C). Sources in `apps/fujitzee/upstream/`; links `libs/amiga-gamekit` + `libs/fujinet-compat-amiga`. Renderer and keyboard are real (Phase 2), joystick too (Phase 3b); sound is stubbed until Phase 3a. |
 | `pacmantests` | `apps/pacmantests/` | Exploratory (non-shipping) bitplane-graphics harnesses for the battleship Phase 3 renderer. Includes the `amiga-pac-man` submodule (tschak909). |
 
 `apps/battleship/` establishes the pattern for future game ports:
@@ -205,9 +206,9 @@ first, then get merged/squash-merged to `dev` via PR.
 (Makefile + platform layer), linking `libs/fujinet-compat-amiga`.
 
 `apps/fujitzee/` is the second port following that pattern (Track 1C) — start
-from `docs/plan-track1c-fujitzee.md`. Phases 0-2 are done (gamekit extraction,
-scaffold + link, and the real renderer + keyboard); what is left is Phase 3 —
-`sound.c` and `readJoystick()`, both still no-op stubs, and the art pass.
+from `docs/plan-track1c-fujitzee.md`. Phases 0-2 and 3b are done (gamekit
+extraction, scaffold + link, the real renderer + keyboard, and the joystick);
+what is left is Phase 3a — `sound.c`, still a no-op stub — and 3c, the art pass.
 
 Its scorecard only renders inside a live multiplayer game, so the layout has
 its own preview harness: `make -C apps/fujitzee/amiga preview-adf` builds a
@@ -331,13 +332,20 @@ APP_NAME=fujitzee ADF_PATH=apps/fujitzee/amiga/fujitzee.adf \
 `sleepN` (tenths of a second). `NO_SERVER=1` skips `fujinet-nio` for offline
 harnesses — that is what `make -C apps/fujitzee/amiga preview-play` uses.
 
+`JOYSTICK=1` tests **stick** input instead: it puts FS-UAE's built-in
+`keyboard` controller in the game port, so the arrow keysyms move the emulated
+joystick and `Control_R` is its fire button. They then stop reaching the
+emulated keyboard, which is the whole trick — and also the reason a joystick
+run needs its own key script.
+
 Two things that cost time to find:
 
 - **`emukey.py` needs python-xlib**, which the system python3 lacks. The repo
   keeps a venv at `emu/.venv` (gitignored); `drive.sh` prefers it.
 - **Free the joystick port before expecting arrow keys.** With no joystick
   attached, FS-UAE maps the host arrow keys to joystick port 1, so they never
-  reach the emulated keyboard. `drive.sh` sets `joystick_port_1 = nothing`.
+  reach the emulated keyboard. `drive.sh` sets `joystick_port_1 = nothing`
+  unless `JOYSTICK=1` asks for the opposite.
 
 Quick setup:
 ```bash

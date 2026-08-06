@@ -9,8 +9,9 @@
  * arrow mapping; its menus don't compete for those letters.
  *
  * Joystick port 2 — the customary Amiga game port (port 1 has the mouse,
- * whose movement would register as phantom directions). Read-only peeks at
- * the counter/CIA registers; conventional and safe alongside the OS.
+ * whose movement would register as phantom directions). The register reads
+ * moved to the gamekit in Track 1C Phase 3b (gkjoy.h); what stays here is
+ * battleship's own mouse aiming, blended into the same result.
  *
  * Requires: intuition.library (window from gfxcore.c), exec.library
  * Compiler: m68k-amigaos-gcc (amiga-gcc)
@@ -37,10 +38,7 @@ char cgetc(void)
     return gk_key_get();
 }
 
-#include "joydecode.h"
-
-#define JOY1DAT (*(volatile uint16_t *)0xDFF00C)
-#define CIAAPRA (*(volatile uint8_t *)0xBFE001) /* bit 7 = port-2 fire, active low */
+#include "gkjoy.h"
 
 /*
  * Mouse aiming (attack cursor only — armed by drawGamefieldCursor via
@@ -138,7 +136,7 @@ static uint8_t mouseAimBits(uint8_t real_joy)
 
 uint8_t readJoystick(void)
 {
-    uint8_t joy = joyDecode(JOY1DAT, (uint8_t)!(CIAAPRA & 0x80));
+    uint8_t joy = gk_joy_read_port2();
 
     return joy | mouseAimBits(joy);
 }

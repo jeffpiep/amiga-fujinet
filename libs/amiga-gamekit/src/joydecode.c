@@ -28,3 +28,13 @@ uint8_t joyDecode(uint16_t joydat, uint8_t fire_pressed)
 
     return v;
 }
+
+/* CIAAPRA bit 7 is the port-2 fire line, pulled high when idle and driven
+ * low while the button is held (bit 6 is port 1's, i.e. the mouse's, and is
+ * deliberately not consulted here). */
+#define CIAAPRA_FIRE2 0x80
+
+uint8_t joyDecodePort2(uint16_t joy1dat, uint8_t ciaapra)
+{
+    return joyDecode(joy1dat, (uint8_t)!(ciaapra & CIAAPRA_FIRE2));
+}
