@@ -309,12 +309,35 @@ Use the `/emu-build-and-boot` skill to build an ADF, boot it in FS-UAE, and
 capture a screenshot automatically. See `.claude/commands/emu-build-and-boot.md`
 for the full workflow.
 
-That path is headless (Xvfb) and pass/fail — nothing can type at it. For the
-manual checks that need a keyboard (playing a game to the end, walking a menu),
-use `make -C <app> emu-play`: same socat + `fujinet-nio` wiring on a **visible**
-FS-UAE window, running until you quit it (`emu/play.sh`). Offline harnesses that
-never open the serial port take `NO_SERVER=1` — that is what
-`make -C apps/fujitzee/amiga preview-play` does for the board preview.
+There are three emulator modes, all sharing the same socat + `fujinet-nio`
+wiring:
+
+| Script | Display | Input | Use |
+|--------|---------|-------|-----|
+| `emu/run.sh` | Xvfb | none | `make emu-test` — CI pass/fail on a grep pattern |
+| `emu/drive.sh` | Xvfb | scripted | keyboard-driven checks over SSH; captures pixel-exact shots |
+| `emu/play.sh` | visible | you | `make emu-play` — hands-on, needs a desktop |
+
+`drive.sh` is what makes the "manual" checks reachable from a remote CLI — it
+types a token script through `emu/scripts/emukey.py` (XTEST) and dumps FS-UAE's
+internal screenshots at labeled points:
+
+```bash
+APP_NAME=fujitzee ADF_PATH=apps/fujitzee/amiga/fujitzee.adf \
+  KEYS="shot:lobby Return sleep50 space shot:table" bash emu/drive.sh
+```
+
+`shot:<label>` writes `<label>.png`; every other token is an emukey keysym or
+`sleepN` (tenths of a second). `NO_SERVER=1` skips `fujinet-nio` for offline
+harnesses — that is what `make -C apps/fujitzee/amiga preview-play` uses.
+
+Two things that cost time to find:
+
+- **`emukey.py` needs python-xlib**, which the system python3 lacks. The repo
+  keeps a venv at `emu/.venv` (gitignored); `drive.sh` prefers it.
+- **Free the joystick port before expecting arrow keys.** With no joystick
+  attached, FS-UAE maps the host arrow keys to joystick port 1, so they never
+  reach the emulated keyboard. `drive.sh` sets `joystick_port_1 = nothing`.
 
 Quick setup:
 ```bash
