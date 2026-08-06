@@ -153,8 +153,11 @@ static const uint16_t tile_conn_r[32] = TILE_PAT(PEN_CONN, PEN_BG,
  * black, so an outline in PEN_PIP would be invisible and the bevel is what
  * draws the silhouette.
  *
- * Pips are 3x3 at cell columns/rows 3-5, which centres them on the die's
- * 4 / 12 / 20 pixel thirds.
+ * Pips are 4x4 at cell columns/rows 2-5, i.e. die pixels 2-5, 10-13 and
+ * 18-21. The even width is the point: it leaves the same 2px margin on both
+ * sides and centres the middle pip exactly on the 24px die, which an odd
+ * width cannot do — a 3px pip is half a pixel off-centre whichever way it is
+ * nudged, and reads as a speck at this size besides.
  */
 #define B PEN_BG
 #define K PEN_PIP
@@ -166,8 +169,8 @@ static const uint16_t tile_conn_r[32] = TILE_PAT(PEN_CONN, PEN_BG,
     H,F,F,F,F,F,F,F,  H,F,F,F,F,F,F,F,  H,F,F,F,F,F,F,F,  H,F,F,F,F,F,F,F)
 
 #define DIE_CELL_TL_PIP(F) TILE_MC( \
-    B,B,H,H,H,H,H,H,  B,H,F,F,F,F,F,F,  H,F,F,F,F,F,F,F,  H,F,F,K,K,K,F,F, \
-    H,F,F,K,K,K,F,F,  H,F,F,K,K,K,F,F,  H,F,F,F,F,F,F,F,  H,F,F,F,F,F,F,F)
+    B,B,H,H,H,H,H,H,  B,H,F,F,F,F,F,F,  H,F,K,K,K,K,F,F,  H,F,K,K,K,K,F,F, \
+    H,F,K,K,K,K,F,F,  H,F,K,K,K,K,F,F,  H,F,F,F,F,F,F,F,  H,F,F,F,F,F,F,F)
 
 #define DIE_CELL_T(F) TILE_MC( \
     H,H,H,H,H,H,H,H,  F,F,F,F,F,F,F,F,  F,F,F,F,F,F,F,F,  F,F,F,F,F,F,F,F, \
@@ -178,40 +181,40 @@ static const uint16_t tile_conn_r[32] = TILE_PAT(PEN_CONN, PEN_BG,
     F,F,F,F,F,F,F,S,  F,F,F,F,F,F,F,S,  F,F,F,F,F,F,F,S,  F,F,F,F,F,F,F,S)
 
 #define DIE_CELL_TR_PIP(F) TILE_MC( \
-    H,H,H,H,H,H,B,B,  F,F,F,F,F,F,S,B,  F,F,F,F,F,F,F,S,  F,F,F,K,K,K,F,S, \
-    F,F,F,K,K,K,F,S,  F,F,F,K,K,K,F,S,  F,F,F,F,F,F,F,S,  F,F,F,F,F,F,F,S)
+    H,H,H,H,H,H,B,B,  F,F,F,F,F,F,S,B,  F,F,K,K,K,K,F,S,  F,F,K,K,K,K,F,S, \
+    F,F,K,K,K,K,F,S,  F,F,K,K,K,K,F,S,  F,F,F,F,F,F,F,S,  F,F,F,F,F,F,F,S)
 
 #define DIE_CELL_L(F) TILE_MC( \
     H,F,F,F,F,F,F,F,  H,F,F,F,F,F,F,F,  H,F,F,F,F,F,F,F,  H,F,F,F,F,F,F,F, \
     H,F,F,F,F,F,F,F,  H,F,F,F,F,F,F,F,  H,F,F,F,F,F,F,F,  H,F,F,F,F,F,F,F)
 
 #define DIE_CELL_L_PIP(F) TILE_MC( \
-    H,F,F,F,F,F,F,F,  H,F,F,F,F,F,F,F,  H,F,F,F,F,F,F,F,  H,F,F,K,K,K,F,F, \
-    H,F,F,K,K,K,F,F,  H,F,F,K,K,K,F,F,  H,F,F,F,F,F,F,F,  H,F,F,F,F,F,F,F)
+    H,F,F,F,F,F,F,F,  H,F,F,F,F,F,F,F,  H,F,K,K,K,K,F,F,  H,F,K,K,K,K,F,F, \
+    H,F,K,K,K,K,F,F,  H,F,K,K,K,K,F,F,  H,F,F,F,F,F,F,F,  H,F,F,F,F,F,F,F)
 
 #define DIE_CELL_C(F) TILE_MC( \
     F,F,F,F,F,F,F,F,  F,F,F,F,F,F,F,F,  F,F,F,F,F,F,F,F,  F,F,F,F,F,F,F,F, \
     F,F,F,F,F,F,F,F,  F,F,F,F,F,F,F,F,  F,F,F,F,F,F,F,F,  F,F,F,F,F,F,F,F)
 
 #define DIE_CELL_C_PIP(F) TILE_MC( \
-    F,F,F,F,F,F,F,F,  F,F,F,F,F,F,F,F,  F,F,F,F,F,F,F,F,  F,F,F,K,K,K,F,F, \
-    F,F,F,K,K,K,F,F,  F,F,F,K,K,K,F,F,  F,F,F,F,F,F,F,F,  F,F,F,F,F,F,F,F)
+    F,F,F,F,F,F,F,F,  F,F,F,F,F,F,F,F,  F,F,K,K,K,K,F,F,  F,F,K,K,K,K,F,F, \
+    F,F,K,K,K,K,F,F,  F,F,K,K,K,K,F,F,  F,F,F,F,F,F,F,F,  F,F,F,F,F,F,F,F)
 
 #define DIE_CELL_R(F) TILE_MC( \
     F,F,F,F,F,F,F,S,  F,F,F,F,F,F,F,S,  F,F,F,F,F,F,F,S,  F,F,F,F,F,F,F,S, \
     F,F,F,F,F,F,F,S,  F,F,F,F,F,F,F,S,  F,F,F,F,F,F,F,S,  F,F,F,F,F,F,F,S)
 
 #define DIE_CELL_R_PIP(F) TILE_MC( \
-    F,F,F,F,F,F,F,S,  F,F,F,F,F,F,F,S,  F,F,F,F,F,F,F,S,  F,F,F,K,K,K,F,S, \
-    F,F,F,K,K,K,F,S,  F,F,F,K,K,K,F,S,  F,F,F,F,F,F,F,S,  F,F,F,F,F,F,F,S)
+    F,F,F,F,F,F,F,S,  F,F,F,F,F,F,F,S,  F,F,K,K,K,K,F,S,  F,F,K,K,K,K,F,S, \
+    F,F,K,K,K,K,F,S,  F,F,K,K,K,K,F,S,  F,F,F,F,F,F,F,S,  F,F,F,F,F,F,F,S)
 
 #define DIE_CELL_BL(F) TILE_MC( \
     H,F,F,F,F,F,F,F,  H,F,F,F,F,F,F,F,  H,F,F,F,F,F,F,F,  H,F,F,F,F,F,F,F, \
     H,F,F,F,F,F,F,F,  H,F,F,F,F,F,F,F,  B,H,F,F,F,F,F,F,  B,B,S,S,S,S,S,S)
 
 #define DIE_CELL_BL_PIP(F) TILE_MC( \
-    H,F,F,F,F,F,F,F,  H,F,F,F,F,F,F,F,  H,F,F,F,F,F,F,F,  H,F,F,K,K,K,F,F, \
-    H,F,F,K,K,K,F,F,  H,F,F,K,K,K,F,F,  B,H,F,F,F,F,F,F,  B,B,S,S,S,S,S,S)
+    H,F,F,F,F,F,F,F,  H,F,F,F,F,F,F,F,  H,F,K,K,K,K,F,F,  H,F,K,K,K,K,F,F, \
+    H,F,K,K,K,K,F,F,  H,F,K,K,K,K,F,F,  B,H,F,F,F,F,F,F,  B,B,S,S,S,S,S,S)
 
 #define DIE_CELL_B(F) TILE_MC( \
     F,F,F,F,F,F,F,F,  F,F,F,F,F,F,F,F,  F,F,F,F,F,F,F,F,  F,F,F,F,F,F,F,F, \
@@ -222,8 +225,8 @@ static const uint16_t tile_conn_r[32] = TILE_PAT(PEN_CONN, PEN_BG,
     F,F,F,F,F,F,F,S,  F,F,F,F,F,F,F,S,  F,F,F,F,F,F,S,B,  S,S,S,S,S,S,B,B)
 
 #define DIE_CELL_BR_PIP(F) TILE_MC( \
-    F,F,F,F,F,F,F,S,  F,F,F,F,F,F,F,S,  F,F,F,F,F,F,F,S,  F,F,F,K,K,K,F,S, \
-    F,F,F,K,K,K,F,S,  F,F,F,K,K,K,F,S,  F,F,F,F,F,F,S,B,  S,S,S,S,S,S,B,B)
+    F,F,F,F,F,F,F,S,  F,F,F,F,F,F,F,S,  F,F,K,K,K,K,F,S,  F,F,K,K,K,K,F,S, \
+    F,F,K,K,K,K,F,S,  F,F,K,K,K,K,F,S,  F,F,F,F,F,F,S,B,  S,S,S,S,S,S,B,B)
 
 /* One whole face-color's worth of cells, bevelled against `face` as the lit
  * ground. Order must match the FJD_* enum in fjlayout.h. */
