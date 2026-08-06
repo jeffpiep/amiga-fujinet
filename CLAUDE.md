@@ -356,6 +356,21 @@ shipped undetected precisely because "is there sound?" was answered by ear
 (strategic-plan Lessons Learned 2026-08-06). For fujitzee the whole effect
 table is reachable offline: `boardpreview` plays all twelve on SPACE.
 
+`emu/clipaudio.py` turns a capture into something you can actually listen to
+— trimmed to the effects, mono, normalised — which is how sound gets reviewed
+when the only speakers are on the other end of an SSH session. `--ab` lays two
+captures end to end under one shared gain, so a before/after is honest about
+relative loudness; `--burst N` picks the same effect out of each. That loop is
+what tuned the dice roll from a single noise burst to a three-pulse clatter.
+
+```bash
+AUDIO_WAV=/tmp/cap.wav NO_SERVER=1 APP_NAME=fujitzee-preview \
+  ADF_PATH=apps/fujitzee/amiga/boardpreview.adf \
+  KEYS="sleep80 space sleep330" bash emu/drive.sh
+emu/checkaudio.py /tmp/cap.wav --expect 12     # measure
+emu/clipaudio.py  /tmp/cap.wav -o /tmp/clip.wav # listen
+```
+
 `JOYSTICK=1` tests **stick** input instead: it puts FS-UAE's built-in
 `keyboard` controller in the game port, so the arrow keysyms move the emulated
 joystick and `Control_R` is its fire button. They then stop reaching the

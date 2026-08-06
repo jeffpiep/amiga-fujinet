@@ -13,6 +13,9 @@ This turns "did it make a noise, when, and how loud" into a number.
 Exits non-zero if --expect is given and a different number of bursts is
 found, so it can gate a scripted run. Stdlib only — no numpy on the box that
 runs the emulator.
+
+This measures a capture; emu/clipaudio.py makes one listenable, off the same
+file and the same burst detection.
 """
 import array
 import sys
