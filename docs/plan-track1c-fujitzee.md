@@ -81,16 +81,26 @@ mouse requirement. The renderer is a character-grid + a handful of tiles.
    `offsetof` 96 instead of 95, `sizeof` 600 instead of 599 — every player
    record read one byte out of phase. Upstream already fixes this for Open
    Watcom (same fault, same cause) with `#pragma pack(push,1)` under
-   `#ifdef __WATCOMC__`, and GCC honours that pragma. `amiga_vars.h`
-   therefore pulls `misc.h` in with `__WATCOMC__` briefly defined, then
-   undefines it before any `.c` file is parsed, so the structs are packed
-   everywhere while `misc.c`/`gamelogic.c` still compile their non-Watcom
-   paths. Verified on both compilers; pinned by
-   `apps/fujitzee/amiga/test/host/test_wireformat.c`.
+   `#ifdef __WATCOMC__`, and GCC honours that pragma.
 
-   The nicer long-term shape is a two-line upstream change widening that
-   guard to a `FUJITZEE_PACK_STRUCTS` opt-in — worth proposing alongside the
-   `PLATFORM_VARS` hook, and like it, the port does not wait on it.
+   **This is the one place the port patches upstream.**
+   [FujiNetWIFI/fujinet-fujitzee#9](https://github.com/FujiNetWIFI/fujinet-fujitzee/pull/9)
+   widens that guard to
+   `#if defined(__WATCOMC__) || defined(FUJITZEE_PACK_STRUCTS)` — two lines,
+   no behaviour change for any existing platform — and the app Makefile
+   passes `-DFUJITZEE_PACK_STRUCTS`. Until it merges, `apps/fujitzee/upstream`
+   is **Riding a PR** (`feature/pack-structs-opt-in` on our fork) rather than
+   read-only tracking; see `docs/syncing-upstream-submodules.md` for exiting
+   that state.
+
+   The self-contained alternative — briefly defining `__WATCOMC__` around the
+   `misc.h` include in `amiga_vars.h` — works and was what Phase 1 first
+   shipped, but it silently inherits any future `__WATCOMC__` branch upstream
+   adds to a header. The two-line opt-in says what we actually mean.
+
+   Verified on both compilers (`offsetof(Game, players)` 95, `sizeof(Game)`
+   599) and pinned by `apps/fujitzee/amiga/test/host/test_wireformat.c`, which
+   builds with the same flag and fails if it goes missing.
 
 ---
 
@@ -240,9 +250,9 @@ The friction was mostly where expected, with one surprise:
   wrinkle 3 above.
 - **`KEYMAP_H` is a shared guard.** Every upstream platform `vars.h` uses the
   same `#ifndef KEYMAP_H`; whichever one the toolchain macros select claims
-  it. `amiga_vars.h` must claim it too — otherwise the packing shim's brief
-  `__WATCOMC__` lets `msdos/vars.h` in and its `WIDTH`/`HEIGHT`/`KEY_*`
-  silently override ours.
+  it. `amiga_vars.h` claims it too. (Defensive now that packing is a
+  `-D` flag; it was load-bearing under the `__WATCOMC__` shim, which let
+  `msdos/vars.h` in to override our `WIDTH`/`HEIGHT`/`KEY_*`.)
 - **`KEY_ESCAPE_ALT` cannot be `'q'`.** Battleship's key map is not
   transferable wholesale: fujitzee's `screens.c` already handles `'q'` as
   Quit, and every `KEY_*_ALT` macro is a `case` label in the same switch, so

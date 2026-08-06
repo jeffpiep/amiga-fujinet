@@ -16,9 +16,9 @@
  * Every upstream platform vars.h (atari, apple2, coco, msdos) shares the one
  * include guard KEYMAP_H — whichever platform's file the toolchain macros
  * select is the file that claims it. We are that file, so claim it here.
- * Without this, the packing shim at the bottom (which briefly defines
- * __WATCOMC__) would let msdos/vars.h through and its WIDTH/HEIGHT/KEY_*
- * would silently override every constant below.
+ * Defensive rather than load-bearing today: none of those files' toolchain
+ * guards fire under m68k-amigaos-gcc, so none would define the constants
+ * below anyway. It costs one line to not depend on that.
  */
 #define KEYMAP_H
 
@@ -122,36 +122,20 @@ char *itoa(int value, char *buf, int radix);
 /* Extra query params appended to every API URL — none for Amiga. */
 #define QUERY_SUFFIX ""
 
-/* ---- Wire-format packing shim ----------------------------------------- *
+/* ---- Wire format ------------------------------------------------------- *
  *
- * The server sends the Game/Player/Table structs as a raw byte image in the
- * tightly-packed cc65 layout, and stateclient.c network_read()s it straight
- * into `clientState`. m68k-amigaos-gcc aligns int16_t to 2 bytes, which
- * inserts one pad byte before Game.players[] (offsetof 96 instead of 95,
- * sizeof 600 instead of 599) — every player record would be read one byte
- * out of phase. Upstream already solved this for Open Watcom, whose 16-bit
- * default alignment causes the same fault: misc.h wraps those structs in
- * `#pragma pack(push,1)` under `#ifdef __WATCOMC__`, and GCC honours that
- * pragma too.
+ * Nothing to do here, but know that it matters: the server sends the
+ * Game/Player/Table structs as a raw byte image in the tightly-packed cc65
+ * layout, and stateclient.c network_read()s it straight into `clientState`.
+ * m68k-amigaos-gcc aligns int16_t to 2 bytes, which without packing inserts
+ * one pad byte before Game.players[] (offsetof 96 instead of 95, sizeof 600
+ * instead of 599) and reads every player record one byte out of phase.
  *
- * So we take upstream's fix by pulling misc.h in here with __WATCOMC__
- * momentarily defined, then undefining it before any .c file is parsed. The
- * include guard makes each TU's own `#include "misc.h"` a no-op, so the
- * structs are packed everywhere while misc.c and gamelogic.c still compile
- * their non-Watcom paths (real joystick macros, <peekpoke.h>). The only
- * __WATCOMC__ uses in upstream *headers* are the two shim includes handled
- * above and this pragma pair — everything else is inside .c files.
- *
- * The alternative was a two-line upstream patch widening that guard to a
- * FUJITZEE_PACK_STRUCTS opt-in, which is the better long-term shape and is
- * worth proposing alongside the PLATFORM_VARS hook (docs/upstreaming-
- * amiga-ports.md). This keeps the pin read-only until then.
- *
- * test/host/test_wireformat.c pins the resulting offsets so a toolchain or
- * upstream change cannot silently reintroduce the pad.
+ * The Makefile passes -DFUJITZEE_PACK_STRUCTS, which turns on the
+ * `#pragma pack(push,1)` upstream's misc.h already applies for Open Watcom
+ * (same fault, same cause). test/host/test_wireformat.c pins the resulting
+ * offsets so a toolchain or upstream change cannot silently reintroduce the
+ * pad — including, notably, the flag going missing from the build.
  */
-#define __WATCOMC__ 1
-#include "misc.h"
-#undef __WATCOMC__
 
 #endif /* AMIGA_VARS_H */

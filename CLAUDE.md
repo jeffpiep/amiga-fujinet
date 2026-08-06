@@ -25,7 +25,7 @@ via RS-232 serial to an Amiga computer.
 | `fujinet-nio/` | jeffpiep/fujinet-nio | markjfisher/fujinet-nio |
 | `fujinet-nio-lib/` | jeffpiep/fujinet-nio-lib | markjfisher/fujinet-nio-lib |
 | `battleship/` | jeffpiep/battleship | FujiNetWIFI/battleship |
-| `apps/fujitzee/upstream` | — (read-only pin) | FujiNetWIFI/fujinet-fujitzee |
+| `apps/fujitzee/upstream` | jeffpiep/fujinet-fujitzee | FujiNetWIFI/fujinet-fujitzee |
 | `apps/pacmantests/amiga-pac-man` | — (read-only pin) | tschak909/amiga-pac-man |
 
 Routine submodule syncing (fast-forwards, PR-branch pins, squash-merge
@@ -41,6 +41,12 @@ git -C fujinet-nio remote add upstream https://github.com/markjfisher/fujinet-ni
 git -C fujinet-nio-lib remote add upstream https://github.com/markjfisher/fujinet-nio-lib.git
 # (battleship, when added)
 # git -C battleship remote add upstream https://github.com/FujiNetWIFI/battleship.git
+
+# apps/fujitzee/upstream started as a read-only pin, so its remotes were set
+# up the other way round; it was renamed when the port needed an upstream PR:
+#   git -C apps/fujitzee/upstream remote rename origin upstream
+#   git -C apps/fujitzee/upstream remote add origin \
+#       https://github.com/jeffpiep/fujinet-fujitzee.git
 ```
 
 ### Branch naming
@@ -210,9 +216,11 @@ Two things about fujitzee differ from battleship and are easy to trip over:
   `-include` instead. That header also claims the shared `KEYMAP_H` guard and
   declares the cc65-isms upstream expects.
 - The server payload is memcpy'd straight into upstream's `Game` struct, so
-  **struct packing is load-bearing**: `amiga_vars.h` turns on upstream's
-  Watcom `#pragma pack` path, and `test/host/test_wireformat.c` pins the
-  resulting offsets. Read the comment in `amiga_vars.h` before touching it.
+  **struct packing is load-bearing**: the Makefile passes
+  `-DFUJITZEE_PACK_STRUCTS` (upstream opt-in, fujinet-fujitzee#9) and
+  `test/host/test_wireformat.c` pins the resulting offsets. That PR is also
+  why `apps/fujitzee/upstream` is currently *Riding a PR* rather than
+  tracking upstream — see `docs/syncing-upstream-submodules.md`.
 
 Copy `fn_test` or `http_get`'s `Makefile` as a starting point for new apps.
 All Amiga Makefiles get the toolchain (`CC`, `AR`, canonical `CFLAGS`) and the

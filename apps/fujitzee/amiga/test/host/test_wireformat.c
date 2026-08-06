@@ -9,9 +9,11 @@
  *
  * m68k-amigaos-gcc aligns int16_t to 2 bytes, which without that pragma puts
  * one pad byte before Game.players[] — offsetof 96 instead of 95, sizeof 600
- * instead of 599. include/amiga_vars.h therefore enables upstream's Watcom
- * packing path for our build; this test pins the result so a toolchain or
- * upstream change cannot silently reintroduce the pad.
+ * instead of 599. The Makefile therefore builds with -DFUJITZEE_PACK_STRUCTS,
+ * upstream's opt-in for exactly this (FujiNetWIFI/fujinet-fujitzee#9), on both
+ * the Amiga and host compilers. This test pins the result so a toolchain
+ * change, an upstream change, or the flag going missing from the build cannot
+ * silently reintroduce the pad.
  *
  * Host-testable because it asserts on layout only: same rule applies to the
  * m68k build, and the host compiler inserts the same padding for the same
@@ -23,10 +25,10 @@
 
 #include <stddef.h>
 
-/* amiga_vars.h defines the layout/key macros upstream's headers need and
- * pulls in misc.h with the packing shim applied — exactly as the -include
- * flag does for the Amiga build. */
+/* amiga_vars.h defines the layout/key macros upstream's headers need —
+ * exactly as the -include flag does for the Amiga build. */
 #include "amiga_vars.h"
+#include "misc.h"
 
 int main(void)
 {

@@ -4,10 +4,16 @@ UPSTREAM = ../upstream/src
 
 # Fujitzee's platform-specific/vars.h has no PLATFORM_VARS hook (unlike
 # battleship's) — it hard-codes per-toolchain includes that none of our
-# macros trigger. Force-include ours instead; zero upstream patches. It also
-# carries the wire-format packing shim, which has to be in effect before any
-# translation unit parses misc.h — see include/amiga_vars.h.
+# macros trigger. Force-include ours instead.
 CFLAGS += -include amiga_vars.h
+
+# The server payload is read straight into upstream's Game struct, so its
+# layout IS the wire format (cc65 packed). m68k alignment would pad it and
+# shift every player record; this opts into the #pragma pack upstream's
+# misc.h already applies for Open Watcom. Load-bearing — dropping it builds
+# a binary that misparses every server response. See include/amiga_vars.h
+# and test/host/test_wireformat.c.
+CFLAGS += -DFUJITZEE_PACK_STRUCTS
 
 INCLUDES = \
     -Iinclude \
@@ -48,15 +54,20 @@ $(TARGET): $(SRCS) $(AMIGA_HDRS) $(GAMEKIT_LIB) $(COMPAT_LIB) $(NIO_ALIB)
 
 # ---- T1 host unit tests (docs/testing.md) ----
 HOST_CC     = cc
-HOST_CFLAGS = -std=c99 -Wall -Wextra -g -O0
-# amiga_vars.h names the gamekit's GK_KEY_*/GK_JOY_* contract and pulls in
-# upstream's misc.h, so both dirs are on the host path too.
+# -DFUJITZEE_PACK_STRUCTS mirrors the Amiga build deliberately: the wire-format
+# test is only meaningful if the host sees the same packing decision.
+HOST_CFLAGS = -std=c99 -Wall -Wextra -g -O0 -DFUJITZEE_PACK_STRUCTS
+# amiga_vars.h names the gamekit's GK_KEY_*/GK_JOY_* contract, and the tests
+# include upstream's misc.h, so both dirs are on the host path too.
 HOST_INC    = -Iinclude -I$(UPSTREAM) -I$(UPSTREAM)/platform-specific \
-              -I../../../libs/amiga-gamekit/include \
+              -I$(GAMEKIT_INC) -I$(COMPAT_INC) \
               -I../../../libs/fujinet-compat-amiga/test/host
 HOST_TESTS  = test/host/test_wireformat.test
 
-test/host/%.test: test/host/%.c
+# $(AMIGA_HDRS) as a prerequisite: these tests assert on what the headers say,
+# so a header edit alone must rebuild them — otherwise make reruns a stale
+# binary and reports a pass for code that no longer compiles.
+test/host/%.test: test/host/%.c $(AMIGA_HDRS)
 	$(HOST_CC) $(HOST_CFLAGS) $(HOST_INC) -o $@ $<
 
 test-host: $(HOST_TESTS)
