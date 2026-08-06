@@ -3,8 +3,9 @@
 **Depends on:** Track 1A (`libfn_compat_amiga.a`) ✅; Track 1B (Battleship) for the
 platform-layer code being extracted in Phase 0
 **Blocks:** nothing
-**Status:** Not started (setup landed 2026-08-05) — upstream submodule pinned,
-port surface audited, phases below agreed.
+**Status:** Phase 0 complete (2026-08-05) — `libs/amiga-gamekit` extracted and
+Battleship rebuilt against it. Upstream submodule pinned, port surface audited,
+phases below agreed. Next: Phase 1.
 
 ---
 
@@ -85,20 +86,21 @@ permanently. Extract first, then port:
 
 **New `libs/amiga-gamekit/` → `libamiga_gamekit.a`**
 
-| Module | From | Reusable as-is? |
+| Module | From | Outcome |
 |---|---|---|
-| `gfxcore.c` | battleship | Mostly — split out the Battleship-specific bits (`PEN_SEA`/`PEN_SHIP` names, `gfx_aim_*` placement handshake, 3 attack-cursor slots) and leave a generic screen/window/tile-bank/text/fill/sprite/save-restore core |
-| `keytrans.c` | battleship | Yes — raw IDCMP key → game key byte |
-| `joydecode.c` | battleship | Yes — `JOYxDAT` counter word → direction bits |
-| `sndgen.c` | battleship | Yes — tone/sweep/noise/silence waveform bakers |
-| `util.c` (timer/random) | battleship | Yes, minus the game-specific `itoa` and `__stack` |
-| `mousemap.c` | battleship | Generalize later if fujitzee wants mouse; not required |
-| `cellmap.c`, `graphics.c`, `sound.c`, `input.c`, `tiles.h` | battleship | No — game-specific, stay in `apps/battleship/amiga/` |
+| `gfxcore.c` | battleship | ✅ Extracted. Screen geometry, palette, tile bank and sprite overlay now come in as a `struct gfx_config` at `gfx_open()`. The Battleship-specific bits came out: pens → `apps/battleship/amiga/include/pens.h`, the aim handshake → `src/aim.c`, the 3 fixed attack-cursor slots → a generic N-slot sprite overlay (`gfx_sprite_move/hide/sweep`) |
+| `keytrans.c` | battleship | ✅ Extracted unchanged, retargeted at `GK_KEY_*` |
+| `joydecode.c` | battleship | ✅ Extracted unchanged, retargeted at `GK_JOY_*` |
+| `sndgen.c` | battleship | ✅ Extracted unchanged |
+| `util.c` (timer/random) | battleship | ✅ Split: clock → `gktimer.c`/`gkclock.c`, PRNG → `gkrandom.c`. Battleship's `util.c` is now a ~10-line adapter holding only `__stack`, `itoa`, and the upstream-facing names |
+| *(new)* `gkinput.h` | — | ✅ Added. The key/joy values the decoders emit were previously duplicated between `keytrans.c` and `amiga_vars.h`; they are now one published contract each port names |
+| `mousemap.c` | battleship | Left in place — generalize if fujitzee ever wants mouse; not required |
+| `cellmap.c`, `graphics.c`, `sound.c`, `input.c`, `tiles.h` | battleship | Stayed game-specific, as planned. Note that `sound.c` and `input.c` still hold reusable AmigaOS machinery (`audio.device` playback, the IDCMP pump, raw joystick register reads) that Phase 3a/3b will want — see the extraction note there |
 
-The palette/pen names move into each game's own header; the gamekit takes a
-palette array and tile bank as data. Battleship must build and pass its T1 and
-T2 suites against the extracted library before Phase 0 is done — that is the
-regression proof, and it is why extraction comes first rather than "someday".
+The palette/pen names moved into each game's own header; the gamekit takes a
+palette array and tile bank as data. Battleship had to build and pass its T1 and
+T2 suites against the extracted library before Phase 0 was done — that was the
+regression proof, and it is why extraction came first rather than "someday".
 
 ### 2. No throwaway ASCII renderer
 
@@ -118,13 +120,33 @@ Fujitzee has more pure-logic surface than Battleship did (score-card cell
 geometry, dice layout, clock formatting, key mapping). Every such module lands
 with `test/host/test_*.c` in the same PR, per `docs/testing.md`.
 
-### 5. Fix the PAL/NTSC jiffy assumption
+### 5. ~~Fix the PAL/NTSC jiffy assumption~~ — withdrawn, the assumption was right
 
-`getJiffiesPerSecond()` in Battleship returns a hard-coded 50 even though the
-port was verified on NTSC. Battleship tolerates this (a slightly fast move
-timer). Fujitzee draws a **visible countdown clock**, so the error is on
-screen. The gamekit version detects the mode via `GfxBase->DisplayFlags` and
-returns 50 or 60. This is a gamekit-level fix, so Battleship gets it too.
+**This item was wrong and was not implemented.** Recorded here rather than
+deleted, because the reasoning is the kind that looks correct twice.
+
+The claim was that `getJiffiesPerSecond()` returning a hard-coded 50 is a bug on
+NTSC, and the gamekit should detect the mode via `GfxBase->DisplayFlags` and
+return 50 or 60. Checking the actual call site in Phase 0 showed the opposite.
+`gamelogic.c` uses the two calls only as a matched pair:
+
+```c
+i = (maxJifs - getTime()) / jifsPerSecond;
+```
+
+so `getJiffiesPerSecond()` must report **the unit `getTime()` counts in**, not
+the display refresh rate. The Atari port needs the PAL/NTSC test because its
+`getTime()` reads the OS frame counter; the DOS port hard-codes 60 because it
+normalizes `getTime()` to 60. Ours is neither: it is built on dos.library
+`DateStamp()`, whose `ds_Tick` is `TICKS_PER_SECOND` = 50 units of *real* time
+on every Amiga regardless of video standard. Returning 60 on an NTSC machine
+would have made every countdown run 20% fast — introducing exactly the visible
+clock error the item set out to prevent.
+
+What Phase 0 did instead: kept 50, published it as `GK_JIFFIES_PER_SECOND`,
+wrote the reasoning into `libs/amiga-gamekit/src/gktimer.c`, and added a T1 test
+(`test_gkclock.c`) that pins the constant and the conversion so a future reader
+cannot re-introduce the "fix".
 
 ### 6. Generalize the upstreaming doc
 
@@ -152,8 +174,18 @@ apps/fujitzee/
     Makefile
 ```
 
+```
+libs/amiga-gamekit/          ← shipped in Phase 0
+  include/  gfxcore.h  gkinput.h  keytrans.h  joydecode.h
+            sndgen.h   gktimer.h  gkrandom.h
+  src/      gfxcore.c  keytrans.c joydecode.c sndgen.c
+            gktimer.c  gkclock.c  gkrandom.c
+  test/host/
+  Makefile                   → libamiga_gamekit.a
+```
+
 Build wiring follows `make/amiga.mk` (toolchain + nio-lib/compat paths) plus the
-new `GAMEKIT`/`GAMEKIT_INC`/`GAMEKIT_LIB` variables added in Phase 0. Add
+`GAMEKIT`/`GAMEKIT_INC`/`GAMEKIT_LIB` variables added in Phase 0. Add
 `fujitzee` to `apps/Makefile` and to the Reference Apps table in `CLAUDE.md`.
 
 ---
@@ -162,13 +194,17 @@ new `GAMEKIT`/`GAMEKIT_INC`/`GAMEKIT_LIB` variables added in Phase 0. Add
 
 Each phase is one PR. Phase 0 lands before any fujitzee code.
 
-### Phase 0 — Extract `libs/amiga-gamekit`
+### Phase 0 — Extract `libs/amiga-gamekit` ✅ (2026-08-05)
 
-Move the six reusable modules out of `apps/battleship/amiga/`, split the
-Battleship-specific bits out of `gfxcore`, add `GAMEKIT_*` to `make/amiga.mk`,
-and fix the PAL/NTSC jiffy detection. **Done when Battleship builds against the
-library and passes `make test-host` and `make -C apps/battleship/amiga emu-test`
-with no behavior change.** No fujitzee files in this PR.
+Moved the reusable modules out of `apps/battleship/amiga/`, split the
+Battleship-specific bits out of `gfxcore`, added `GAMEKIT_*` to `make/amiga.mk`.
+The PAL/NTSC jiffy item was withdrawn — see change 5 above.
+
+Verified: Battleship builds against `libamiga_gamekit.a` and passes
+`make test-host` (repo-wide, 8 T1 binaries) and
+`make -C apps/battleship/amiga emu-test` (PASS in 10 s), with the lobby screen
+rendering identically to before the extraction. The `tilegallery` harness builds
+too. No fujitzee files in this PR.
 
 ### Phase 1 — Compile and link
 
@@ -195,11 +231,25 @@ forces it.
 
 ### Phase 3 — Full platform layer
 
+> **Phase 0 extracted less than 3a/3b need — plan for a second extraction
+> round here.** The gamekit got the *pure* halves of sound and input:
+> `sndgen` (waveform bakers) and `joydecode` (counter word → direction bits).
+> The AmigaOS halves stayed in `apps/battleship/amiga/` because they are
+> genuinely entangled with the game — the `audio.device` open/allocate/play
+> machinery and the FS-UAE `AUDxVOL` workaround live in its `sound.c`, and the
+> IDCMP event pump plus the raw `JOYxDAT`/`CIAA` register reads live in its
+> `input.c`. Neither is fujitzee-specific, so the choice at 3a/3b is: extract
+> them into the gamekit first (paying the Battleship regression cost a second
+> time, as in Phase 0), or duplicate ~150 lines and accept the fork. Decide
+> deliberately rather than by default — the cheap-second-port thesis this
+> whole track is testing is what is being measured.
+
 - **3a — Sound.** 13 effects via gamekit `sndgen` + `audio.device`. Remember the
   FS-UAE `AUDxVOL` workaround (`pokeVolume()`, strategic-plan Lessons Learned
-  2026-07-08).
+  2026-07-08). See the extraction note above.
 - **3b — Joystick.** Gamekit `joydecode`; smaller than Battleship's since
-  fujitzee's `readJoystick()` takes no port argument.
+  fujitzee's `readJoystick()` takes no port argument. See the extraction note
+  above.
 - **3c — Art pass.** Dice faces, the Fujitzee logo, connection/clock icons,
   player highlight colors. Reuse Battleship's `tilegallery` harness pattern for
   previewing.
@@ -216,8 +266,8 @@ relaunch — see the `fn_transport_close()` leak note in
 
 ## Verification checklist
 
-- [ ] Phase 0 — Battleship builds and passes T1 + T2 against `libamiga_gamekit.a`
-- [ ] Phase 0 — `getJiffiesPerSecond()` returns 60 on NTSC, 50 on PAL
+- [x] Phase 0 — Battleship builds and passes T1 + T2 against `libamiga_gamekit.a`
+- [x] Phase 0 — ~~`getJiffiesPerSecond()` returns 60 on NTSC, 50 on PAL~~ withdrawn: 50 is correct for a DateStamp-based clock (see change 5), pinned by `test_gkclock.c`
 - [ ] Phase 1 — fujitzee binary links; struct layout matches the server wire format
 - [ ] Phase 2 — join lobby, sit at table, roll, score, finish a game
 - [ ] Phase 2 — scorecard readable with the maximum supported player count

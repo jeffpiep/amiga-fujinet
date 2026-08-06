@@ -3,8 +3,10 @@
  *
  * Phase 3c: implements upstream/src/platform-specific/graphics.h on a
  * 320x200x4 custom screen as a 40x25 grid of 8x8 tiles. Layout math lives
- * in cellmap.c (host-tested), OS plumbing in gfxcore.c, art in tiles.h.
- * The layout mirrors the Atari renderer (upstream/src/atari/graphics.c).
+ * in cellmap.c (host-tested), OS plumbing in the shared gamekit
+ * (libs/amiga-gamekit/src/gfxcore.c), screen config in gfxsetup.c, art in
+ * tiles.h. The layout mirrors the Atari renderer
+ * (upstream/src/atari/graphics.c).
  *
  * Requires: intuition.library, graphics.library (V33 / KS 1.3)
  * Compiler: m68k-amigaos-gcc (amiga-gcc)
@@ -22,6 +24,9 @@
 #include "fujinet-nio.h"
 
 #include "gfxcore.h"
+#include "gfxsetup.h"
+#include "aim.h"
+#include "pens.h"
 #include "cellmap.h"
 
 #if FIELD_ATTACK != CM_FIELD_ATTACK || FIELD_MISS != CM_FIELD_MISS
@@ -44,7 +49,7 @@ static uint8_t s_ship_map[4][100];
 
 void initGraphics(void)
 {
-    if (!gfx_open()) {
+    if (!gfx_open(&bs_gfx_config)) {
         /* nix13 binds stdout to the boot CLI, so this lands somewhere
          * visible even though our screen never opened. */
         printf("battleship: can't open screen (chip RAM?)\n");
@@ -65,14 +70,14 @@ void resetGraphics(void) {}   /* teardown runs via gfx_close atexit */
 
 void resetScreen(void)
 {
-    gfx_cursor_hide();
+    gfx_sprite_hide();
     gfx_aim_clear();
     gfx_fill(0, 0, WIDTH, HEIGHT, PEN_BG);
 }
 
 void waitvsync(void)
 {
-    gfx_cursor_sweep();
+    gfx_sprite_sweep();
     WaitTOF();
 }
 
@@ -299,7 +304,7 @@ void drawGamefieldUpdate(uint8_t quadrant, uint8_t *gamefield,
 {
     uint8_t ox, oy, on_ship;
 
-    gfx_cursor_hide();
+    gfx_sprite_hide();
     gfx_aim_clear();
     cm_quadrant_origin(playerCount_g, quadrant, &ox, &oy);
     on_ship = (quadrant < 4 && attackPos < 100)
@@ -319,7 +324,7 @@ void drawGamefieldCursor(uint8_t quadrant, uint8_t x, uint8_t y,
      * every surviving opponent each frame (quadrants 1..3 -> slots 0..2).
      * blink is a 0..2 frame index — flip to the alternate sprite image on
      * the last phase for a soft two-tone pulse. */
-    gfx_cursor_move(quadrant > 0 ? (uint8_t)(quadrant - 1) : 0,
+    gfx_sprite_move(quadrant > 0 ? (uint8_t)(quadrant - 1) : 0,
                     ox + x, oy + y, (uint8_t)(blink >= 2));
     /* The game is aiming: arm mouse targeting (input.c chases the hovered
      * enemy-field cell and maps clicks to the trigger). */

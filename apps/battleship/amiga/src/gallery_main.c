@@ -1,7 +1,7 @@
 /*
  * gallery_main.c - tile / palette / sprite preview harness (art pass)
  *
- * Standalone boot-to-grid preview: links gfxcore.c + tiles.h WITHOUT the
+ * Standalone boot-to-grid preview: links the gamekit + tiles.h WITHOUT the
  * upstream game, opens the same 320x200x4 screen the renderer uses, and draws
  * every tile MAGNIFIED (each 8x8 tile blown up 3x via RectFill so pixels are
  * legible), the 16-entry palette, and the attack-cursor sprite. One edit to
@@ -21,6 +21,8 @@
 #include <proto/graphics.h>
 
 #include "gfxcore.h"
+#include "gfxsetup.h"     /* bs_gfx_config */
+#include "pens.h"
 #include "cellmap.h"      /* TILE_COUNT   */
 #include "tiles.h"        /* tile_table[] */
 #include "amiga_vars.h"
@@ -84,7 +86,7 @@ int main(void)
     uint8_t id;
     char lbl[3];
 
-    if (!gfx_open())
+    if (!gfx_open(&bs_gfx_config))
         return 20;
 
     gfx_text(1, 0, "TILE GALLERY (3x) - press any key", PEN_TEXT, PEN_BG);
@@ -126,7 +128,7 @@ int main(void)
     }
 
     /* Attack-cursor sprite sample (drawn at native size), bottom-left. */
-    gfx_cursor_move(0, 2, 23, 0);
+    gfx_sprite_move(0, 2, 23, 0);
 
     wait_key();
     return 0;
