@@ -127,23 +127,35 @@ class Art(object):
         return [self.pens["PEN_DIE"], self.pens["PEN_DIE_KEEP"],
                 self.pens["PEN_DIE_HI"]]
 
-    def die(self, face, face_pen, stamp=None):
+    def die(self, face, face_pen, stamp=None, inset=0):
         """One 24x24 die. With `stamp`, pips come from it laid over the
-        plain frame cells; without, from the header's own _PIP macros."""
+        plain frame cells; without, from the header's own _PIP macros.
+
+        `inset` pulls each outer pip that many pixels toward the die's
+        centre — left column right, right column left, top row down, bottom
+        row up — leaving the centre pip alone. It models the placement rule
+        tiles.h bakes into its _PIP macros, so a stamp plus the right inset
+        renders what shipping that stamp would.
+        """
         img = Image.new("RGB", (DIE, DIE))
         mask = self.pips[face - 1]
         for c in range(9):
+            col, row = c % 3, c // 3
             pipped = (mask >> c) & 1
             if stamp is None:
                 name = FRAME[c] + "_PIP" if pipped else FRAME[c]
                 toks = self.cells.get(name, self.cells[FRAME[c]])
-                over = BLANK_STAMP
+                over, dx, dy = BLANK_STAMP, 0, 0
             else:
                 toks = self.cells[FRAME[c]]
                 over = stamp if pipped else BLANK_STAMP
-            ox, oy = (c % 3) * CELL, (c // 3) * CELL
+                dx = inset * (1 if col == 0 else -1 if col == 2 else 0)
+                dy = inset * (1 if row == 0 else -1 if row == 2 else 0)
+            ox, oy = col * CELL, row * CELL
             for i, tok in enumerate(toks):
-                ch = over[i // CELL][i % CELL]
+                sx, sy = i % CELL - dx, i // CELL - dy
+                ch = (over[sy][sx] if 0 <= sx < CELL and 0 <= sy < CELL
+                      else ".")
                 if ch != ".":
                     pen = self.pens[ch]
                 else:
@@ -153,7 +165,7 @@ class Art(object):
         return img
 
 
-def grid(art, rows, faces, scale, label_w):
+def grid(art, rows, faces, scale, label_w, inset=0):
     """Lay rows of dice out into one PNG.
 
     rows: [(label, stamp-or-None, colour-or-None)]. A row that names one
@@ -175,7 +187,7 @@ def grid(art, rows, faces, scale, label_w):
         cols = ([(f, colour) for f in faces] if colour is not None
                 else [(f, p) for p in range(3) for f in faces])
         for i, (face, fp) in enumerate(cols):
-            im = art.die(face, art.face_pens()[fp], stamp)
+            im = art.die(face, art.face_pens()[fp], stamp, inset)
             out.paste(im.resize((DIE * scale, DIE * scale), Image.NEAREST),
                       (label_w + i * cw, y))
     return out
@@ -184,13 +196,14 @@ def grid(art, rows, faces, scale, label_w):
 # ---- candidate stamp files ---------------------------------------------
 
 def read_stamps(path):
-    """Parse a stamp file into ([(name, 8 rows)], {letter: PEN_ name}).
+    """Parse a stamp file into ([(name, 8 rows)], {letter: PEN_ name}, inset).
 
     '@ name' opens a stamp and 8 rows of 8 chars follow it; '= X PEN_FOO'
     names an extra pen letter beyond the aliases tiles.h already defines;
+    '~ inset N' sets how far outer pips are pulled toward the die's centre;
     '#' comments and blank lines are ignored.
     """
-    rows, aliases, name, buf = [], {}, None, []
+    rows, aliases, inset, name, buf = [], {}, 0, None, []
     for lineno, raw in enumerate(open(path), 1):
         line = raw.rstrip("\n")
         if line.startswith("#") or not line.strip():
@@ -200,6 +213,15 @@ def read_stamps(path):
             if len(parts) != 2 or len(parts[0]) != 1:
                 sys.exit("%s:%d: want '= <letter> <PEN_NAME>'" % (path, lineno))
             aliases[parts[0]] = parts[1]
+            continue
+        if line.startswith("~"):
+            parts = line[1:].split()
+            if len(parts) != 2 or parts[0] != "inset":
+                sys.exit("%s:%d: want '~ inset <n>'" % (path, lineno))
+            try:
+                inset = int(parts[1])
+            except ValueError:
+                sys.exit("%s:%d: inset must be a number" % (path, lineno))
             continue
         if line.startswith("@"):
             if name is not None:
@@ -216,7 +238,7 @@ def read_stamps(path):
         rows.append((name, _finish(name, buf, path)))
     if not rows:
         sys.exit("dicepreview: %s defines no stamps" % path)
-    return rows, aliases
+    return rows, aliases, inset
 
 
 def _finish(name, buf, path):
@@ -255,7 +277,7 @@ def main():
         faces = [1, 6] if args.stamps else [1, 2, 3, 4, 5, 6]
 
     if args.stamps:
-        rows, aliases = read_stamps(args.stamps)
+        rows, aliases, inset = read_stamps(args.stamps)
         label_w = 200
         for letter, pen in aliases.items():
             if pen not in art.pens:
@@ -271,10 +293,11 @@ def main():
                          % (name, "/".join(sorted(unknown)), args.stamps))
         rows = [(name, stamp, None) for name, stamp in rows]
     else:
+        inset = 0
         rows = [(n, None, i) for i, n in
                 enumerate(("plain", "kept", "highlighted"))]
         label_w = 100
-    grid(art, rows, faces, args.scale, label_w).save(args.out)
+    grid(art, rows, faces, args.scale, label_w, inset).save(args.out)
     print(args.out)
 
 

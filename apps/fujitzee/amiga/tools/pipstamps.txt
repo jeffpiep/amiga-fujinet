@@ -15,6 +15,13 @@
 # Extra pen letters beyond tiles.h's own B/K/H/S aliases.
 = D PEN_DIM
 
+# A stamp is a pip *shape*; where each one lands is this placement rule.
+# 'inset 1' pulls every outer pip one pixel toward the die's centre — left
+# column right, right column left, top row down, bottom row up — and leaves
+# the centre pip alone. tiles.h bakes the same rule into its _PIP macros, so
+# the shipped stamp below plus this inset renders exactly what ships.
+~ inset 1
+
 # --- what ships (Phase 3c refinement) ---------------------------------
 #
 # A drilled hole: 5x5 round body with a lit lip on the bottom-right arc,
