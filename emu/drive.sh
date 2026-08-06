@@ -24,6 +24,10 @@
 #                scripted run can test stick input: the arrow keysyms then
 #                move the *stick* (and Control_R fires) instead of reaching
 #                the emulated keyboard. Default 0.
+#   AUDIO_WAV  - path to capture emulated audio to as a .wav, so a headless
+#                run can check that a sound effect was audible and not just
+#                that the code path ran. Mutes FS-UAE's floppy-drive samples
+#                for the duration. See emu/checkaudio.py.
 #
 # KEYS tokens are emukey.py keysyms ('space', 'Escape', 's', 'Up', combos
 # with '+'), plus:
@@ -127,6 +131,33 @@ else
 fi
 echo "Joy:   port 1 = $JOYSTICK_PORT_1"
 
+# AUDIO_WAV=<path> — capture what Paula actually played, so a headless run can
+#               check sound instead of only pixels. FS-UAE plays through
+#               OpenAL (not SDL), and OpenAL Soft has a "wave" backend that
+#               writes a .wav instead of opening a device, selected by an
+#               ALSOFT_CONF we generate here. Floppy-drive sounds are muted
+#               for the capture: they are FS-UAE's own samples, not the
+#               guest's, and they would otherwise swamp a 20 ms blip.
+FLOPPY_VOLUME=""
+if [ -n "$AUDIO_WAV" ]; then
+    AUDIO_WAV=$(realpath -m "$AUDIO_WAV")
+    ALSOFT_CONF="$LOG_DIR/alsoft.conf"
+    cat > "$ALSOFT_CONF" <<EOF
+[general]
+drivers = wave
+# Default here is 32-bit float in a WAVE_FORMAT_EXTENSIBLE header, which
+# python's wave module refuses to open. Plain 16-bit PCM keeps checkaudio.py
+# on the standard library.
+sample-type = int16
+[wave]
+file = $AUDIO_WAV
+EOF
+    export ALSOFT_CONF
+    FLOPPY_VOLUME="floppy_drive_volume = 0"
+    rm -f "$AUDIO_WAV"
+    echo "Audio: capturing to $AUDIO_WAV (floppy sounds muted)"
+fi
+
 FSUAE_CONFIG="$LOG_DIR/drive.fs-uae"
 cat > "$FSUAE_CONFIG" <<EOF
 [fs-uae]
@@ -137,6 +168,7 @@ console_debugger = 0
 ntsc_mode = 1
 screenshots_output_dir = $SHOT_DIR
 joystick_port_1 = $JOYSTICK_PORT_1
+$FLOPPY_VOLUME
 # serial_port is passed on the command line as --serial_port=<PTY>
 # DO NOT add serial_port here: TCP mode causes IOERR_OPENFAIL in guest software
 EOF

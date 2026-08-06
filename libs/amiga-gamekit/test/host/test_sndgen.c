@@ -65,5 +65,15 @@ int main(void)
     sndgen_silence(buf, 8000);
     CHECK_EQ(peak(buf, 8000), 0);
 
+    /* A NULL buffer is a no-op everywhere, so the result of a failed
+     * gk_snd_carve() can be baked into without a check at each call site.
+     * On the 68000 the alternative is writing over the exec vectors at
+     * address 0. Reaching the report below at all is the assertion. */
+    sndgen_tone(NULL, 800, 1000, 100, 0);
+    sndgen_sweep(NULL, 800, 500, 2000, 100, 0);
+    sndgen_noise(NULL, 800, 100, 0, 0xACE1);
+    sndgen_silence(NULL, 800);
+    CHECK(1);
+
     return fn_test_report("test_sndgen");
 }
