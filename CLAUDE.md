@@ -14,7 +14,7 @@ via RS-232 serial to an Amiga computer.
   - `amiga-gamekit/` → `libamiga_gamekit.a` — game platform layer (custom screen +
     tile/sprite engine, tile-art composer macros, the IDCMP keyboard queue,
     keyboard and joystick decode, the game-port joystick read, waveform
-    bakers, jiffy clock, PRNG). Takes
+    bakers, `audio.device` playback, jiffy clock, PRNG). Takes
     palette/art/geometry as data; owns no game-specific names.
 
 ## Git Workflow
@@ -198,7 +198,7 @@ first, then get merged/squash-merged to `dev` via PR.
 | `http_get` | `apps/http_get/` | HTTP and HTTPS GET — curl-like tool, auto-detects `https://` scheme |
 | `battleship` | `apps/battleship/amiga/` | Full FujiNet game — lobby + gameplay over FujiBus. Sources in `apps/battleship/upstream/` submodule; links `libs/fujinet-compat-amiga`. |
 | `compat_test` | `apps/compat_test/` | Compat-layer smoke test on the emulator — exercises `libs/fujinet-compat-amiga` end to end. |
-| `fujitzee` | `apps/fujitzee/amiga/` | Second FujiNet game port (Track 1C). Sources in `apps/fujitzee/upstream/`; links `libs/amiga-gamekit` + `libs/fujinet-compat-amiga`. Renderer and keyboard are real (Phase 2), joystick (Phase 3b) and art (Phase 3c) too; sound is stubbed until Phase 3a. |
+| `fujitzee` | `apps/fujitzee/amiga/` | Second FujiNet game port (Track 1C). Sources in `apps/fujitzee/upstream/`; links `libs/amiga-gamekit` + `libs/fujinet-compat-amiga`. Complete — renderer and keyboard (Phase 2), joystick (Phase 3b), art (Phase 3c) and sound (Phase 3a) are all real. No stubs. |
 | `pacmantests` | `apps/pacmantests/` | Exploratory (non-shipping) bitplane-graphics harnesses for the battleship Phase 3 renderer. Includes the `amiga-pac-man` submodule (tschak909). |
 
 `apps/battleship/` establishes the pattern for future game ports:
@@ -206,9 +206,9 @@ first, then get merged/squash-merged to `dev` via PR.
 (Makefile + platform layer), linking `libs/fujinet-compat-amiga`.
 
 `apps/fujitzee/` is the second port following that pattern (Track 1C) — start
-from `docs/plan-track1c-fujitzee.md`. Phases 0-2, 3b and 3c are done (gamekit
-extraction, scaffold + link, the real renderer + keyboard, the joystick, and
-the art); the only stub left is Phase 3a — `sound.c`.
+from `docs/plan-track1c-fujitzee.md`. All phases are done: gamekit
+extraction, scaffold + link, the real renderer + keyboard, the joystick, the
+art, and the sound. No stubs remain.
 
 All of the port's art is data in `apps/fujitzee/amiga/include/tiles.h`:
 palette, board lattice, dice, wordmark, icons. Change the arrays, keep the
@@ -218,7 +218,9 @@ Its scorecard only renders inside a live multiplayer game, so the layout has
 its own preview harness: `make -C apps/fujitzee/amiga preview-adf` builds a
 bootable ADF that draws a full board from fake values. Use it to check layout
 or art changes without a server — the equivalent of battleship's
-`make gallery-adf` one level up.
+`make gallery-adf` one level up. Pressing SPACE there also plays all twelve
+sound effects in order, which is the only way to reach the six that need game
+states a script cannot produce (`soundFujitzee` wants five of a kind).
 
 For the dice specifically there is a faster loop that skips the toolchain
 entirely. `make -C apps/fujitzee/amiga dice-preview` renders every face in
@@ -345,6 +347,14 @@ APP_NAME=fujitzee ADF_PATH=apps/fujitzee/amiga/fujitzee.adf \
 `shot:<label>` writes `<label>.png`; every other token is an emukey keysym or
 `sleepN` (tenths of a second). `NO_SERVER=1` skips `fujinet-nio` for offline
 harnesses — that is what `make -C apps/fujitzee/amiga preview-play` uses.
+
+`AUDIO_WAV=<path>` captures what Paula actually played, so sound is checkable
+without speakers: FS-UAE plays through OpenAL, whose "wave" backend writes a
+.wav instead of opening a device, and `emu/checkaudio.py` reports the
+non-silent bursts (`--expect N` to gate a run). Use it — two sound defects
+shipped undetected precisely because "is there sound?" was answered by ear
+(strategic-plan Lessons Learned 2026-08-06). For fujitzee the whole effect
+table is reachable offline: `boardpreview` plays all twelve on SPACE.
 
 `JOYSTICK=1` tests **stick** input instead: it puts FS-UAE's built-in
 `keyboard` controller in the game port, so the arrow keysyms move the emulated

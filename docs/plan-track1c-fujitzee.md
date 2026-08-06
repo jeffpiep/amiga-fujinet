@@ -3,12 +3,13 @@
 **Depends on:** Track 1A (`libfn_compat_amiga.a`) ✅; Track 1B (Battleship) for the
 platform-layer code being extracted in Phase 0
 **Blocks:** nothing
-**Status:** Phase 3c complete (2026-08-06) — the art is drawn: bevelled dice, a
-wordmark on the fujitzee score row, and real turn/cursor icons, on top of
-Phase 3b's joystick and Phase 2's renderer (board, dice, cursors and text on
-the gamekit's 320x200x4 screen, keyboard through a shared gamekit key queue,
-and a `boardpreview` harness that boots a full scorecard without a server).
-**Sound (3a) is the only stub left.**
+**Status:** All phases complete (2026-08-06) — Phase 3a landed the sound, which
+was the last stub. The port is now real end to end: renderer, keyboard,
+joystick, art and 13 sound effects, with the `audio.device` machinery
+extracted to the gamekit so battleship shares it. **No stubs remain.**
+What is left is not implementation but confirmation — the two manual
+checkboxes at the end of this document (a full 13-round game, and hearing
+the effects on real speakers).
 
 ---
 
@@ -365,9 +366,44 @@ Decisions and findings worth keeping:
 > weigh sound on its own: battleship's `sound.c` mixes effect definitions
 > with playback, and only the playback half is shareable.
 
-- **3a — Sound.** 13 effects via gamekit `sndgen` + `audio.device`. Remember the
-  FS-UAE `AUDxVOL` workaround (`pokeVolume()`, strategic-plan Lessons Learned
-  2026-07-08). See the extraction note above.
+- **3a — Sound.** ✅ Done 2026-08-06. 13 effects via gamekit `sndgen` +
+  `audio.device`.
+
+  **Extraction, as the note above asked for.** The `audio.device` machinery
+  is now `libs/amiga-gamekit/src/gksound.c` — device open, channel
+  allocation, the single Chip RAM block, `gk_snd_carve()`, play and stop.
+  What stayed in each game's `sound.c` is what the note predicted was the
+  only genuinely game-specific part: the effect table and the mute policy.
+  Battleship's `sound.c` went from 221 lines to 105 and got no worse.
+
+  Pitches are not invented. Upstream's DOS port documents every effect as
+  `Hz = 63920 / (2 * (n + 1))` back-derived from the Atari POKEY divisors,
+  so `apps/fujitzee/amiga/src/sound.c` bakes that sequence. The two long
+  fanfares are baked at half the DOS duration — at full length those two
+  alone cost ~38 KB of Chip RAM, more than the screen.
+
+  **Two defects the audio capture found, neither visible any other way:**
+
+  1. **A DC offset after every effect that did not decay to zero.** Paula
+     holds the last sample value on the channel once playback completes, so
+     an effect ending at amplitude 20 leaves that sitting on the output
+     until the next sound — silent itself, but it thumps on the next
+     transition, and it made three fujitzee effects and two battleship ones
+     run together in the capture. Every effect now ends at `vol_end 0`, and
+     `sndgen.h` states the rule. This was pre-existing in battleship
+     (`soundAttack`, `soundInvalid`), fixed here.
+  2. **FS-UAE ignores `ioa_Period`, not just `AUDxVOL`.** The known
+     workaround re-pokes the volume register audio.device is supposed to
+     set; the period register turns out to be dropped the same way, so
+     every effect played at whatever rate the channel was last left at —
+     measured at ~4x too fast, two octaves high and a quarter as long,
+     *identically* whether `ioa_Period` said 447 or 1788, which is what
+     proves the device write is being dropped rather than mis-set.
+     `pokeVolume()` is now `pokePerVol()` and writes both. Same no-op on
+     real hardware, same reasoning as 2026-07-08.
+
+  Both are gamekit-level, so battleship gets both fixes; its T1 and T2
+  still pass.
 - **3b — Joystick.** ✅ Done 2026-08-06. `readJoystick()` is real: game port 2
   via the new `libs/amiga-gamekit/src/gkjoy.c`.
 
@@ -512,7 +548,14 @@ relaunch — see the `fn_transport_close()` leak note in
       off the dice. A frame showing the cursor mid-move was not captured,
       because the persistent server table keeps rejoining a game in progress
 - [ ] Phase 2 — finish a full 13-round game to the end screen
-- [ ] Phase 3a — all 13 sound effects audible in FS-UAE
+- [x] Phase 3a — all 13 sound effects audible in FS-UAE. Twelve of them are
+      audible by definition (`soundStop()` is the silence, and every other
+      effect exercises it — `gk_snd_play()` stops the channel first), and
+      the twelve were captured and counted rather than taken on trust:
+      `boardpreview`'s new SPACE sweep plays them in order 2.5 s apart, and
+      `AUDIO_WAV=… bash emu/drive.sh` + `emu/checkaudio.py --expect 12`
+      finds exactly twelve bursts at the right times, peaking around 0.27.
+      That capture is also what found the two defects below
 - [x] Phase 3b — joystick drives the dice/score cursors. Driven headlessly
       with `JOYSTICK=1 bash emu/drive.sh` against the bot table: up moved the
       cursor into the scorecard, left returned it to the roll button, Right

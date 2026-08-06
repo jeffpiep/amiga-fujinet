@@ -18,6 +18,9 @@ void sndgen_tone(int8_t *buf, uint16_t n, uint16_t freq,
     uint16_t phase = 0;
     uint16_t i;
 
+    if (!buf)
+        return;
+
     for (i = 0; i < n; i++) {
         int16_t vol = ramp(vol_start, vol_end, i, n);
         buf[i] = (int8_t)((phase & 0x8000u) ? vol : -vol);
@@ -32,6 +35,9 @@ void sndgen_sweep(int8_t *buf, uint16_t n, uint16_t f0, uint16_t f1,
     uint16_t inc1 = (uint16_t)(((uint32_t)f1 << 16) / SNDGEN_RATE);
     uint16_t phase = 0;
     uint16_t i;
+
+    if (!buf)
+        return;
 
     for (i = 0; i < n; i++) {
         uint16_t inc = (uint16_t)((int32_t)inc0 +
@@ -49,6 +55,9 @@ void sndgen_noise(int8_t *buf, uint16_t n, uint8_t vol_start,
     uint16_t lfsr = seed ? seed : 0xACE1u;
     uint16_t i;
 
+    if (!buf)
+        return;
+
     for (i = 0; i < n; i++) {
         int16_t vol = ramp(vol_start, vol_end, i, n);
         buf[i] = (int8_t)((lfsr & 1u) ? vol : -vol);
@@ -59,6 +68,9 @@ void sndgen_noise(int8_t *buf, uint16_t n, uint8_t vol_start,
 void sndgen_silence(int8_t *buf, uint16_t n)
 {
     uint16_t i;
+
+    if (!buf)
+        return;
 
     for (i = 0; i < n; i++)
         buf[i] = 0;

@@ -12,12 +12,22 @@
  * Same idea as battleship's tilegallery, one level up: that one previews
  * tiles, this one previews the layout they compose into.
  *
+ * It also previews the *sound*, for the same reason. Six of the thirteen
+ * effects fire only in game states a scripted run cannot reach — soundFujitzee
+ * wants five of a kind — so pressing SPACE here plays all thirteen in order,
+ * naming each on the status line. That makes them checkable by ear when
+ * you have speakers, and countable when you don't: emu/drive.sh's AUDIO_WAV
+ * plus emu/checkaudio.py --expect 13.
+ *
  * Build:  make boardpreview
  * Boot :  make preview-adf   then boot boardpreview.adf in FS-UAE
  *
- * See: docs/plan-track1c-fujitzee.md (Phase 2, Phase 3c art pass)
+ * See: docs/plan-track1c-fujitzee.md (Phase 2, Phase 3a sound, Phase 3c art)
  */
 #include "misc.h"
+/* misc.h pulls in graphics.h and input.h but not sound.h — upstream's own
+ * sources include it where they need it. */
+#include "platform-specific/sound.h"
 
 #include <string.h>
 
@@ -31,6 +41,10 @@
  * the preview stops matching what the game draws, which is exactly the
  * kind of thing this harness exists to show.
  */
+/* Zero-initialised, which is what the sweep wants: prefs.disableSound is 0,
+ * so sound.c's play() lets everything through. */
+PrefsStruct prefs;
+
 uint8_t scoreY[] = { 3,4,5,6,7,8,10,11,13,14,15,16,17,18,19,21 };
 char *scores[]   = { "one","two","three","four","five","six","total","bonus",
                      "set 3","set 4","house","s run","l run","count" };
@@ -44,6 +58,64 @@ static const char *const names[FJ_PLAYERS_SHOWN] = {
 static const int8_t colScores[16] = {
     3, 8, 9, 12, 10, 18, 60, 0, 22, 25, 25, 30, 40, 0, 50, 99
 };
+
+/*
+ * The sound sweep. Order matches sound.c's effect table so a capture reads
+ * top to bottom against it. The gap has to clear the longest effect (the
+ * 1.45 s soundGameDone) with silence to spare, because what makes the
+ * bursts countable is the silence between them, not the sound itself.
+ */
+struct SweepFx {
+    void (*play)(void);
+    const char *name;
+};
+
+static const struct SweepFx sweep[] = {
+    { soundCursor,      "cursor"      },
+    { soundScoreCursor, "scorecursor" },
+    { soundTick,        "tick"        },
+    { soundRollButton,  "rollbutton"  },
+    { soundRollDice,    "rolldice"    },
+    { soundKeep,        "keep"        },
+    { soundRelease,     "release"     },
+    { soundScore,       "score"       },
+    { soundJoinGame,    "joingame"    },
+    { soundMyTurn,      "myturn"      },
+    { soundFujitzee,    "fujitzee"    },
+    { soundGameDone,    "gamedone"    }
+};
+#define SWEEP_COUNT (sizeof(sweep) / sizeof(sweep[0]))
+
+/* Twelve, not the thirteen in sound.h: soundStop() is the silence, and it is
+ * exercised on every one of these anyway — gk_snd_play() stops the channel
+ * before starting the next sample. */
+
+#define SWEEP_GAP_FRAMES 150   /* 2.5 s at 60 Hz — longest effect is 1.45 s */
+
+static void waitFrames(uint16_t n)
+{
+    while (n--)
+        WaitTOF();
+}
+
+static void playSweep(void)
+{
+    uint8_t i;
+    char line[40];
+
+    for (i = 0; i < SWEEP_COUNT; i++) {
+        strcpy(line, "sound 00/12  ");
+        line[6] = (char)('0' + (i + 1) / 10);
+        line[7] = (char)('0' + (i + 1) % 10);
+        strcpy(line + 13, sweep[i].name);
+        strcat(line, "            ");
+        drawTextAlt(2, FJ_HEIGHT - 1, line);
+
+        sweep[i].play();
+        waitFrames(SWEEP_GAP_FRAMES);
+    }
+    drawTextAlt(2, FJ_HEIGHT - 1, "sweep done - press space to repeat  ");
+}
 
 static void drawScoreColumn(uint8_t player, uint8_t rows)
 {
@@ -118,9 +190,15 @@ int main(void)
     setHighlight(2, true, 0);
 
     drawConnectionIcon(0, FJ_HEIGHT - 1);
-    drawTextAlt(2, FJ_HEIGHT - 1, "board preview - press ctrl-c to quit");
+    drawTextAlt(2, FJ_HEIGHT - 1, "board preview - space for sounds    ");
 
-    /* Idle so the emulator harness can screenshot the finished board. */
-    for (;;)
+    initSound();
+
+    /* Idle so the emulator harness can screenshot the finished board; SPACE
+     * runs the sound sweep. Ctrl-C still quits. */
+    for (;;) {
+        if (kbhit() && cgetc() == ' ')
+            playSweep();
         WaitTOF();
+    }
 }

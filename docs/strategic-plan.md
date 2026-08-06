@@ -153,6 +153,13 @@ and both were extracted into the gamekit rather than copied — battleship got
 shorter, not forked. Phase 3b (2026-08-06) did the same for the joystick, and
 the third extraction was the cheapest yet: two register reads and a pure
 decode, leaving battleship's genuinely game-specific mouse aiming behind.
+Phase 3a (2026-08-06) closed the port with sound, and the fourth extraction
+was the one Phase 0 flagged as the genuinely hard call — battleship's
+`sound.c` mixed effect definitions with `audio.device` playback. The seam
+held anyway: playback became `libs/amiga-gamekit/src/gksound.c`, the effect
+tables stayed per game, and battleship's `sound.c` halved. Four for four on
+extract-rather-than-copy, and each one has left battleship smaller, which is
+the cheap-second-port thesis paying out about as clearly as it can.
 
 Full plan, including the five other process changes from 1B:
 `docs/plan-track1c-fujitzee.md`.
@@ -192,7 +199,7 @@ not a refactor.
 | `fn_test` smoke test | ✅ Done | Validates serial transport end-to-end |
 | Track 1A — compat layer | ✅ Done (2026-07-01) | `libs/fujinet-compat-amiga`; header-sync procedure in `docs/updating-fujinet-compat-headers.md` |
 | Track 1B — Battleship port | 🚧 Phase 4 complete (2026-07-28) — awaiting real hardware | 3a joystick ✅, 3b sound ✅, 3c graphical renderer ✅. Tile engine on a custom 320×200×4 screen, playable end-to-end in emulator (lobby → placement → gameplay → menu); mouse aiming (#21) and mouse ship placement (#23) merged; tile art pass done (`tiles.h` — multicolor sea/ships/markers/explosion, previewed via the `tilegallery` harness). Phase 4 ADF boot test ✅ (2026-07-28: full game in FS-UAE off the ADF, 6706 FujiBus frames, no errors). Remaining: real Amiga 500 + PiStorm. Also unblocks the upstream port PR |
-| Track 1C — Fujitzee port | 🚧 Phase 3c complete (2026-08-06) | Upstream pinned at `apps/fujitzee/upstream`; port surface audited (same six FujiNet functions as Battleship — no compat-layer work needed); phases in `docs/plan-track1c-fujitzee.md`. Phase 0 ✅: `libs/amiga-gamekit` extracted (screen/tile/sprite core, key + joystick decode, waveform bakers, jiffy clock, PRNG); Battleship rebuilt against it and passes T1 + T2. Phase 1 ✅: scaffold links under m68k; server wire format needed packed structs, fixed by upstream PR [fujinet-fujitzee#9](https://github.com/FujiNetWIFI/fujinet-fujitzee/pull/9) (`FUJITZEE_PACK_STRUCTS`), which the submodule rides until it merges. Phase 2 ✅: real renderer on the gamekit screen — 40x25 cells, six player columns, the DOS layout (the Atari's is one row taller and does not fit); dice as 16 tiles x 3 face colours; keyboard via a new shared gamekit key queue, with arrows decoded as control codes because fujitzee's menus and name entry already use W/A/S/D. Boots and talks to `fujinet-nio` (T2 PASS); the scorecard is verified by a `boardpreview` ADF since it only renders in a live game. Phase 3b ✅: real joystick on game port 2 — the read extracted to the gamekit (`gkjoy.c` + a T1-tested `joyDecodePort2()` pinning the active-low fire line), and verified headlessly by `emu/drive.sh`'s new `JOYSTICK=1` mode, which puts FS-UAE's keyboard controller in the game port so a scripted run can move the stick. Phase 3c ✅: the art pass — bevelled multicolor dice, a five-cell mountain+TZEE wordmark on the game's own score row, and tiles for the turn marker and score cursor, all data in `tiles.h`. It also closed a real defect it uncovered: a four-digit score is right-aligned by upstream into a three-cell column and starts on the board divider, so the renderer now squeezes it into the 30 px that are actually free (`fj_score_spill()`, T1-tested, plus one new gamekit primitive `gfx_text_tight()`). Sound (Phase 3a) is the only stub left |
+| Track 1C — Fujitzee port | ✅ Complete (2026-08-06) | Upstream pinned at `apps/fujitzee/upstream`; port surface audited (same six FujiNet functions as Battleship — no compat-layer work needed); phases in `docs/plan-track1c-fujitzee.md`. Phase 0 ✅: `libs/amiga-gamekit` extracted (screen/tile/sprite core, key + joystick decode, waveform bakers, jiffy clock, PRNG); Battleship rebuilt against it and passes T1 + T2. Phase 1 ✅: scaffold links under m68k; server wire format needed packed structs, fixed by upstream PR [fujinet-fujitzee#9](https://github.com/FujiNetWIFI/fujinet-fujitzee/pull/9) (`FUJITZEE_PACK_STRUCTS`), which the submodule rides until it merges. Phase 2 ✅: real renderer on the gamekit screen — 40x25 cells, six player columns, the DOS layout (the Atari's is one row taller and does not fit); dice as 16 tiles x 3 face colours; keyboard via a new shared gamekit key queue, with arrows decoded as control codes because fujitzee's menus and name entry already use W/A/S/D. Boots and talks to `fujinet-nio` (T2 PASS); the scorecard is verified by a `boardpreview` ADF since it only renders in a live game. Phase 3b ✅: real joystick on game port 2 — the read extracted to the gamekit (`gkjoy.c` + a T1-tested `joyDecodePort2()` pinning the active-low fire line), and verified headlessly by `emu/drive.sh`'s new `JOYSTICK=1` mode, which puts FS-UAE's keyboard controller in the game port so a scripted run can move the stick. Phase 3c ✅: the art pass — bevelled multicolor dice, a five-cell mountain+TZEE wordmark on the game's own score row, and tiles for the turn marker and score cursor, all data in `tiles.h`. It also closed a real defect it uncovered: a four-digit score is right-aligned by upstream into a three-cell column and starts on the board divider, so the renderer now squeezes it into the 30 px that are actually free (`fj_score_spill()`, T1-tested, plus one new gamekit primitive `gfx_text_tight()`). Phase 3a ✅: sound — 13 effects at the pitches upstream's DOS port back-derived from the Atari POKEY, and the `audio.device` playback extracted to the gamekit (`gksound.c`) so battleship shares it, halving its `sound.c`. Verified by capturing the emulator's audio (`AUDIO_WAV=` in `drive.sh`, `emu/checkaudio.py`) rather than by ear, which found two defects nothing else would have: every effect that did not decay to zero left a DC offset on the channel, and FS-UAE drops the `AUDxPER` write the same way it drops `AUDxVOL`, so everything played ~4x too fast. Both fixed at the gamekit level, so battleship gets them too. No stubs remain |
 | Track 2 Phase 1 — BSD sockets | 🔲 Not started | |
 | Track 2 Phase 2 — DNS | 🔲 Not started | |
 | Track 2 Phase 3 — TLS | 🔲 Not started | |
@@ -212,6 +219,25 @@ not a refactor.
   built ADF, causing stale boots that look like build failures. `emu/run.sh`
   now deletes them before every run; if a boot ever shows old behavior, check
   for stray `.sdf` files first.
+- **2026-08-06** — FS-UAE drops the **`AUDxPER`** write audio.device performs
+  at `CMD_WRITE`, exactly as it drops `AUDxVOL` (2026-07-08). Effects then
+  play at whatever rate the channel was last left at — measured ~4x fast, two
+  octaves high and a quarter as long. The tell that it is a dropped write and
+  not a mis-set value: the output is byte-identical whether `ioa_Period` is
+  447 or 1788. `gk_snd_play()` now re-pokes period and volume together
+  (`pokePerVol()`), a no-op on real hardware. **The general lesson is the
+  second one:** this shipped undetected in battleship because "is there
+  sound?" was checked by ear on a screenshot-driven run, and wrong-pitch
+  audio is still audio. `AUDIO_WAV=… bash emu/drive.sh` + `emu/checkaudio.py`
+  now capture and measure it — FS-UAE plays through OpenAL, whose "wave"
+  backend writes a .wav instead of opening a device.
+- **2026-08-06** — A sample that ends on a non-zero amplitude leaves Paula
+  holding that value as a **DC offset** on the channel until the next effect.
+  Silent on its own, so it survives casual listening, but it thumps on the
+  next transition. Bake every effect down to `vol_end 0`; the rule is stated
+  in `libs/amiga-gamekit/include/sndgen.h`. Found by the same audio capture,
+  as a burst whose zero-crossing rate was 0 while its mean amplitude was
+  thousands — the signature of DC rather than sound.
 - **2026-07-05** — Upstream squash-merges invalidate contributed submodule
   branches; never rebase them post-merge — drop the branch and re-track
   upstream master. Procedure: `docs/syncing-upstream-submodules.md`.
