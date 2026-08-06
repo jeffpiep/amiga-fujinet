@@ -374,6 +374,23 @@ Decisions and findings worth keeping:
   player highlight colors. Reuse Battleship's `tilegallery` harness pattern for
   previewing.
 
+- **3d — Byte-swap the wire format.** Found 2026-08-06 by playing a real game
+  against the bot table (see below). `Player.scores` is `int16_t[16]` and the
+  server sends it little-endian; m68k reads it big-endian, so every opponent
+  score displays as `value << 8` (a real 11 renders as 2816, and wide values
+  overflow their 4-column cell). Phase 1 fixed *packing* and pinned it with
+  `test_wireformat.c`, but packing and endianness are separate bugs and only
+  the first was caught — `-1` (0xffff, "unscored") and the locally computed
+  candidate scores are both byte-order invariant, which is why the preview
+  harness and every earlier screenshot looked correct.
+
+  The swap surface is exactly `players[i].scores[]` — every other field in
+  `Game`, `Table` and `Tables` is 8-bit. There is one call site,
+  `stateclient.c:33`, and no hook at it, so the fix wants the same shape as the
+  packing fix: an upstream opt-in macro invoked after the read (propose as a
+  follow-up to fujinet-fujitzee#9) rather than a local `-D` trick on
+  `network_read`. Extend `test_wireformat.c` to pin a swapped score.
+
 ### Phase 4 — ADF boot test
 
 Build the ADF via `/emu-build-and-boot`, boot in FS-UAE against a live
@@ -398,9 +415,18 @@ relaunch — see the `fn_transport_close()` leak note in
       passes T1 + T2 after the gamekit extraction
 - [x] Phase 2 — scorecard readable with the maximum supported player count:
       six columns, verified on the `boardpreview` ADF with all six filled
-- [ ] Phase 2 — join lobby, sit at table, roll, score, finish a game
-      *(manual: needs a live table with other players; the headless T2
-      harness cannot type)*
+- [x] Phase 2 — join lobby, sit at table, game starts and plays: verified
+      2026-08-06 headlessly via `emu/drive.sh` against the live server. Both
+      premises that made this "manual" were wrong — the harness *can* type
+      (`emu/scripts/emukey.py`, XTEST), and the server hosts an **"ai room —
+      4 bots"** table, so no second human is needed. The run reached round 2
+      of 13 with bots taking turns and surfaced the 3d endianness bug
+- [ ] Phase 2 — confirm arrow keys move the dice and score cursors. First
+      attempt showed no movement, but the cause was FS-UAE mapping the host
+      arrows to joystick port 1 (fixed in `drive.sh`); the retry never landed
+      a keypress inside our own turn, so the `KT_CURSOR_CTRL` path is still
+      unconfirmed either way
+- [ ] Phase 2 — finish a full 13-round game to the end screen
 - [ ] Phase 3a — all 13 sound effects audible in FS-UAE
 - [ ] Phase 3b — joystick drives the dice/score cursors
 - [ ] Phase 3c — dice, logo, and icons rendered from tile art
