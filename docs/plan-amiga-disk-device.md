@@ -4,9 +4,17 @@
 block-level endpoint in `fujinet-nio` (not yet written)
 **Blocks:** FujiNet "boot disk" / config-disk parity with Atari, Apple, MSDOS
 and BBC
-**Status:** Design in discussion (2026-07-28) — layering agreed, geometry and
-media-change semantics open. Not a contract yet; promote to
-`contracts/amiga-disk-device.md` once the open questions below are closed.
+**Status:** **Deferred until the parallel-port PHY exists** (2026-08-07).
+Layering is agreed; geometry and media-change semantics remain open. Not a
+contract yet; promote to `contracts/amiga-disk-device.md` once the open
+questions below are closed.
+
+**Why deferred:** RS-232 at 19200 baud gives ≈1.9 KB/s, which the team has
+judged disqualifying for disk mounting — see Q2. Implementation waits on the
+faster PHY (parallel port is the leading candidate,
+`contracts/esp32-target.md`). Nothing about the layering below changes when
+it arrives: the transport is swappable underneath the device's block API,
+which is the whole reason this plan splits at the block boundary.
 
 ---
 
@@ -90,6 +98,10 @@ into a FujiNet-served volume. No Amiga-side rework above the device layer.
 
 ## Phases
 
+All phases are on hold per the Status banner above; Phase 1's transport is
+now expected to be the parallel-port PHY rather than RS-232, which changes
+nothing above the device's block API.
+
 **Phase 1 — block device over RS-232.** `fujinet-disk.device` supporting
 `CMD_READ` / `CMD_WRITE` (and the trackdisk subset decided in Q3), backed by
 the existing FujiBus transport. Exec device, KS 1.3 API floor, same constraints
@@ -135,12 +147,17 @@ blocks, familiar and interchangeable with real ADFs), or as a larger
 hard-drive-style volume? Larger is more useful; floppy geometry is easier to
 round-trip with existing tooling and images. *Closes with: Jeff + Thom.*
 
-**Q2 — Throughput at 19200 baud.** ≈1.9 KB/s, so a single 512-byte block is
-roughly 270 ms before protocol overhead, and filesystem access touches many
-blocks. Is the RS-232 era targeting a small, mostly-read config volume — with
-caching, or a RAM-backed shadow — rather than a general-purpose disk? This
-should be measured, not guessed, once Phase 1 can move blocks. *Closes with:
-measurement in Phase 1.*
+**Q2 — Throughput at 19200 baud.** ✅ **Closed 2026-08-07: disqualifying.**
+≈1.9 KB/s means a single 512-byte block is roughly 270 ms before protocol
+overhead, and filesystem access touches many blocks — a full 880K volume is
+~7.8 minutes and even a single 74 KB game binary is ~39 s of pure data before
+per-block round-trip latency. The team's call is that this rules out disk
+mounting over RS-232 entirely, rather than narrowing it to a small mostly-read
+config volume. The plan therefore defers to the parallel-port PHY instead of
+building Phase 1 to measure. Note the closure is arithmetic from the baud
+rate, not a benchmark; if the PHY decision ever needs a measured Amiga-side
+number, a read-only Phase 1 device is the cheapest way to get one.
+*Closed by: Jeff + team.*
 
 **Q3 — How much of the trackdisk command set.** `CMD_READ` / `CMD_WRITE` are
 required. Whether to implement `TD_CHANGESTATE`, `TD_CHANGENUM`,
