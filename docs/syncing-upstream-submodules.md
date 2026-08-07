@@ -21,19 +21,22 @@ Every submodule in this repo is, at any moment, in one of these states. The
 parent-repo bump commit message should say which.
 
 1. **Tracking** — pinned to a commit on `upstream/master` (or the upstream
-   default branch). The steady state. `fujinet-nio` and
-   `apps/battleship/upstream` are normally here.
+   default branch). The steady state. `fujinet-nio`,
+   `apps/battleship/upstream` and `apps/fujitzee/upstream` are normally here.
 2. **Riding a PR** — pinned to a feature branch on your fork (`origin`)
    because the parent repo needs work that upstream hasn't merged yet.
    Legitimate but *temporary*; every routine sync should try to exit this
-   state. `fujinet-nio-lib` is here now, and so is `apps/fujitzee/upstream`
-   (`feature/byteswap-scores`, one commit on top of merged upstream — the
-   big-endian wire-format opt-in the Amiga port needs;
-   [fujinet-fujitzee#10](https://github.com/FujiNetWIFI/fujinet-fujitzee/pull/10)).
-   Its predecessor, the packed-struct opt-in
-   [#9](https://github.com/FujiNetWIFI/fujinet-fujitzee/pull/9), merged on
-   2026-08-06 and the branch was rebased away — the normal exit from this
-   state, and worth reading as the worked example.
+   state. `fujinet-nio-lib` is here now. `apps/fujitzee/upstream` was here
+   twice and left both times — worth reading as the two worked examples:
+   the packed-struct opt-in
+   [#9](https://github.com/FujiNetWIFI/fujinet-fujitzee/pull/9) merged on
+   2026-08-06 and the branch was rebased away (the normal exit), and the
+   big-endian opt-in
+   [#10](https://github.com/FujiNetWIFI/fujinet-fujitzee/pull/10) merged and
+   was then **reverted** by upstream a day later
+   ([#11](https://github.com/FujiNetWIFI/fujinet-fujitzee/pull/11),
+   [#12](https://github.com/FujiNetWIFI/fujinet-fujitzee/pull/12)) in favour of
+   an existing server-side flag — see "If the PR was reverted" below.
    A game-port submodule can enter this state even though its normal role is
    a read-only pin; that also means its remotes may need the `origin`/
    `upstream` swap described in CLAUDE.md.
@@ -80,6 +83,30 @@ git -C <sub> log --oneline upstream/master | head   # look for the squash-merge
   git -C <sub> push --force-with-lease origin feature/<name>
   git add <sub> && git commit -m "bump <sub>: rebase feature/<name> onto upstream/master"
   ```
+
+### If the PR was reverted
+
+Merged is not the end of the story: upstream can merge a PR and then revert it,
+usually because a better mechanism already existed. Treat this exactly like
+*Merged* at the git level — pin to upstream's head, drop the branch — but the
+parent repo has more to do, because the revert removes something the port was
+depending on. Before bumping the pointer:
+
+1. Read the revert PR's body and any doc it touched. It normally names the
+   replacement.
+2. Remove the port's side of the reverted feature — the `-D` flags in the app
+   `Makefile`, the tests that pin it, the header comments that explain it.
+3. Adopt the replacement, then rebuild and re-run T1 **and** T2. A revert that
+   only breaks at runtime is the common case; the port compiled fine either
+   way.
+
+Worked example (2026-08-07): fujitzee's client-side byte swap
+([#10](https://github.com/FujiNetWIFI/fujinet-fujitzee/pull/10)) was reverted by
+[#12](https://github.com/FujiNetWIFI/fujinet-fujitzee/pull/12), whose body
+pointed at `QUERY_SUFFIX "&be=1"` — a server-side flag the CoCo port already
+used. The parent-repo change was: pin to upstream `main`, drop
+`-DFUJITZEE_BIG_ENDIAN` and `test/host/test_endian.c`, set `QUERY_SUFFIX` in
+`apps/fujitzee/amiga/include/amiga_vars.h`.
 
 ## Drift check — does upstream's change break our layers?
 

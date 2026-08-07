@@ -131,8 +131,22 @@ char *itoa(int value, char *buf, int radix);
 #define ROLL_X             (WIDTH - 25)
 #define SCORE_CURSOR_ALT   0   /* alternate score-cursor colour (Atari 0x80)*/
 
-/* Extra query params appended to every API URL — none for Amiga. */
-#define QUERY_SUFFIX ""
+/* Extra query params appended to every API URL.
+ *
+ * "&be=1" asks the server for big-endian 16-bit values. Player.scores is the
+ * only multi-byte field it sends; without this, m68k reads every opponent
+ * score byte-swapped (a real score of 11 renders as 2816 = 0x0B00, and wide
+ * values overflow their column). Easy to miss, because the two things you
+ * look at first are byte-order invariant: 0xFFFF ("not yet scored"), and the
+ * candidate scores in your own column, which are computed locally rather than
+ * parsed.
+ *
+ * This replaced a client-side swap (fujinet-fujitzee#10), which upstream
+ * reverted in #12 in favour of the server-side flag the CoCo port already
+ * used. Server-side is the right layer: the payload is memcpy'd whole, so a
+ * client swap has to know which union member it is looking at.
+ */
+#define QUERY_SUFFIX "&be=1"
 
 /* ---- Wire format ------------------------------------------------------- *
  *

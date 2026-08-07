@@ -14,11 +14,11 @@ CFLAGS += -include amiga_vars.h
 # a binary that misparses every server response. See include/amiga_vars.h
 # and test/host/test_wireformat.c.
 CFLAGS += -DFUJITZEE_PACK_STRUCTS
-# Player.scores is int16_t and arrives little-endian; m68k is big-endian, so
-# without this every opponent score renders as value<<8. Independent of the
-# packing flag above — packing fixes where the fields are, this fixes what is
-# in them. Found by playing a real game (Phase 2 verification, 2026-08-06).
-CFLAGS += -DFUJITZEE_BIG_ENDIAN
+# Endianness is NOT a compile flag: Player.scores is int16_t and the server
+# emits little-endian by default, but it will emit big-endian on request.
+# include/amiga_vars.h asks for it with QUERY_SUFFIX "&be=1" — see the comment
+# there. (An earlier client-side swap, fujinet-fujitzee#10, was reverted
+# upstream by #12 in favour of this.)
 
 INCLUDES = \
     -Iinclude \
@@ -73,19 +73,13 @@ $(TARGET): $(SRCS) $(AMIGA_HDRS) $(GAMEKIT_LIB) $(COMPAT_LIB) $(NIO_ALIB)
 HOST_CC     = cc
 # -DFUJITZEE_PACK_STRUCTS mirrors the Amiga build deliberately: the wire-format
 # test is only meaningful if the host sees the same packing decision.
-# -DFUJITZEE_BIG_ENDIAN is set here even though the host is little-endian:
-# test_endian.c asserts the swap as a contract (every score reversed), which
-# means the same thing on either host, and without the flag the function it
-# tests would not be compiled at all.
-HOST_CFLAGS = -std=c99 -Wall -Wextra -g -O0 -DFUJITZEE_PACK_STRUCTS \
-              -DFUJITZEE_BIG_ENDIAN
+HOST_CFLAGS = -std=c99 -Wall -Wextra -g -O0 -DFUJITZEE_PACK_STRUCTS
 # amiga_vars.h names the gamekit's GK_KEY_*/GK_JOY_* contract, and the tests
 # include upstream's misc.h, so both dirs are on the host path too.
 HOST_INC    = -Iinclude -I$(UPSTREAM) -I$(UPSTREAM)/platform-specific \
               -I$(GAMEKIT_INC) -I$(COMPAT_INC) \
               -I../../../libs/fujinet-compat-amiga/test/host
-HOST_TESTS  = test/host/test_wireformat.test test/host/test_fjlayout.test \
-              test/host/test_endian.test
+HOST_TESTS  = test/host/test_wireformat.test test/host/test_fjlayout.test
 
 # $(AMIGA_HDRS) as a prerequisite: these tests assert on what the headers say,
 # so a header edit alone must rebuild them — otherwise make reruns a stale

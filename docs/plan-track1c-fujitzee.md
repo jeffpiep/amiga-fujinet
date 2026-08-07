@@ -91,10 +91,10 @@ mouse requirement. The renderer is a character-grid + a handful of tiles.
    widens that guard to
    `#if defined(__WATCOMC__) || defined(FUJITZEE_PACK_STRUCTS)` — two lines,
    no behaviour change for any existing platform — and the app Makefile
-   passes `-DFUJITZEE_PACK_STRUCTS`. Until it merges, `apps/fujitzee/upstream`
-   is **Riding a PR** (`feature/pack-structs-opt-in` on our fork) rather than
-   read-only tracking; see `docs/syncing-upstream-submodules.md` for exiting
-   that state.
+   passes `-DFUJITZEE_PACK_STRUCTS`. Until it merged (2026-08-06),
+   `apps/fujitzee/upstream` was **Riding a PR**
+   (`feature/pack-structs-opt-in` on our fork) rather than read-only tracking;
+   see `docs/syncing-upstream-submodules.md` for exiting that state.
 
    The self-contained alternative — briefly defining `__WATCOMC__` around the
    `misc.h` include in `amiga_vars.h` — works and was what Phase 1 first
@@ -489,10 +489,9 @@ Decisions and findings worth keeping:
   `FJ_BOARD_BOTTOM`, where a wide number has no lattice to damage. That row
   is deliberately excluded, so it still draws exactly as upstream asks.
 
-- **3d — Byte-swap the wire format.** ✅ Done 2026-08-06
-  ([fujinet-fujitzee#10](https://github.com/FujiNetWIFI/fujinet-fujitzee/pull/10),
-  `-DFUJITZEE_BIG_ENDIAN`, pinned by `test/host/test_endian.c`). Found by
-  playing a real game
+- **3d — Get big-endian scores.** ✅ Done 2026-08-07 — `QUERY_SUFFIX "&be=1"`
+  in `include/amiga_vars.h`, which asks the *server* to emit big-endian 16-bit
+  values. Found by playing a real game
   against the bot table (see below). `Player.scores` is `int16_t[16]` and the
   server sends it little-endian; m68k reads it big-endian, so every opponent
   score displays as `value << 8` (a real 11 renders as 2816, and wide values
@@ -502,12 +501,23 @@ Decisions and findings worth keeping:
   candidate scores are both byte-order invariant, which is why the preview
   harness and every earlier screenshot looked correct.
 
-  The swap surface is exactly `players[i].scores[]` — every other field in
-  `Game`, `Table` and `Tables` is 8-bit. There is one call site,
-  `stateclient.c:33`, and no hook at it, so the fix wants the same shape as the
-  packing fix: an upstream opt-in macro invoked after the read (propose as a
-  follow-up to fujinet-fujitzee#9) rather than a local `-D` trick on
-  `network_read`. Extend `test_wireformat.c` to pin a swapped score.
+  The affected surface is exactly `players[i].scores[]` — every other field in
+  `Game`, `Table` and `Tables` is 8-bit.
+
+  The first fix was client-side, shaped like the packing fix: an upstream
+  opt-in macro (`-DFUJITZEE_BIG_ENDIAN`) that swapped the array after the read
+  ([#10](https://github.com/FujiNetWIFI/fujinet-fujitzee/pull/10), merged
+  2026-08-06, pinned by a `test_endian.c`). Eric Carr reverted it the next day
+  ([#11](https://github.com/FujiNetWIFI/fujinet-fujitzee/pull/11),
+  [#12](https://github.com/FujiNetWIFI/fujinet-fujitzee/pull/12)) in favour of
+  the server-side flag the CoCo port was already using: append `&be=1` to the
+  API query and the server emits big-endian. That is the better layer, and the
+  reason is visible in the reverted patch — the payload is memcpy'd whole into
+  a union, so a client-side swap has to be invoked only at the call sites where
+  the union is known to hold a `Game`, never inside `apiCall()` itself. The
+  server-side flag has no such condition to get wrong. The port now defines
+  `QUERY_SUFFIX "&be=1"`, carries no swap code, and `apps/fujitzee/upstream`
+  tracks upstream `main` again.
 
 ### Phase 4 — ADF boot test
 
