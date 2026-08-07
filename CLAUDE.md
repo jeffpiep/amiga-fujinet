@@ -241,9 +241,13 @@ Three things about fujitzee differ from battleship and are easy to trip over:
 - The server payload is memcpy'd straight into upstream's `Game` struct, so
   **struct packing is load-bearing**: the Makefile passes
   `-DFUJITZEE_PACK_STRUCTS` (upstream opt-in, fujinet-fujitzee#9) and
-  `test/host/test_wireformat.c` pins the resulting offsets. That PR is also
-  why `apps/fujitzee/upstream` is currently *Riding a PR* rather than
-  tracking upstream — see `docs/syncing-upstream-submodules.md`.
+  `test/host/test_wireformat.c` pins the resulting offsets.
+- **Endianness is asked for, not fixed up.** `Player.scores` is the only
+  multi-byte field on the wire, and the server defaults to little-endian, so
+  m68k reads every opponent score byte-swapped. The fix is one line in
+  `include/amiga_vars.h` — `#define QUERY_SUFFIX "&be=1"`, which makes the
+  server emit big-endian. Don't reintroduce a client-side swap: upstream
+  merged one (fujinet-fujitzee#10) and reverted it (#12) in favour of this.
 - **Its cursor keys are not W/A/S/D.** Battleship maps them to those letters;
   fujitzee cannot, because its lobby menu is on `s`/`r`/`c`/`h`/`q` and its
   name-entry screen takes every letter as text. `src/input.c` selects
