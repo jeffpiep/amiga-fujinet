@@ -7,11 +7,12 @@ squash-merges PRs (invalidating contributed branches), and this repo sometimes
 has to pin a submodule to an in-flight PR branch. This procedure makes those
 states explicit so no session has to re-derive them.
 
-**Live example at time of writing:** `fujinet-nio-lib` is pinned to
-`feature/amiga-rs232-pr` (1 commit), which has **diverged** from
-`upstream/master` — upstream has since gained the app-store API (`445891c`)
-that the on-hold appkey work is waiting for. The routine sync below is exactly
-what resolves this.
+**As of 2026-08-08 every submodule is Tracking** — the first time that has been
+true. `fujinet-nio-lib` rode `feature/amiga-rs232-pr` for the whole Amiga
+transport bring-up; upstream merged it as
+[markjfisher/fujinet-nio-lib#1](https://github.com/markjfisher/fujinet-nio-lib/pull/1)
+and the pin moved to `upstream/master`. Keep it that way: the states below
+exist to be left, not lived in.
 
 ---
 
@@ -21,12 +22,11 @@ Every submodule in this repo is, at any moment, in one of these states. The
 parent-repo bump commit message should say which.
 
 1. **Tracking** — pinned to a commit on `upstream/master` (or the upstream
-   default branch). The steady state. `fujinet-nio`,
-   `apps/battleship/upstream` and `apps/fujitzee/upstream` are normally here.
+   default branch). The steady state, and where all five submodules are now.
 2. **Riding a PR** — pinned to a feature branch on your fork (`origin`)
    because the parent repo needs work that upstream hasn't merged yet.
    Legitimate but *temporary*; every routine sync should try to exit this
-   state. `fujinet-nio-lib` is here now. `apps/fujitzee/upstream` was here
+   state. `apps/fujitzee/upstream` was here
    twice and left both times — worth reading as the two worked examples:
    the packed-struct opt-in
    [#9](https://github.com/FujiNetWIFI/fujinet-fujitzee/pull/9) merged on
@@ -75,6 +75,20 @@ git -C <sub> log --oneline upstream/master | head   # look for the squash-merge
   ```
   Then run the **drift check** below — the squash may differ from what you
   contributed (review edits).
+
+  **Check how it merged first — it is not always a squash.** nio-lib #1 landed
+  as a real *merge commit* (`c69eadd`), so our `381b883` is a genuine ancestor
+  of `upstream/master` rather than an invalidated duplicate. Confirm with:
+  ```bash
+  git -C <sub> merge-base --is-ancestor <our-sha> upstream/master && echo preserved
+  ```
+  When it is preserved, the fast-forward alone does the job and there is no
+  rewrite to reconcile. The drift check still matters, but for a different
+  reason: a merge resolves *upstream's* concurrent edits to the same files, so
+  verify your platform hooks survived rather than diffing for review edits.
+  For nio-lib #1 that meant grepping merged `master` for the `amiga` target,
+  `COMPILER_FAMILY_amiga`, and `makefiles/compiler-amigagcc.mk` — upstream had
+  been editing those same makefiles for BBC assembly work throughout.
 - **Not merged →** keep the branch current with a rebase (upstream requires
   linear history; never merge master into the branch):
   ```bash

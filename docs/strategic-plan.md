@@ -193,7 +193,7 @@ not a refactor.
 
 | Track | Status | Notes |
 |---|---|---|
-| Serial transport | ✅ Done | 19200 baud, SLIP, FujiBus |
+| Serial transport | ✅ Done — **upstreamed 2026-08-08** | 19200 baud, SLIP, FujiBus. Merged into `markjfisher/fujinet-nio-lib` as [#1](https://github.com/markjfisher/fujinet-nio-lib/pull/1) (`c69eadd`, a real merge commit — our `381b883` is preserved in upstream history). `fujinet-nio-lib` therefore left *Riding a PR* and now Tracks `master`, which makes every submodule Tracking for the first time |
 | fn_* API (`fn_open`, `fn_read`, `fn_write`) | ✅ Done | HTTP + HTTPS GET/POST working |
 | `http_get` demo app | ✅ Done | HTTPS auto-detect, NTSC mode, weather demo |
 | `fn_test` smoke test | ✅ Done | Validates serial transport end-to-end |
