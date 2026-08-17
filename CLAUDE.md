@@ -7,6 +7,9 @@ via RS-232 serial to an Amiga computer.
 
 - `fujinet-nio/` — FujiNet server (runs on Linux/ESP32) — git submodule
 - `fujinet-nio-lib/` — Client library (runs on Amiga) — git submodule
+- `fujinet-nio-driver/` — Native OS drivers (Amiga `fujinet-disk.device`,
+  MS-DOS `FUJINET.SYS`) — git submodule, Mark's. Must be a **sibling** of
+  `fujinet-nio-lib/`; its Amiga build consumes that checkout directly
 - `contracts/` — Protocol & hardware specs — source of truth for cross-submodule work
 - `apps/` — Amiga programs (amiga-gcc / m68k-amigaos)
 - `libs/` — Amiga static libraries shared by the apps:
@@ -26,6 +29,7 @@ via RS-232 serial to an Amiga computer.
 | `amiga-fujinet` (this repo) | jeffpiep/amiga-fujinet | — (not contributed upstream) |
 | `fujinet-nio/` | jeffpiep/fujinet-nio | markjfisher/fujinet-nio |
 | `fujinet-nio-lib/` | jeffpiep/fujinet-nio-lib | markjfisher/fujinet-nio-lib |
+| `fujinet-nio-driver/` | — (read-only pin) | markjfisher/fujinet-nio-driver |
 | `battleship/` | jeffpiep/battleship | FujiNetWIFI/battleship |
 | `apps/fujitzee/upstream` | jeffpiep/fujinet-fujitzee | FujiNetWIFI/fujinet-fujitzee |
 | `apps/pacmantests/amiga-pac-man` | — (read-only pin) | tschak909/amiga-pac-man |
@@ -286,10 +290,30 @@ make -C apps
 make -C apps/http_get
 make -C apps/battleship/amiga battleship   # note: explicit target; bare `make` builds the ADF
 
+# Build the Amiga disk driver (fujinet-disk.device); needs amiga-gcc on PATH
+export PATH=/opt/amiga/bin:$PATH
+make -C fujinet-nio-driver amiga     # bare `make` also builds MS-DOS (needs Watcom)
+
 # Game-port one-time extra deps (game sources; not initialized by default)
 git submodule update --init apps/battleship/upstream
 git submodule update --init apps/fujitzee/upstream
 ```
+
+`fujinet-nio-driver` finds `fujinet-nio-lib` as a sibling by default, which is
+why it is pinned at the repo root rather than under `apps/`; override with
+`make amiga LIB_ROOT=/path/to/fujinet-nio-lib`. Pin it and `fujinet-nio-lib`
+together — the driver README records the minimum compatible library revision.
+
+**Known toolchain difference (upstream, not ours).** `make amiga` builds
+`fujinet-disk.device` cleanly, then fails on the `fujinet-mount` diagnostic
+tool with `-Werror=format` errors. Our amiga-gcc resolves `ULONG`/`LONG` to
+`unsigned int`/`int` — anything that includes `<stdio.h>` gets NDK
+`exec/types.h`'s `__use_amiga_stdc_c99` branch (`uint32_t`), under every
+`-mcrt=`. Mark's environment gets the `unsigned long` branch, so his `%lu`
+format strings are correct there and wrong here. It is a build-environment
+mismatch, not a driver defect; the portable fix is casting the arguments to
+`unsigned long` at each call site. Don't "fix" it locally — the submodule is a
+read-only pin.
 
 See `fujinet-nio/docs/developer_onboarding.md` for full build options, ESP32 setup,
 available profiles (`./build.sh -p -S`), and CLI testing tools.
