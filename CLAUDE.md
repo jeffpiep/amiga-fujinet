@@ -313,13 +313,25 @@ together — the driver README records the minimum compatible library revision.
 
 **Known toolchain difference (upstream, not ours).** `make amiga` builds
 `fujinet-disk.device` cleanly, then fails on the `fujinet-mount` diagnostic
-tool with `-Werror=format` errors. Our amiga-gcc resolves `ULONG`/`LONG` to
-`unsigned int`/`int` — anything that includes `<stdio.h>` gets NDK
-`exec/types.h`'s `__use_amiga_stdc_c99` branch (`uint32_t`), under every
-`-mcrt=`. Mark's environment gets the `unsigned long` branch, so his `%lu`
-format strings are correct there and wrong here. It is a build-environment
-mismatch, not a driver defect; the portable fix is casting the arguments to
-`unsigned long` at each call site, which is correct under both branches. Fix it
+tool with `-Werror=format` errors, because our `ULONG`/`LONG` are
+`unsigned int`/`int` where the code's `%lu`/`%ld` expect `long`.
+
+The cause is an **NDK header version skew**, not a flag or a crt. Our
+`ndk-include/exec/types.h` is Hyperion's NDK 3.2 (`$VER: types.h 47.6`,
+`INCLUDE_VERSION 47`), which since 2020 picks its scalar typedefs by C standard
+level: at line 36 it defines `__use_amiga_stdc_c99` when
+`__STDC_VERSION__ >= 199901`, and then types `ULONG` as `uint32_t` rather than
+`unsigned long`. The driver builds with `-std=c99`, so it lands on that branch
+(`-std=c89`/`gnu89` would land on the other one — the standard is the selector).
+Older NDK 3.9 headers, which many amiga-gcc installs still carry, declare
+`typedef unsigned long ULONG;` unconditionally, which is why Mark's `%lu` is
+correct on his machine.
+
+Worth knowing before treating it as urgent: `int` and `long` are both 32-bit on
+m68k-amigaos, so the varargs call passes identical bytes either way and the
+printf is correct **at runtime** on both. Only `-Werror` makes it fatal. The
+portable fix is casting each argument to `unsigned long`/`long` at the call
+site, which is right under both header versions. Fix it
 through the upstream-PR flow like any other submodule change — never as a local
 edit sitting on a pinned commit.
 
