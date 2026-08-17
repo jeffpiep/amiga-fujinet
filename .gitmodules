@@ -15,4 +15,4 @@
 	url = https://github.com/FujiNetWIFI/fujinet-fujitzee
 [submodule "fujinet-nio-driver"]
 	path = fujinet-nio-driver
-	url = https://github.com/markjfisher/fujinet-nio-driver.git
+	url = https://github.com/jeffpiep/fujinet-nio-driver.git

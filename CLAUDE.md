@@ -29,7 +29,7 @@ via RS-232 serial to an Amiga computer.
 | `amiga-fujinet` (this repo) | jeffpiep/amiga-fujinet | — (not contributed upstream) |
 | `fujinet-nio/` | jeffpiep/fujinet-nio | markjfisher/fujinet-nio |
 | `fujinet-nio-lib/` | jeffpiep/fujinet-nio-lib | markjfisher/fujinet-nio-lib |
-| `fujinet-nio-driver/` | — (read-only pin) | markjfisher/fujinet-nio-driver |
+| `fujinet-nio-driver/` | jeffpiep/fujinet-nio-driver | markjfisher/fujinet-nio-driver |
 | `battleship/` | jeffpiep/battleship | FujiNetWIFI/battleship |
 | `apps/fujitzee/upstream` | jeffpiep/fujinet-fujitzee | FujiNetWIFI/fujinet-fujitzee |
 | `apps/pacmantests/amiga-pac-man` | — (read-only pin) | tschak909/amiga-pac-man |
@@ -45,6 +45,13 @@ Each submodule has two remotes:
 # One-time remote setup per submodule
 git -C fujinet-nio remote add upstream https://github.com/markjfisher/fujinet-nio.git
 git -C fujinet-nio-lib remote add upstream https://github.com/markjfisher/fujinet-nio-lib.git
+
+# fujinet-nio-driver was added with `git submodule add` from Mark's URL, so its
+# remotes were set up the other way round and were rewired the same way fujitzee
+# was (see below):
+#   git -C fujinet-nio-driver remote rename origin upstream
+#   git -C fujinet-nio-driver remote add origin \
+#       https://github.com/jeffpiep/fujinet-nio-driver.git
 # (battleship, when added)
 # git -C battleship remote add upstream https://github.com/FujiNetWIFI/battleship.git
 
@@ -312,8 +319,9 @@ tool with `-Werror=format` errors. Our amiga-gcc resolves `ULONG`/`LONG` to
 `-mcrt=`. Mark's environment gets the `unsigned long` branch, so his `%lu`
 format strings are correct there and wrong here. It is a build-environment
 mismatch, not a driver defect; the portable fix is casting the arguments to
-`unsigned long` at each call site. Don't "fix" it locally — the submodule is a
-read-only pin.
+`unsigned long` at each call site, which is correct under both branches. Fix it
+through the upstream-PR flow like any other submodule change — never as a local
+edit sitting on a pinned commit.
 
 See `fujinet-nio/docs/developer_onboarding.md` for full build options, ESP32 setup,
 available profiles (`./build.sh -p -S`), and CLI testing tools.
