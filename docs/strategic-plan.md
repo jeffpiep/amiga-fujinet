@@ -288,3 +288,17 @@ not a refactor.
   `.claude/commands/emu-build-and-boot.md`; the system default font may be
   10 px-wide 60-column topaz rather than topaz 8 → documented in
   `contracts/amiga-coding-conventions.md` (Custom screens / rendering).
+- **2026-08-22** — **A serial loopback test is blind to pin 2/3 orientation.**
+  Shorting pins 2–3 at the far end of a cable proves the two data conductors
+  reach that connector and come back — it does *not* prove which is TXD and
+  which is RXD, because the jumper ties them together either way. A cable that
+  lands the host's TX on the Amiga's TX pin passes loopback perfectly and is
+  dead in both directions once connected. Root cause here: **two null-modem
+  adapters stacked in the run**, whose crossings cancel to straight-through.
+  When loopback passes but a real link is dead both ways, suspect orientation
+  and ring out DB-9 pin 3 → DB-25 pin 3 with a meter rather than re-running
+  the loopback. Second lesson from the same session: deterministic garbage is
+  worth *simulating* before it is worth guessing at — decoding the transmitted
+  waveform at every rate from 300 to 120000 baud matched the observed bytes no
+  better than chance, which ruled out a baud mismatch outright and redirected
+  the search to hardware. Full record: `docs/debug-amiga-serial-port.md`.
