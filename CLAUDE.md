@@ -7,6 +7,9 @@ via RS-232 serial to an Amiga computer.
 
 - `fujinet-nio/` — FujiNet server (runs on Linux/ESP32) — git submodule
 - `fujinet-nio-lib/` — Client library (runs on Amiga) — git submodule
+- `fujinet-nio-driver/` — Native OS drivers (Amiga `fujinet-disk.device`,
+  MS-DOS `FUJINET.SYS`) — git submodule, Mark's. Must be a **sibling** of
+  `fujinet-nio-lib/`; its Amiga build consumes that checkout directly
 - `contracts/` — Protocol & hardware specs — source of truth for cross-submodule work
 - `apps/` — Amiga programs (amiga-gcc / m68k-amigaos)
 - `libs/` — Amiga static libraries shared by the apps:
@@ -26,6 +29,7 @@ via RS-232 serial to an Amiga computer.
 | `amiga-fujinet` (this repo) | jeffpiep/amiga-fujinet | — (not contributed upstream) |
 | `fujinet-nio/` | jeffpiep/fujinet-nio | markjfisher/fujinet-nio |
 | `fujinet-nio-lib/` | jeffpiep/fujinet-nio-lib | markjfisher/fujinet-nio-lib |
+| `fujinet-nio-driver/` | jeffpiep/fujinet-nio-driver | markjfisher/fujinet-nio-driver |
 | `battleship/` | jeffpiep/battleship | FujiNetWIFI/battleship |
 | `apps/fujitzee/upstream` | jeffpiep/fujinet-fujitzee | FujiNetWIFI/fujinet-fujitzee |
 | `apps/pacmantests/amiga-pac-man` | — (read-only pin) | tschak909/amiga-pac-man |
@@ -41,6 +45,13 @@ Each submodule has two remotes:
 # One-time remote setup per submodule
 git -C fujinet-nio remote add upstream https://github.com/markjfisher/fujinet-nio.git
 git -C fujinet-nio-lib remote add upstream https://github.com/markjfisher/fujinet-nio-lib.git
+
+# fujinet-nio-driver was added with `git submodule add` from Mark's URL, so its
+# remotes were set up the other way round and were rewired the same way fujitzee
+# was (see below):
+#   git -C fujinet-nio-driver remote rename origin upstream
+#   git -C fujinet-nio-driver remote add origin \
+#       https://github.com/jeffpiep/fujinet-nio-driver.git
 # (battleship, when added)
 # git -C battleship remote add upstream https://github.com/FujiNetWIFI/battleship.git
 
@@ -286,10 +297,42 @@ make -C apps
 make -C apps/http_get
 make -C apps/battleship/amiga battleship   # note: explicit target; bare `make` builds the ADF
 
+# Build the Amiga disk driver (fujinet-disk.device); needs amiga-gcc on PATH
+export PATH=/opt/amiga/bin:$PATH
+make -C fujinet-nio-driver amiga     # bare `make` also builds MS-DOS (needs Watcom)
+
 # Game-port one-time extra deps (game sources; not initialized by default)
 git submodule update --init apps/battleship/upstream
 git submodule update --init apps/fujitzee/upstream
 ```
+
+`fujinet-nio-driver` finds `fujinet-nio-lib` as a sibling by default, which is
+why it is pinned at the repo root rather than under `apps/`; override with
+`make amiga LIB_ROOT=/path/to/fujinet-nio-lib`. Pin it and `fujinet-nio-lib`
+together — the driver README records the minimum compatible library revision.
+
+**Known toolchain difference (upstream, not ours).** `make amiga` builds
+`fujinet-disk.device` cleanly, then fails to link every tool under
+`amiga/tools/` (`fujinet-mount`, `fujinet-load-resident`, `fujinet-td-probe`,
+`fujinet-nio-exchange`) with `ld: cannot find ncrt0.o`.
+
+The cause is a **C runtime that our amiga-gcc does not ship**. Those four rules
+in `fujinet-nio-driver/amiga/Makefile` hardcode `-mcrt=clib2`; our install has
+libnix (`/opt/amiga/m68k-amigaos/libnix/lib/`) and no clib2 at all, so the
+driver's own `fujinet-disk.device` link — which uses `-nostartfiles` and never
+asks for a crt — is unaffected. Dropping the flag builds all four cleanly here
+(the default libnix crt is fine; `-mcrt=nix13` is *not* — it lacks
+`CreateNewProcTags`/`TAG_USER`).
+
+The fix belongs upstream as `TOOL_CRT ?= -mcrt=clib2` so the flag is
+overridable, not as a local edit sitting on a pinned commit. Until then, build
+just the device with `make -C fujinet-nio-driver/amiga ../build/amiga/fujinet-disk.device`.
+
+The **earlier** `-Werror=format` failure on `fujinet-mount` is resolved: it came
+from an NDK header skew (Hyperion NDK 3.2 types `ULONG` as `uint32_t` under
+`-std=c99`, where NDK 3.9 says `unsigned long`), and Mark applied the portable
+cast-at-call-site fix upstream in `4c65402`. Don't reintroduce it as a local
+patch.
 
 See `fujinet-nio/docs/developer_onboarding.md` for full build options, ESP32 setup,
 available profiles (`./build.sh -p -S`), and CLI testing tools.
