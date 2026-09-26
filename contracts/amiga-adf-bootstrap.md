@@ -69,8 +69,8 @@ reply to the caller's `pr_MsgPort`. A Task has no `pr_MsgPort`, so the reply
 goes through garbage and the machine gurus with **#00000003** on the first
 exchange. Loading `serial.device` resident from a Process (the Shell running
 the startup-sequence) means the worker's later `OpenDevice` finds it in the
-device list and never touches ramlib. The durable fix is upstream (the worker
-should be a Process); until it lands this line is mandatory.
+device list and never touches ramlib. The durable fix is upstream
+([markjfisher/fujinet-nio-driver#2](https://github.com/markjfisher/fujinet-nio-driver/issues/2)); until it lands this line is mandatory.
 
 **Why the broker is loaded explicitly.** `fujinet-nio.device` is not
 auto-loaded from `DEVS:`; nio-lib's `OpenDevice` only finds it once it is in
