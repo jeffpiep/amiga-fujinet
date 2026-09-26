@@ -1,11 +1,13 @@
 /*
  * fn_test.c - Minimal FujiNet init and readiness test
  *
- * Calls fn_init() then fn_is_ready() and prints the result.
- * Useful for verifying the serial transport comes up correctly
- * before exercising network operations.
+ * Calls fn_init() and fn_is_ready(), then reads the clock. Neither of the
+ * first two sends anything (the broker opens serial.device lazily), so the
+ * clock read is what actually proves the link: a FujiBus round trip that
+ * needs no internet.
  *
- * Requires: exec.library, serial.device (via fujinet-nio-lib)
+ * Requires: exec.library, fujinet-nio.device resident, serial.device
+ * (see contracts/amiga-adf-bootstrap.md)
  * Compiler: m68k-amigaos-gcc (amiga-gcc)
  *
  * See: contracts/amiga-transport-api.md
@@ -17,6 +19,7 @@
 int main(int argc, char *argv[])
 {
     uint8_t err;
+    FN_TIME_T now;
 
     printf("fn_test: calling fn_init()...\n");
     err = fn_init();
@@ -33,6 +36,15 @@ int main(int argc, char *argv[])
         printf("FujiNet not ready.\n");
         return 1;
     }
+
+    printf("fn_test: calling fn_clock_get()...\n");
+    err = fn_clock_get(&now);
+    if (err != FN_OK) {
+        printf("fn_clock_get() failed: %s (0x%02x)\n", fn_error_string(err), (unsigned)err);
+        return 1;
+    }
+    /* libnix printf has no %llu; the low word is plenty for a smoke test */
+    printf("FujiNet clock: %lu\n", (unsigned long)now);
 
     return 0;
 }

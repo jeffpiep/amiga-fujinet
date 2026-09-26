@@ -17,3 +17,6 @@ emu/.venv/
 apps/**/dice-preview.png
 apps/**/dice-stamps.png
 __pycache__/
+
+# Parent-repo Amiga build output (make/amiga.mk: the broker loader)
+/build/

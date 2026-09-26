@@ -10,6 +10,8 @@
 #   NIO_LIB / NIO_INC / NIO_ALIB       — fujinet-nio-lib paths + library
 #   COMPAT / COMPAT_INC / COMPAT_LIB   — compat-layer paths + library
 #   GAMEKIT / GAMEKIT_INC / GAMEKIT_LIB — shared Amiga game platform layer
+#   BROKER_DEVICE / LOAD_RESIDENT      — what a networked boot disk needs
+#                                        (contracts/amiga-adf-bootstrap.md)
 #
 # `$(COMPAT_LIB)` and `$(GAMEKIT_LIB)` rules are included so any app that
 # lists them as prerequisites gets those libraries built automatically. The
@@ -39,6 +41,29 @@ COMPAT_LIB = $(COMPAT)/libfn_compat_amiga.a
 GAMEKIT     = $(_AMIGA_ROOT)/libs/amiga-gamekit
 GAMEKIT_INC = $(GAMEKIT)/include
 GAMEKIT_LIB = $(GAMEKIT)/libamiga_gamekit.a
+
+# The resident broker nio-lib's transport opens, and the tool that loads it.
+# Every ADF that reaches FujiNet carries both; see
+# contracts/amiga-adf-bootstrap.md.
+DRIVER        = $(_AMIGA_ROOT)/fujinet-nio-driver
+BROKER_DEVICE = $(DRIVER)/build/amiga/fujinet-nio.device
+LOAD_RESIDENT = $(_AMIGA_ROOT)/build/amiga/fujinet-load-resident
+
+# The device is the driver's own target; its Makefile tracks the sources, so
+# always ask it rather than second-guessing staleness from here.
+$(BROKER_DEVICE): FORCE
+	$(MAKE) -C $(DRIVER)/amiga ../build/amiga/fujinet-nio.device
+
+# The driver's rule for this tool hardcodes -mcrt=clib2, which our amiga-gcc
+# does not ship. It uses only LoadSeg/InitResident and stdio, so libnix's
+# 1.3 crt builds it and it runs on KS 1.3.
+$(LOAD_RESIDENT): $(DRIVER)/amiga/tools/fujinet-load-resident.c
+	@mkdir -p $(dir $@)
+	$(CC) -std=c99 -Wall -Wextra -Werror -O2 -mcpu=68000 -msoft-float \
+	    -mcrt=nix13 -I$(DRIVER)/amiga/include -o $@ $< -lamiga
+
+.PHONY: FORCE
+FORCE:
 
 # Guard: skip when included from a library's own Makefile, which defines the
 # real rule for that target.

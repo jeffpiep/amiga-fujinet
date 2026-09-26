@@ -107,6 +107,7 @@ $(PREVIEW): $(PREVIEW_SRCS) $(AMIGA_HDRS) $(GAMEKIT_LIB) $(COMPAT_LIB) $(NIO_ALI
 preview-adf: $(PREVIEW)
 	APP_NAME=$(PREVIEW) \
 	APP_BINARY=$(abspath $(PREVIEW)) \
+	ADF_NO_BROKER=1 \
 	ADF_OUT=$(_PREVIEW_ADF) \
 	../../../emu/scripts/build-adf.sh
 
