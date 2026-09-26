@@ -66,8 +66,9 @@ where they differ.
 
 A and B are on `jeffpiep/fujinet-nio-driver`
 `feature/resident-endskip-in-code-hunk` (`35d0469`, `d11d503`), with the
-driver's host tests passing. We'd like to send them as a PR and C as an
-issue.
+driver's host tests passing, and are sent as
+[markjfisher/fujinet-nio-driver#1](https://github.com/markjfisher/fujinet-nio-driver/pull/1).
+C is left to you, as described above.
 
 ## The five points
 

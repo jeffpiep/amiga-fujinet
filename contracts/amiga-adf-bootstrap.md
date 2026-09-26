@@ -102,7 +102,7 @@ passes them to `build-adf.sh`.
 **Minimum driver revision.** Two driver bugs made the broker unloadable on
 KS 1.3. Both are fixed on `jeffpiep/fujinet-nio-driver`
 `feature/resident-endskip-in-code-hunk`, which is the pinned revision until
-upstream merges them:
+upstream merges them ([markjfisher/fujinet-nio-driver#1](https://github.com/markjfisher/fujinet-nio-driver/pull/1)):
 
 - `rt_EndSkip` must point past the ROMTag, inside the first hunk
   (otherwise "No matching resident tag").
