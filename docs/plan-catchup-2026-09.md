@@ -1,7 +1,9 @@
 # Catch-up plan — September 2026
 
-**Status: In progress (2026-09-26).** Item 3 (sync) under way; items 1 and 2
-not started.
+**Status: In progress (2026-09-26).** Item 3 (sync) **done** — all five
+submodules at upstream head, everything builds, results below. Items 1 and 2
+not started. The ADF broker rework that item 3 uncovered is outstanding and
+wants its own PR.
 
 Six weeks passed with no work on this repo while Mark pushed hard on his side.
 This snapshot records what changed upstream, what it breaks here, and the three
@@ -144,6 +146,41 @@ make -C apps                                           # all Amiga apps
 Expect `make -C apps` to compile (the transport is behind the nio-lib archive)
 but every ADF to fail at runtime for want of the broker. Confirm that rather
 than assuming it.
+
+### Results (2026-09-26)
+
+All five fast-forwarded cleanly. Verified green:
+
+| Check | Result |
+|---|---|
+| `make test-host` (T1, repo-wide) | PASS — joydecode, keytrans, sndgen, gkclock, gkrandom, cellmap, mousemap, wireformat, fjlayout |
+| `make -C fujinet-nio-lib amiga` | PASS — picks up `-I../fujinet-nio-driver/amiga/include` as designed |
+| `make -C fujinet-nio-lib test-amiga-transport` | PASS — the *new* broker-client host test |
+| nio-lib `test-library-link`, `test-session`, `test-disk`, `test-disk-context` | PASS |
+| `fujinet-disk.device` / `fujinet-nio.device` / `fujinet-serial.device` | all link — 24 KB / 13 KB / 7 KB |
+| `make -C apps` | PASS — every app builds |
+| `fujinet-nio` T3 (`./build.sh -cp fujibus-rs232-debug`) | PASS — 383 doctest cases, 12,949 assertions, 3/3 ctest |
+
+Two findings worth carrying forward:
+
+**`make -C fujinet-nio-lib check` cannot run here** — it needs `CC65_HOME` for
+the Atari/BBC targets and we have no cc65. Environment blocker, not a defect;
+the Amiga-relevant subset above was run individually instead. (This is exactly
+the case Mark's `docs/agent-test-policy.md` says to report rather than skip
+silently or substitute a bigger suite.)
+
+**The clib2 tool-link failure is now blocking, not cosmetic.** Installing the
+broker requires `fujinet-load-resident`, which is one of the four tools that
+hardcode `-mcrt=clib2` and so will not link against our libnix install.
+Re-verified that dropping the flag builds `fujinet-load-resident`,
+`fujinet-unload-resident` and `fujinet-td-probe` cleanly. **Filing the
+`TOOL_CRT ?= -mcrt=clib2` fix upstream is now on the critical path** — fold it
+into item 1's reply to Mark rather than sending it separately.
+
+**Everything compiling is the trap here.** The broker cutover is behind the
+nio-lib archive, so `apps/` builds and T1 passes while no ADF can actually reach
+FujiNet. Only T2 would catch it. Recorded in the strategic plan's Lessons
+Learned.
 
 Known toolchain issue, unchanged and still upstream's: the four tools under
 `fujinet-nio-driver/amiga/tools/` hardcode `-mcrt=clib2`, which our amiga-gcc

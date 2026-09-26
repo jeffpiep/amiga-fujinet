@@ -325,14 +325,73 @@ asks for a crt — is unaffected. Dropping the flag builds all four cleanly here
 `CreateNewProcTags`/`TAG_USER`).
 
 The fix belongs upstream as `TOOL_CRT ?= -mcrt=clib2` so the flag is
-overridable, not as a local edit sitting on a pinned commit. Until then, build
-just the device with `make -C fujinet-nio-driver/amiga ../build/amiga/fujinet-disk.device`.
+overridable, not as a local edit sitting on a pinned commit. Re-verified
+2026-09-26: dropping the flag still builds `fujinet-load-resident`,
+`fujinet-unload-resident` and `fujinet-td-probe` cleanly against libnix.
+
+**As of the September 2026 sync this is blocking, not cosmetic.** The Amiga
+transport now opens a resident broker (see below), and installing that broker
+needs `fujinet-load-resident` — one of the four tools that will not link. So
+"build just the device" is no longer a sufficient workaround: filing the
+`TOOL_CRT` fix upstream is now on the critical path for every app in `apps/`.
+
+Build the three devices individually in the meantime — they use
+`-nostartfiles` and all link cleanly:
+
+```bash
+cd fujinet-nio-driver/amiga
+make ../build/amiga/fujinet-disk.device      # 24 KB
+make ../build/amiga/fujinet-nio.device       # 13 KB — the broker
+make ../build/amiga/fujinet-serial.device    # 7 KB — Paula UART driver
+```
 
 The **earlier** `-Werror=format` failure on `fujinet-mount` is resolved: it came
 from an NDK header skew (Hyperion NDK 3.2 types `ULONG` as `uint32_t` under
 `-std=c99`, where NDK 3.9 says `unsigned long`), and Mark applied the portable
 cast-at-call-site fix upstream in `4c65402`. Don't reintroduce it as a local
 patch.
+
+### The Amiga transport goes through a resident broker
+
+**Changed upstream 2026-08-22 (`fujinet-nio-lib` `6e0b3d9`); this repo caught up
+2026-09-26.** `src/platform/amiga/fn_transport.c` no longer opens
+`serial.device` or `timer.device`. It `OpenDevice`s **`fujinet-nio.device`**, a
+resident Exec broker built from `fujinet-nio-driver/amiga/nio.device/`, and SLIP
+framing now lives in the broker rather than the library.
+
+Two consequences that bite:
+
+- nio-lib's `amiga` and `amiga-driver` targets compile with
+  `-I../fujinet-nio-driver/amiga/include` (hardcoded as
+  `AMIGA_NIO_DEVICE_INCLUDE` in its `makefiles/targets.mk`) to reach
+  `fujinet_nio_device.h`, the broker ABI. **`fujinet-nio-driver` must be a
+  sibling of `fujinet-nio-lib`** — which is why both are pinned at the repo
+  root. Don't vendor a second copy of that header; upstream says not to.
+- **No ADF in `apps/` reaches FujiNet until its recipe installs the broker.**
+  Shipping `Devs/serial.device` is no longer enough: an ADF also needs
+  `fujinet-nio.device` in `DEVS:`, `fujinet-load-resident` in `C:`, and a
+  `S:Startup-Sequence` line loading it. That rework is outstanding — see
+  `docs/plan-catchup-2026-09.md`.
+
+Optionally the broker can also drive **`fujinet-serial.device`**, Mark's Paula
+UART driver (8N1, exclusive open, RX-full interrupt into a ring, polled TBE),
+which is what made baud rates above 19200 survivable. Selected at runtime and
+held by the resident broker until unload or reboot:
+
+```text
+C:fujinet-load-resident DEVS:fujinet-serial.device fujinet-serial.device
+C:fujinet-nio-serial fujinet-serial.device
+C:fujinet-nio-baud 38400
+```
+
+Never rename stock `serial.device` to install it — select it instead. Range is
+300–230400, and the setting only affects the RS-232 byte-stream backend.
+
+**Do not run `C:fujinet-nio-exchange` with no arguments on PiStorm or real
+hardware.** That bare form is Mark's Amiberry isolation suite: it forces a
+timeout with a malformed packet, then `CreateNewProc`s two more processes for
+concurrent clock commands. On PiStorm it has printed `PASS` and then rebooted
+the machine. Details in `fujinet-nio-driver/docs/amiga/rs232-cold-warm-hardware-test.md`.
 
 See `fujinet-nio/docs/developer_onboarding.md` for full build options, ESP32 setup,
 available profiles (`./build.sh -p -S`), and CLI testing tools.
@@ -443,6 +502,13 @@ cp emu/config/paths.env.example emu/config/paths.env
 
 Every ADF requires `Devs/serial.device` extracted from a Workbench 1.3.4 disk image —
 see `contracts/amiga-adf-bootstrap.md`. ADFs are gitignored (copyright).
+
+⚠️ **Since the September 2026 sync, `serial.device` alone is not enough** — the
+transport now opens a resident broker, so an ADF that only carries
+`serial.device` boots but cannot reach FujiNet. The ADF recipe rework is
+outstanding; see "The Amiga transport goes through a resident broker" above and
+`docs/plan-catchup-2026-09.md`. Offline harnesses that never touch the network
+(`preview-adf`, `gallery-adf`, the `pacmantests` ones) are unaffected.
 
 Serial port is configured at runtime via environment variables:
 - `FN_SERIAL_PORT` (default: `/dev/ttyUSB0`)
