@@ -1,9 +1,11 @@
 # Catch-up plan — September 2026
 
 **Status: In progress (2026-09-26).** Item 3 (sync) **done** — all five
-submodules at upstream head, everything builds, results below. Items 1 and 2
-not started. The ADF broker rework that item 3 uncovered is outstanding and
-wants its own PR.
+submodules at upstream head, everything builds, results below. Item 1
+**answered** in `docs/response-to-mark-disk-device-review.md`; its 1.3 beliefs
+(`serial.device` opened from a Task, `GlobVec = -1`) await a boot. Item 2 not
+started. The ADF broker rework that item 3 uncovered is outstanding, wants its
+own PR, and is now the next step: it gates item 1's follow-up boots.
 
 Six weeks passed with no work on this repo while Mark pushed hard on his side.
 This snapshot records what changed upstream, what it breaks here, and the three
@@ -365,12 +367,8 @@ wants our harness to stay independent of his.
 
 ## Repo housekeeping debt
 
-- **PR #42** (`feature/sync-disk-device` → `dev`) is open and clean, and is what
-  lands `fujinet-nio-driver` as a submodule — `dev` still lacks it. An attempt to
-  squash-merge it on 2026-09-26 was **blocked by the Claude Code permission
-  classifier** ("Merge Without Review"), so the September catch-up was built on
-  top of that branch instead and PR #42 grew to cover both. Needs your review and
-  merge.
+- ~~**PR #42**~~ — squash-merged to `dev` 2026-09-26; `fujinet-nio-driver` is
+  now a submodule on `dev`.
 - `feature/floppy-planning` — 5 unmerged planning commits, no PR. Read Mark's
   `amiga-floppy-channel.md` and `zorro-autoboot.md` before reviving it.
 - Dead local branches to reap: `feature/niotools` (0 ahead of `dev`),
