@@ -329,14 +329,14 @@ overridable, not as a local edit sitting on a pinned commit. Re-verified
 2026-09-26: dropping the flag still builds `fujinet-load-resident`,
 `fujinet-unload-resident` and `fujinet-td-probe` cleanly against libnix.
 
-**As of the September 2026 sync this is blocking, not cosmetic.** The Amiga
-transport now opens a resident broker (see below), and installing that broker
-needs `fujinet-load-resident` — one of the four tools that will not link. So
-"build just the device" is no longer a sufficient workaround: filing the
-`TOOL_CRT` fix upstream is now on the critical path for every app in `apps/`.
+**It does not block the apps.** Installing the broker (see below) needs
+`fujinet-load-resident`, but `make/amiga.mk` builds that one tool itself, from
+the driver's source with `-mcrt=nix13`, into `build/amiga/`. It uses only
+`LoadSeg`, `InitResident` and stdio, so it runs on KS 1.3. The `TOOL_CRT` ask
+upstream is a nice-to-have.
 
-Build the three devices individually in the meantime — they use
-`-nostartfiles` and all link cleanly:
+Build the three devices individually — they use `-nostartfiles` and all link
+cleanly (`emu-adf` builds the broker for you):
 
 ```bash
 cd fujinet-nio-driver/amiga
@@ -367,11 +367,18 @@ Two consequences that bite:
   `fujinet_nio_device.h`, the broker ABI. **`fujinet-nio-driver` must be a
   sibling of `fujinet-nio-lib`** — which is why both are pinned at the repo
   root. Don't vendor a second copy of that header; upstream says not to.
-- **No ADF in `apps/` reaches FujiNet until its recipe installs the broker.**
-  Shipping `Devs/serial.device` is no longer enough: an ADF also needs
-  `fujinet-nio.device` in `DEVS:`, `fujinet-load-resident` in `C:`, and a
-  `S:Startup-Sequence` line loading it. That rework is outstanding — see
-  `docs/plan-catchup-2026-09.md`.
+- **Every networked ADF must install the broker.** `Devs/serial.device` is no
+  longer enough: the disk also needs `fujinet-nio.device` in `DEVS:`,
+  `fujinet-load-resident` in `C:`, and Startup-Sequence lines making *both*
+  `serial.device` and the broker resident, `serial.device` first.
+  `emu/scripts/build-adf.sh` does this by default; the spec is
+  `contracts/amiga-adf-bootstrap.md`. Leaving out the `serial.device` line
+  gurus KS 1.3 with #00000003 on the first exchange, because the broker's
+  worker is a Task that cannot load a disk-based device.
+- **The pinned driver carries two KS 1.3 fixes not yet upstream.** Without
+  them the broker either fails to load ("No matching resident tag") or loads
+  unnamed and `fn_init()` says "Device not found". See the contract's
+  "Minimum driver revision".
 
 Optionally the broker can also drive **`fujinet-serial.device`**, Mark's Paula
 UART driver (8N1, exclusive open, RX-full interrupt into a ring, polled TBE),
@@ -503,12 +510,10 @@ cp emu/config/paths.env.example emu/config/paths.env
 Every ADF requires `Devs/serial.device` extracted from a Workbench 1.3.4 disk image —
 see `contracts/amiga-adf-bootstrap.md`. ADFs are gitignored (copyright).
 
-⚠️ **Since the September 2026 sync, `serial.device` alone is not enough** — the
-transport now opens a resident broker, so an ADF that only carries
-`serial.device` boots but cannot reach FujiNet. The ADF recipe rework is
-outstanding; see "The Amiga transport goes through a resident broker" above and
-`docs/plan-catchup-2026-09.md`. Offline harnesses that never touch the network
-(`preview-adf`, `gallery-adf`, the `pacmantests` ones) are unaffected.
+Since the September 2026 sync every networked ADF also carries the resident
+broker and the lines that load it; `build-adf.sh` adds them unless
+`ADF_NO_BROKER=1`. Only the offline harnesses (`preview-adf`, `gallery-adf`)
+set that. See "The Amiga transport goes through a resident broker" above.
 
 Serial port is configured at runtime via environment variables:
 - `FN_SERIAL_PORT` (default: `/dev/ttyUSB0`)

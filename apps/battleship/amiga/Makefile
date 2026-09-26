@@ -76,6 +76,7 @@ $(GALLERY): $(GALLERY_SRCS) $(GALLERY_HDRS) $(GAMEKIT_LIB)
 gallery-adf: $(GALLERY)
 	APP_NAME=$(GALLERY) \
 	APP_BINARY=$(abspath $(GALLERY)) \
+	ADF_NO_BROKER=1 \
 	ADF_OUT=$(_GALLERY_ADF) \
 	../../../emu/scripts/build-adf.sh
 

@@ -21,6 +21,55 @@ Your default guest is `wb32` on an A1200/030; our floor is KS 1.3 on an A500
 booted your driver (see point 4), so none of them is confirmed on a live 1.3
 machine.
 
+## Update: first KS 1.3 boot of the broker (2026-09-26, later the same day)
+
+Since writing the review below we have booted `fujinet-nio.device` on KS 1.3
+in FS-UAE, and `http_get` has fetched a real HTTPS page through it. Getting
+there took three fixes, and one of our beliefs turned out worse than we
+wrote. The review text below is left as written; this section supersedes it
+where they differ.
+
+- **A — "No matching resident tag" (fixed, read and booted).** All three
+  devices set `rt_EndSkip = &device_end`. In `nio.device` and
+  `serial.device` that symbol is uninitialised, so it lands in `.bss`; in
+  `disk.device` it is initialised, but GCC 6.5 placed it *before* the tag.
+  The loader rightly requires `EndSkip` after the tag and inside the first
+  hunk. Fix: `rt_EndSkip = (APTR)(&device_resident + 1)`.
+- **B — device node never named (fixed, booted).** None of the three
+  `device_init`s sets `ln_Name`, `ln_Type`, the version or the ID string,
+  and each init table's data-table entry is `0`. KS 1.3's `InitResident`
+  does not copy them from the ROMTag (later Kickstarts do, which is why your
+  3.1 guest never saw it), so the device was added unnamed and `OpenDevice`
+  returned "Device not found". Fix: set them in `device_init`.
+- **The loader reports success on an unopenable device.**
+  `fujinet-load-resident` printed "Resident loaded" throughout B, because it
+  checks only `InitResident`'s return. A `FindName` on `DeviceList` after
+  loading would have caught it.
+- **C — the `serial.device` open from the worker Task: confirmed, and it
+  crashes rather than fails.** Point 1's last belief predicted
+  `IOERR_OPENFAIL`. What actually happens is Guru **#00000003** on the first
+  exchange: ramlib loads the device and replies to the caller's
+  `pr_MsgPort` at `task+92`, which a plain Task does not have, so `PutMsg`
+  writes through garbage. We pinned it with Amiberry's IPC `READ_MEM`: the
+  faulting task's `tc_UserData` was the broker base, and a return address
+  on its stack sat directly after `backend_open`'s `OpenDevice` call
+  (`fujinet_nio_serial_backend.c:597`). The workaround we predicted works:
+  `C:fujinet-load-resident DEVS:serial.device serial.device` from the
+  Startup-Sequence, before the broker is loaded. The durable fix is still
+  yours: make the worker a Process, or do the first open in the caller's
+  context in `OpenDevice`.
+- **`TOOL_CRT` is no longer blocking** (point 4). `fujinet-load-resident`
+  builds from our side with `-mcrt=nix13`, and runs on 1.3. We would still
+  take `TOOL_CRT ?= -mcrt=clib2`, but it is a nice-to-have now.
+- **Still unverified:** the `GlobVec` belief (point 2). It needs
+  `fujinet-disk.device` mounted on 1.3, which is next.
+
+A and B are on `jeffpiep/fujinet-nio-driver`
+`feature/resident-endskip-in-code-hunk` (`35d0469`, `d11d503`), with the
+driver's host tests passing, and are sent as
+[markjfisher/fujinet-nio-driver#1](https://github.com/markjfisher/fujinet-nio-driver/pull/1).
+C is filed as [markjfisher/fujinet-nio-driver#2](https://github.com/markjfisher/fujinet-nio-driver/issues/2).
+
 ## The five points
 
 ### 1. Native Exec and trackdisk command behaviour
@@ -92,7 +141,8 @@ open. We carry the WB 1.3.4 copy on every ADF for exactly this reason. The
 broker opens it from its worker, which is a plain `AddTask` Task and not a
 Process (`nio.device/fujinet_nio_serial_backend.c:597`). As we understand
 1.x, loading a device from disk needs a Process context, so the first
-`OpenDevice` would fail with `IOERR_OPENFAIL` rather than load. The workaround needs no code
+`OpenDevice` would fail with `IOERR_OPENFAIL` rather than load. *(Confirmed
+on 1.3, and worse: it gurus. See the update at the top.)* The workaround needs no code
 change: have something that is a Process open `serial.device` first, such as a
 `Startup-Sequence` line. It stays resident until a memory flush expunges it,
 and the failure would come back after one. If we confirm this, the durable fix
@@ -166,7 +216,8 @@ either.**
   `fujinet-load-resident` and the `Startup-Sequence` lines is our next piece of
   work. Driver runs on KS 1.3 follow directly from it, and so do the 1.3 checks
   above.
-- **The clib2 tool link blocks that recipe.** The four tools under
+- **The clib2 tool link blocks that recipe.** *(No longer: see the update
+  at the top.)* The four tools under
   `amiga/tools/` hardcode `-mcrt=clib2`, and the stock amiga-gcc install we
   use ships libnix only. That includes `fujinet-load-resident`, which the
   broker install now requires. Dropping the flag builds

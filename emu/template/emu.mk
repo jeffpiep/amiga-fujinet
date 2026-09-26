@@ -16,6 +16,10 @@
 #   EMU_FAIL_PATTERN  — grep string; match → immediate FAIL
 #   EMU_TIMEOUT       — seconds before timeout FAIL (default: 60)
 #   EMU_STARTUP_ARGS  — extra args appended to app name in startup-sequence
+#
+# The ADF always carries the resident broker (fujinet-nio.device) and the
+# lines that load it — see contracts/amiga-adf-bootstrap.md. That needs
+# $(BROKER_DEVICE) and $(LOAD_RESIDENT) from make/amiga.mk, included first.
 
 _EMU_MK_DIR  := $(dir $(lastword $(MAKEFILE_LIST)))
 _EMU_ROOT    := $(abspath $(_EMU_MK_DIR)../..)
@@ -30,9 +34,11 @@ ADF_STATIC_DIR   ?=
 
 .PHONY: emu-adf emu-test emu-play emu-clean
 
-emu-adf: $(APP_BINARY)
+emu-adf: $(APP_BINARY) $(BROKER_DEVICE) $(LOAD_RESIDENT)
 	APP_NAME=$(APP_NAME) \
 	APP_BINARY=$(abspath $(APP_BINARY)) \
+	BROKER_DEVICE=$(BROKER_DEVICE) \
+	LOAD_RESIDENT=$(LOAD_RESIDENT) \
 	EMU_STARTUP_ARGS="$(EMU_STARTUP_ARGS)" \
 	ADF_STATIC_DIR="$(ADF_STATIC_DIR)" \
 	ADF_OUT=$(_APP_ADF) \

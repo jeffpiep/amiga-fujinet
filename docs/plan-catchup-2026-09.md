@@ -4,8 +4,12 @@
 submodules at upstream head, everything builds, results below. Item 1
 **answered** in `docs/response-to-mark-disk-device-review.md`; its 1.3 beliefs
 (`serial.device` opened from a Task, `GlobVec = -1`) await a boot. Item 2 not
-started. The ADF broker rework that item 3 uncovered is outstanding, wants its
-own PR, and is now the next step: it gates item 1's follow-up boots.
+started. **The ADF broker rework that item 3 uncovered is done** (branch
+`feature/adf-broker-rework`): `build-adf.sh` installs the broker, and
+`make emu-test` reaches FujiNet again on KS 1.3. It needed three driver fixes,
+and it confirmed the `serial.device` belief — as a Guru, not an open failure.
+See `contracts/amiga-adf-bootstrap.md` and the update at the top of the review
+reply. Next: boot `fujinet-disk.device` on 1.3 to settle `GlobVec`.
 
 Six weeks passed with no work on this repo while Mark pushed hard on his side.
 This snapshot records what changed upstream, what it breaks here, and the three
@@ -171,7 +175,10 @@ the Amiga-relevant subset above was run individually instead. (This is exactly
 the case Mark's `docs/agent-test-policy.md` says to report rather than skip
 silently or substitute a bigger suite.)
 
-**The clib2 tool-link failure is now blocking, not cosmetic.** Installing the
+*(Superseded by the ADF rework: `make/amiga.mk` builds
+`fujinet-load-resident` itself with `-mcrt=nix13`, so `TOOL_CRT` is a
+nice-to-have again.)* **The clib2 tool-link failure is now blocking, not
+cosmetic.** Installing the
 broker requires `fujinet-load-resident`, which is one of the four tools that
 hardcode `-mcrt=clib2` and so will not link against our libnix install.
 Re-verified that dropping the flag builds `fujinet-load-resident`,
