@@ -448,6 +448,11 @@ wiring:
 | `emu/drive.sh` | Xvfb | scripted | keyboard-driven checks over SSH; captures pixel-exact shots |
 | `emu/play.sh` | visible | you | `make emu-play` — hands-on, needs a desktop |
 
+Amiberry is installed alongside FS-UAE as a **debugger, not a gate**: its IPC
+socket reads guest memory even after a Guru. Spike tooling is in
+`emu/amiberry/`; usage, pitfalls and the Guru-tracing method are in
+`docs/testing.md` ("Amiberry").
+
 `drive.sh` is what makes the "manual" checks reachable from a remote CLI — it
 types a token script through `emu/scripts/emukey.py` (XTEST) and dumps FS-UAE's
 internal screenshots at labeled points:

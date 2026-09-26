@@ -93,6 +93,60 @@ sets an `EMU_PASS_PATTERN`, and `make emu-test` boots the app in FS-UAE via
 `libs/fujinet-compat-amiga/test/compat_test.c`; `apps/compat_test` is the
 single owner of building, packaging, and running it on-target.
 
+### Amiberry — a debugger alongside FS-UAE, not a gate
+
+FS-UAE is the T2 gate. Amiberry is installed alongside it for one reason: its
+IPC socket can read guest memory, **including after a Guru**, which is what
+pinned down the broker's KS 1.3 crash (markjfisher/fujinet-nio-driver#2). The
+rationale for keeping both is in `docs/plan-catchup-2026-09.md` item 2.
+
+It is installed system-wide from the official `.deb` (8.3.0, `noble_amd64`),
+not the Flatpak, whose sandbox hides the IPC socket. The tooling in
+`emu/amiberry/` is a spike, not a harness:
+
+| Tool | Does |
+|------|------|
+| `probe.sh [ADF\|stop]` | Starts Xvfb `:98`, Amiberry (A500, KS 1.3), the TCP-profile `fujinet-nio` and a socat bridge, and leaves them running. Logs go to `$AB_OUT` (default `/tmp/amiberry-probe`). Default ADF is `http_get`'s. Needs `cd fujinet-nio && ./build.sh -p fujibus-tcp-debug`. |
+| `ipc.py CMD …` | Sends one IPC command. `HELP` lists them all; `SCREENSHOT <path>` works. |
+| `mem.py task\|str\|long\|dump ADDR` | Reads guest structures via `READ_MEM`, which returns one value per call. |
+
+Things that cost time to find:
+
+- **Force a real 68000.** `-C 68000` is not enough. The A500 model came up
+  with JIT on and looped on host SIGSEGVs, and one run wrote a 1.5 GB log. Pass
+  `-s cpu_type=68000 -s cachesize=0 -s cpu_compatible=true
+  -s cpu_24bit_addressing=true`. A JIT-looping instance ignores SIGTERM and
+  holds the IPC socket, so use `pkill -9 -x amiberry`.
+- **Serial must be TCP.** Amiberry rejects PTYs ("Error finding serial port"),
+  so `run.sh`'s socat PTY pair cannot be reused. Amiberry (`TCP://host:port`)
+  and nio's `fujibus-tcp-debug` profile (`127.0.0.1:65504`) are both TCP
+  *servers*, so the socat bridge dials both. Use a fresh port per run: a
+  stale listener in TIME_WAIT fails `bind()` with errno 98.
+- **Never `pkill -f` with a pattern that appears in your own command line.**
+  It kills the invoking shell (exit 144). `probe.sh` tracks PIDs in a file
+  instead.
+- The IPC socket is `$XDG_RUNTIME_DIR/amiberry.sock`, with tab-separated
+  commands.
+
+**Open problem:** under Amiberry, `http_get` gets `Transport error` even though
+the whole 16-byte SLIP reply reached the emulator in one chunk. The same ADF
+passes under FS-UAE. Unconfirmed guess: the reply arrives unpaced, and a 7 MHz
+68000 on 1.3's `serial.device` overruns. Not blocking, since FS-UAE is the
+gate.
+
+**Tracing a Guru to a source line.** The alert's task address is the way in:
+
+1. `mem.py task <addr>` on the Guru's task. For the broker crash it was an
+   unnamed type-0 Task whose `tc_UserData` was the broker's device base.
+2. From the base, the segment list at base+34 gives the code's load address.
+3. Walk the task's stack for return addresses that fall inside that code, and
+   resolve them against the device's link map
+   (`fujinet-nio-driver/build/amiga/*.map`). One sat directly after
+   `jsr -444(a6)`, i.e. `OpenDevice` in `backend_open`.
+4. Cross-check the FS-UAE log's `Exception N` PCs against the ROM. There,
+   `fc1b9c` was `PutMsg`'s `move.l a1,(a0)`, writing through a Task's missing
+   `pr_MsgPort`.
+
 ## T3 — the fujinet-nio host suite (submodule)
 
 `fujinet-nio/tests/` holds ~33 `test_*.cpp` on **doctest 2.4.12**, wired into a

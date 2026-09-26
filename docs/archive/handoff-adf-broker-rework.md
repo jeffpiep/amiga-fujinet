@@ -1,5 +1,11 @@
 # Handoff — ADF broker rework and the first KS 1.3 boot of Mark's driver
 
+> **Status: ARCHIVED — superseded 2026-09-26.** The rework merged as PR #44.
+> The ADF recipe and driver facts now live in `contracts/amiga-adf-bootstrap.md`
+> and CLAUDE.md; bugs A–C in `docs/response-to-mark-disk-device-review.md` and
+> markjfisher/fujinet-nio-driver#1/#2; Amiberry tooling, pitfalls and the
+> Guru-tracing method in `docs/testing.md` ("Amiberry").
+
 **Status: In progress (2026-09-26).** Point-in-time snapshot; archive per
 `docs/README.md` §2 once its facts are rehomed.
 **Branch:** `feature/adf-broker-rework` (parent, cut from `dev` at `8654cd2`).

@@ -3,10 +3,12 @@
 **Status: In progress (2026-09-26).** Item 3 (sync) **done** — all five
 submodules at upstream head, everything builds, results below. Item 1
 **answered** in `docs/response-to-mark-disk-device-review.md`; its 1.3 beliefs
-(`serial.device` opened from a Task, `GlobVec = -1`) await a boot. Item 2 not
-started. **The ADF broker rework that item 3 uncovered is done** (branch
-`feature/adf-broker-rework`): `build-adf.sh` installs the broker, and
-`make emu-test` reaches FujiNet again on KS 1.3. It needed three driver fixes,
+(`serial.device` opened from a Task, `GlobVec = -1`) await a boot. Item 2
+**spiked**: Amiberry is installed alongside FS-UAE as a debugger (tooling and
+pitfalls in `docs/testing.md`), and it is what traced the broker's 1.3 Guru;
+the question of a full `emu/` mode stays open. **The ADF broker rework that
+item 3 uncovered is done** (PR #44): `build-adf.sh` installs the broker, and
+`make emu-test` reaches FujiNet again on KS 1.3. It needed two driver fixes and a Startup-Sequence workaround,
 and it confirmed the `serial.device` belief — as a Guru, not an open failure.
 See `contracts/amiga-adf-bootstrap.md` and the update at the top of the review
 reply. Next: boot `fujinet-disk.device` on 1.3 to settle `GlobVec`.
