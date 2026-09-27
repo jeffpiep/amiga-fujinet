@@ -112,6 +112,90 @@ upstream merges them ([markjfisher/fujinet-nio-driver#1](https://github.com/mark
 
 ---
 
+## Disk device (`DN0:`) on KS 1.3
+
+An ADF that mounts FujiNet media as a DOS volume adds `fujinet-disk.device`
+on top of the broker. Settled on a KS 1.3 boot on 2026-09-26; see
+`docs/response-to-mark-disk-device-review.md` and
+[markjfisher/fujinet-nio-driver#3](https://github.com/markjfisher/fujinet-nio-driver/issues/3).
+
+Extra ADF contents:
+
+```
+  Devs/fujinet-disk.device      ← fujinet-nio-driver
+  Devs/MountList                ← DN0 entry, below
+  c/Mount                       ← from WB 1.3.4 (ADF_WB_FILES="C/Mount")
+  <a mount tool>                ← sends FUJINET_DISK_CMD_MOUNT
+```
+
+Startup-sequence order, after the broker lines:
+
+```
+C:fujinet-load-resident DEVS:fujinet-disk.device fujinet-disk.device
+<mount tool> 0 host:/<image>.adf
+Mount DN0:
+```
+
+Rules:
+
+- **Load the disk device after the broker.** Its worker Task opens
+  `fujinet-nio.device`. That device is already resident, so no ramlib load
+  happens and the open is safe (booted).
+- **Mount the media client-side before the first access to `DN0:`.** The
+  driver keeps its own per-unit mounted flag. It never adopts the server's
+  restored runtime mounts, so pre-mounting on the server does nothing.
+  `fujinet-mount` cannot be used on 1.3: it calls `CreateNewProcTags`.
+  `apps/disk_test` has a 1.3-safe mount step.
+- **`DEVS:MountList` is 1.3 syntax:** one entry per name, terminated by `#`.
+  Mark's `config/DN0` keywords are all accepted, including `DosType`,
+  `StackSize` and `BufMemType`.
+- **No `GlobVec` line with the ROM file system.** On 1.3 the ROM handler is
+  BCPL. `GlobVec = -1` makes it guru **#00000003** on the first access to
+  `DN0:`, before any sector is read, even though `Mount` itself succeeded.
+- **`FileSystem = L:FastFileSystem` only for FFS media.** The 1.3 FFS
+  accepts `DOS\1` only. It rejects OFS images with "Not a DOS disk". With FFS
+  media, use `DosType = 0x444F5301` and keep `GlobVec = -1`.
+- **`Buffers = 30`, not 5.** At 19200 baud each block costs about 0.35 s. A
+  repeat `Dir` of a 20-file volume drops from 9 s to 2 s.
+
+The working 1.3 entry, for OFS media:
+
+```
+DN0:
+    Device = fujinet-disk.device
+    Unit = 0
+    Flags = 0
+    Surfaces = 2
+    BlocksPerTrack = 11
+    Reserved = 2
+    Interleave = 0
+    LowCyl = 0
+    HighCyl = 79
+    Buffers = 30
+    BufMemType = 1
+    DosType = 0x444F5300
+    StackSize = 32768
+    Priority = 5
+#
+```
+
+### `disk_test` verdict
+
+`emu/run.sh` judges a run by grepping the **server** log. A DOS-level check
+on the Amiga is invisible there. So `disk_test check` reports its verdict
+through the device under test: it sends `FUJINET_DISK_CMD_MOUNT` for
+`host:/disk_test-PASS` or `host:/disk_test-FAIL` on unit 1. `fujinet-nio`
+logs the URI of every mount request (`uri='host:/disk_test-PASS'`), whether
+or not the file exists. Neither file exists, so the mount fails harmlessly
+and unit 1 stays empty. A Guru or a hang sends no verdict, and the run fails
+on timeout.
+
+`fujinet-nio`'s `host:` root is `./fujinet-data` relative to its working
+directory. `make -C apps/disk_test emu-test` runs it from `apps/disk_test/`,
+so the test image is generated at `apps/disk_test/fujinet-data/` (gitignored).
+
+---
+
 ## `build-adf.sh` interface
 
 Required: `APP_NAME`, `APP_BINARY`. From `paths.env`: `WB_ADF`.
@@ -124,6 +208,7 @@ Required: `APP_NAME`, `APP_BINARY`. From `paths.env`: `WB_ADF`.
 | `EMU_STARTUP_PREFIX` | AmigaDOS lines run after the broker lines, before the app. |
 | `EMU_STARTUP_ARGS` | Arguments appended to the app's line. |
 | `ADF_STATIC_DIR` | Tree copied to the ADF root. |
+| `ADF_WB_FILES` | Extra files copied from `WB_ADF` to the same path, space-separated (e.g. `C/Mount L/FastFileSystem`). A missing file is a build error. |
 | `ADF_OUT` | Output path. |
 
 A missing `BROKER_DEVICE` or `LOAD_RESIDENT` is a build error, not a silent

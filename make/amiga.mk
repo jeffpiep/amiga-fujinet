@@ -48,11 +48,16 @@ GAMEKIT_LIB = $(GAMEKIT)/libamiga_gamekit.a
 DRIVER        = $(_AMIGA_ROOT)/fujinet-nio-driver
 BROKER_DEVICE = $(DRIVER)/build/amiga/fujinet-nio.device
 LOAD_RESIDENT = $(_AMIGA_ROOT)/build/amiga/fujinet-load-resident
+# The disk device, for ADFs that mount FujiNet media as DN0: (apps/disk_test).
+DISK_DEVICE   = $(DRIVER)/build/amiga/fujinet-disk.device
 
 # The device is the driver's own target; its Makefile tracks the sources, so
 # always ask it rather than second-guessing staleness from here.
 $(BROKER_DEVICE): FORCE
 	$(MAKE) -C $(DRIVER)/amiga ../build/amiga/fujinet-nio.device
+
+$(DISK_DEVICE): FORCE
+	$(MAKE) -C $(DRIVER)/amiga ../build/amiga/fujinet-disk.device
 
 # The driver's rule for this tool hardcodes -mcrt=clib2, which our amiga-gcc
 # does not ship. It uses only LoadSeg/InitResident and stdio, so libnix's

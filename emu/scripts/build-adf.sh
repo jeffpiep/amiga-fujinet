@@ -15,6 +15,8 @@
 #   EMU_STARTUP_ARGS   — extra args appended to the app in startup-sequence
 #   EMU_STARTUP_PREFIX — AmigaDOS commands to run after the broker is
 #                        loaded, before the app (multi-line OK)
+#   ADF_WB_FILES       — extra files copied from WB_ADF to the same path,
+#                        space-separated (e.g. "C/Mount"); missing = error
 #   ADF_OUT            — output path (default: <dir of APP_BINARY>/<APP_NAME>.adf)
 #
 # Reads from emu/config/paths.env:
@@ -58,6 +60,7 @@ fi
 EMU_STARTUP_ARGS="${EMU_STARTUP_ARGS:-}"
 EMU_STARTUP_PREFIX="${EMU_STARTUP_PREFIX:-}"
 ADF_STATIC_DIR="${ADF_STATIC_DIR:-}"
+ADF_WB_FILES="${ADF_WB_FILES:-}"
 ADF_OUT="${ADF_OUT:-$(dirname "$APP_BINARY")/$APP_NAME.adf}"
 # Volume label: uppercase, max 30 chars
 ADF_LABEL="${APP_NAME^^}"
@@ -127,6 +130,15 @@ if [ -d "$TMPWORK/c" ] && [ "$(ls -A "$TMPWORK/c" 2>/dev/null)" ]; then
         xdftool "$ADF_OUT" write "$f" "c/$(basename "$f")"
     done
 fi
+
+# Optional: extra Workbench files (e.g. C/Mount for a disk-device ADF).
+# A missing one is an error: the startup-sequence would fail on it silently.
+for WBF in $ADF_WB_FILES; do
+    mkdir -p "$TMPWORK/wb/$(dirname "$WBF")"
+    xdftool "$WB_ADF" read "$WBF" "$TMPWORK/wb/$WBF"
+    xdftool "$ADF_OUT" makedir "$(dirname "$WBF")" 2>/dev/null || true
+    xdftool "$ADF_OUT" write "$TMPWORK/wb/$WBF" "$WBF"
+done
 
 # Optional: add a static directory tree to the ADF root.
 # Files are placed at their path relative to ADF_STATIC_DIR.

@@ -61,14 +61,81 @@ where they differ.
 - **`TOOL_CRT` is no longer blocking** (point 4). `fujinet-load-resident`
   builds from our side with `-mcrt=nix13`, and runs on 1.3. We would still
   take `TOOL_CRT ?= -mcrt=clib2`, but it is a nice-to-have now.
-- **Still unverified:** the `GlobVec` belief (point 2). It needs
-  `fujinet-disk.device` mounted on 1.3, which is next.
+- **The `GlobVec` belief (point 2)** was still unverified at this point.
+  It is now settled; see the next update.
 
 A and B are on `jeffpiep/fujinet-nio-driver`
 `feature/resident-endskip-in-code-hunk` (`35d0469`, `d11d503`), with the
 driver's host tests passing, and are sent as
 [markjfisher/fujinet-nio-driver#1](https://github.com/markjfisher/fujinet-nio-driver/pull/1).
 C is filed as [markjfisher/fujinet-nio-driver#2](https://github.com/markjfisher/fujinet-nio-driver/issues/2).
+
+## Update: `DN0:` mounted on KS 1.3 — `GlobVec` and `Buffers` (2026-09-26)
+
+We have now mounted `fujinet-disk.device` as `DN0:` on KS 1.3 (FS-UAE, A500,
+WB 1.3.4 `C:Mount`), at the driver revision pinned above. The `GlobVec` belief
+is **confirmed**. Half of the fix we suggested is **retracted**: 1.3's
+FastFileSystem does not read OFS media.
+
+**Setup.** Your `config/DN0` was reshaped into a single `#`-terminated entry
+in `DEVS:MountList`. All of its keywords are accepted by 1.3 `Mount`,
+including `DosType`, `StackSize` and `BufMemType`. The WB 1.3.4 MountList has
+a `FAST:` example that uses all three. The boot loads the device with
+`fujinet-load-resident` after the broker, mounts `host:/<image>` into unit 0,
+then runs `Mount DN0:`, `Dir DN0: ALL` twice, `Type`, and `Info`. Test images
+were 880 KB ADFs built with `xdftool`.
+
+| MountList | Image | Result |
+|-----------|-------|--------|
+| 1. Yours as-is (`GlobVec = -1`, no `FileSystem`) | OFS | `Mount DN0:` returns cleanly. The first access (`Dir`) starts the ROM handler, which gurus **#00000003** before issuing a single sector read. The server log ends at the mount's Info and ClearChanged. |
+| 2. `GlobVec` omitted | OFS | Works: `Dir`, `Type`, `Info` (`DN0: 880K Read Only`). |
+| 3. `GlobVec = -1` + `FileSystem = L:FastFileSystem` | OFS | The handler starts and reads LBA 0. It finds `DOS\0` and puts up *"Not a DOS disk in unit 0"*. |
+| 3b. As 3, with `DosType = 0x444F5301` | FFS | Works: `Dir`, `Type`, `Info`. |
+
+So, for 1.3:
+
+- **With no `FileSystem` line, `GlobVec = -1` is fatal.** Omitting it is
+  the fix. We have not tried omitting it on 2.0+. We expect the ROM handler
+  there to be fine either way, but your 3.1 guest is the place to check. If
+  it isn't fine, 1.3 needs its own entry.
+- **`FileSystem = L:FastFileSystem` is not the general answer we said it
+  was.** The 1.3 FFS (L:FastFileSystem from WB 1.3.4) mounts `DOS\1` media
+  only. It is correct only for images formatted FFS, with a matching
+  `DosType`. The review's "FFS reads OFS media" holds for 2.0+ only.
+- `GlobVec = -1` with FFS is correct on 1.3 (row 3b), as the stock 1.3
+  MountList's `FAST:` example also has it.
+
+**`Buffers`.** Measured with the working entry (row 2) at 19200 baud, on a
+20-file OFS image. The timing is from `Date` before and after each `Dir`, so
+it is rounded to whole seconds.
+
+| `Buffers` | First `Dir DN0: ALL` | Second `Dir DN0: ALL` | Sector reads (both `Dir`s + `Type`) |
+|-----------|----------------------|-----------------------|-----------------------------|
+| 5 | 10 s | 9 s | 47 |
+| 30 | 11 s | **2 s** | 26 |
+
+That is about 0.35 s per block, as estimated. With 5 buffers the second
+listing re-reads every header. With 30 it comes from cache. A working set
+larger than the cache gains nothing: on a 40-file image, both 5 and 30
+buffers re-read all 42 blocks on every `Dir`, at 14–16 s each. We would
+still suggest 20–30 for the floppy-sized profile.
+
+**Two more things this boot showed:**
+
+- **`fujinet-disk.device` opens the broker safely from its worker Task.**
+  Sector I/O ran through the resident broker with no Guru. The broker is
+  already resident, so no ramlib load happens, unlike `serial.device` in #2.
+- **We could not use `fujinet-mount` to mount media on 1.3.** It calls
+  `CreateNewProcTags` (2.0+) for its boundary worker, so it will not build
+  against a 1.3 C runtime. `FMOUNT` is not something we have. The driver also
+  keeps its own per-unit mounted flag and never reads the server's restored
+  runtime mounts. The server logged "Restored 1 runtime mount(s) as pending",
+  yet the unit stays empty until a client sends `FUJINET_DISK_CMD_MOUNT`.
+  (That is read from the code: `mounted` is set only in
+  `fujinet_disk_mount`.) We used a 60-line Exec-only stand-in that sends
+  `FUJINET_DISK_CMD_MOUNT` and `TD_CHANGESTATE`. A 1.3 user needs some
+  equivalent. It could be `FMOUNT` if that avoids 2.0 calls, or a
+  `fujinet-mount` with the boundary test compiled out.
 
 ## The five points
 
