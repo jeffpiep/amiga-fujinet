@@ -4,7 +4,7 @@
 # builds via an explicit target (bare `make` there builds the ADF) — see
 # CLAUDE.md.
 
-APPS = fn_test http_get compat_test
+APPS = fn_test http_get compat_test disk_test
 
 all: $(APPS) battleship fujitzee
 

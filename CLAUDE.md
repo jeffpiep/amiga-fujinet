@@ -209,6 +209,7 @@ first, then get merged/squash-merged to `dev` via PR.
 | `http_get` | `apps/http_get/` | HTTP and HTTPS GET — curl-like tool, auto-detects `https://` scheme |
 | `battleship` | `apps/battleship/amiga/` | Full FujiNet game — lobby + gameplay over FujiBus. Sources in `apps/battleship/upstream/` submodule; links `libs/fujinet-compat-amiga`. |
 | `compat_test` | `apps/compat_test/` | Compat-layer smoke test on the emulator — exercises `libs/fujinet-compat-amiga` end to end. |
+| `disk_test` | `apps/disk_test/` | `fujinet-disk.device` as `DN0:` on KS 1.3 — mounts an `xdftool` image, `C:Mount`s it, reads it through DOS. Reports PASS/FAIL as a unit-1 mount URI the server logs. Spec: `contracts/amiga-adf-bootstrap.md` "Disk device". |
 | `fujitzee` | `apps/fujitzee/amiga/` | Second FujiNet game port (Track 1C). Sources in `apps/fujitzee/upstream/`; links `libs/amiga-gamekit` + `libs/fujinet-compat-amiga`. Complete — renderer and keyboard (Phase 2), joystick (Phase 3b), art (Phase 3c) and sound (Phase 3a) are all real. No stubs. |
 | `pacmantests` | `apps/pacmantests/` | Exploratory (non-shipping) bitplane-graphics harnesses for the battleship Phase 3 renderer. Includes the `amiga-pac-man` submodule (tschak909). |
 

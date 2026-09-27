@@ -1,5 +1,10 @@
 # Handoff — mount `fujinet-disk.device` on KS 1.3 and settle `GlobVec`
 
+> **Status: ARCHIVED — superseded 2026-09-26.** Done: `GlobVec = -1` confirmed fatal on 1.3; the FFS
+> alternative was retracted. Results are in `docs/response-to-mark-disk-device-review.md` and
+> markjfisher/fujinet-nio-driver#3. The 1.3 MountList rules are in `contracts/amiga-adf-bootstrap.md`,
+> and the harness is `apps/disk_test`.
+
 **Status: Not started (2026-09-26).** Point-in-time snapshot; archive per
 `docs/README.md` §2 once its facts are rehomed.
 **Branch:** `feature/globvec-disk-device` (parent, cut from `dev` at `077aed0`).
