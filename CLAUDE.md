@@ -307,6 +307,12 @@ git submodule update --init apps/battleship/upstream
 git submodule update --init apps/fujitzee/upstream
 ```
 
+**Tester disks for real hardware.** `make -C release` builds
+`fujinet-tools.adf` (link check, then a CLI with `http_get`), `battleship.adf`
+and `fujitzee.adf` into `release/adf/`, next to `release/README.txt`, the
+sheet for the tester. That folder is committed, so testers can take it
+straight from GitHub. Rebuild and commit it when a change should reach them.
+
 `fujinet-nio-driver` finds `fujinet-nio-lib` as a sibling by default, which is
 why it is pinned at the repo root rather than under `apps/`; override with
 `make amiga LIB_ROOT=/path/to/fujinet-nio-lib`. Pin it and `fujinet-nio-lib`
@@ -514,7 +520,9 @@ cp emu/config/paths.env.example emu/config/paths.env
 ```
 
 Every ADF requires `Devs/serial.device` extracted from a Workbench 1.3.4 disk image —
-see `contracts/amiga-adf-bootstrap.md`. ADFs are gitignored (copyright).
+see `contracts/amiga-adf-bootstrap.md`. Per-app ADFs are gitignored build
+output. Only the tester disks in `release/adf/` are committed; the project
+treats `serial.device` and the Workbench commands as redistributable.
 
 Since the September 2026 sync every networked ADF also carries the resident
 broker and the lines that load it; `build-adf.sh` adds them unless

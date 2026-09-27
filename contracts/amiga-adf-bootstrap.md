@@ -18,15 +18,20 @@ never touch the network opt out with `ADF_NO_BROKER=1` (see below).
 
 ---
 
-## Copyright notice
+## Committed ADFs and Workbench files
 
-`serial.device` is copyrighted software (Commodore-Amiga, Inc.). **Do not
-commit ADF files to git.** `*.adf` is gitignored. The file is extracted from a
-legitimately owned Workbench 1.3.4 image (`WB_ADF` in `emu/config/paths.env`)
-at build time.
+`serial.device` and the Workbench `C:` commands these disks carry are
+extracted at build time from a Workbench 1.3.4 image (`WB_ADF` in
+`emu/config/paths.env`). **The project treats them as redistributable**
+(decided 2026-09-27), so ADFs that contain them may be committed.
+
+Only the tester disks in `release/adf/` are committed, rebuilt with
+`make -C release`. Per-app ADFs under `apps/` are build output and stay
+gitignored (`apps/**/*.adf`), like the other binaries.
 
 `fujinet-nio.device` and `fujinet-load-resident` are built from the
-`fujinet-nio-driver` submodule's sources and are not committed either.
+`fujinet-nio-driver` submodule's sources. They are not committed as loose
+files, but the release ADFs contain them.
 
 ---
 
