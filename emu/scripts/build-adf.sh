@@ -18,6 +18,7 @@
 #   ADF_WB_FILES       — extra files copied from WB_ADF to the same path,
 #                        space-separated (e.g. "C/Mount"); missing = error
 #   ADF_OUT            — output path (default: <dir of APP_BINARY>/<APP_NAME>.adf)
+#   ADF_LABEL          — volume label (default: APP_NAME uppercased)
 #
 # Reads from emu/config/paths.env:
 #   WB_ADF        — path to a Workbench 1.3.x ADF (source of serial.device)
@@ -62,8 +63,8 @@ EMU_STARTUP_PREFIX="${EMU_STARTUP_PREFIX:-}"
 ADF_STATIC_DIR="${ADF_STATIC_DIR:-}"
 ADF_WB_FILES="${ADF_WB_FILES:-}"
 ADF_OUT="${ADF_OUT:-$(dirname "$APP_BINARY")/$APP_NAME.adf}"
-# Volume label: uppercase, max 30 chars
-ADF_LABEL="${APP_NAME^^}"
+# Volume label: max 30 chars; defaults to the app name, uppercased
+ADF_LABEL="${ADF_LABEL:-${APP_NAME^^}}"
 
 echo "Building ADF: $ADF_OUT"
 echo "  binary:   $APP_BINARY"
