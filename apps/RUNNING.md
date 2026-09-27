@@ -10,8 +10,8 @@ tester disks in `release/adf/`:
 | `fujitzee.adf` | Fujitzee (dice game): lobby and online play. |
 
 There are two ways to run them. **A** uses the FS-UAE emulator and needs no
-Amiga hardware. **B** uses a real Amiga on a serial cable. Both use the same
-server build (steps 1–2).
+Amiga hardware. **B** uses a real Amiga on a serial cable. Both need the server
+built (step 1).
 
 ---
 
@@ -36,32 +36,18 @@ The ADFs in `release/adf/` are committed, so you don't need the Amiga
 toolchain to run them. Run `make -C release` only if you want to rebuild them
 from source.
 
-## Step 2 — Know how to start the server
+## Step 2 — Pick a path
 
-Two environment variables configure the server:
+Who starts the server depends on the path. **Don't start it yourself yet.**
 
-| Variable | Meaning | Default |
-|----------|---------|---------|
-| `FN_SERIAL_PORT` | Serial device to talk to the Amiga on | `/dev/ttyUSB0` |
-| `FN_SERIAL_BAUD` | Baud rate. **Must be 19200** for the release disks | `19200` |
+| Path | You have | Who starts `fujinet-nio` |
+|------|----------|--------------------------|
+| **A — Emulator** | No Amiga, no serial adapter | `emu/play.sh` starts it for you, on a virtual serial port. Don't start it yourself. |
+| **B — Real Amiga** | An Amiga, a null-modem cable and a USB-serial adapter | You do, in step B3, pointed at the adapter. |
 
-Start it **from its build directory**. It looks for its `fujinet-data/`
-folder relative to the current directory:
-
-```bash
-cd fujinet-nio/build/fujibus-rs232-debug
-FN_SERIAL_PORT=/dev/ttyUSB0 FN_SERIAL_BAUD=19200 ./run-fujinet-nio
-```
-
-`run-fujinet-nio` is a small wrapper that restarts the server when it asks
-to be restarted. Running `./fujinet-nio` directly also works.
-
-Every packet from the Amiga is logged as `fujibus: receive:`. If no such
-lines appear after the Amiga boots, the problem is the link, not the
-software.
-
-The games (and `http_get`) reach the internet through this Linux machine,
-so it needs network access.
+To go the emulator way, continue with Path A. For a real Amiga, skip to
+Path B. The server's settings and log output are explained in
+[About the server](#about-the-server) at the end.
 
 ---
 
@@ -164,7 +150,9 @@ FN_SERIAL_PORT=/dev/ttyUSB0 FN_SERIAL_BAUD=19200 ./run-fujinet-nio
 If you get "permission denied" on the port, add yourself to the `dialout`
 group (`sudo usermod -aG dialout $USER`), then log out and back in.
 
-Leave the server running and power on the Amiga with the disk in DF0:.
+Replace `/dev/ttyUSB0` with your adapter's name. Leave the server running
+and power on the Amiga with the disk in DF0:. `fujibus: receive:` lines in
+the server log mean the Amiga is getting through.
 
 ---
 
@@ -206,3 +194,28 @@ your player name, so it survives reboots.
 
 Tester-facing notes, including what to report back, are in
 `release/README.txt`.
+
+## About the server
+
+You only need this for Path B, or for the by-hand version of Path A (A3).
+
+Two environment variables configure the server:
+
+| Variable | Meaning | Default |
+|----------|---------|---------|
+| `FN_SERIAL_PORT` | Serial device to talk to the Amiga on | `/dev/ttyUSB0` |
+| `FN_SERIAL_BAUD` | Baud rate. **Must be 19200** for the release disks | `19200` |
+
+Start it **from its build directory**,
+`fujinet-nio/build/fujibus-rs232-debug`. It looks for its `fujinet-data/`
+folder relative to the current directory.
+
+`run-fujinet-nio` is a small wrapper that restarts the server when it asks
+to be restarted. Running `./fujinet-nio` directly also works.
+
+Every packet from the Amiga is logged as `fujibus: receive:`. If no such
+lines appear after the Amiga boots, the problem is the link, not the
+software.
+
+The games (and `http_get`) reach the internet through this Linux machine,
+so it needs network access.
