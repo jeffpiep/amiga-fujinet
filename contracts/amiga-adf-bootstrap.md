@@ -113,7 +113,7 @@ merged 2026-09-27):
   (otherwise the device is added unnamed and cannot be opened).
 
 The third is on `jeffpiep/fujinet-nio-driver` `feature/wb13-own-dosbase`,
-the pinned revision until upstream takes it:
+the pinned revision until upstream takes it ([markjfisher/fujinet-nio-driver#5](https://github.com/markjfisher/fujinet-nio-driver/pull/5)):
 
 - The broker must *define* `DOSBase`, not leave it a tentative (common)
   symbol. Our amiga-gcc satisfies a common `DOSBase` from libnix's

@@ -369,7 +369,7 @@ Two consequences that bite:
   loads it itself, and the current loader rejects that line with return
   code 20.
 - **The pinned driver carries one KS 1.3 fix not yet upstream**
-  (`feature/wb13-own-dosbase`): the broker must define `DOSBase` rather than
+  (`feature/wb13-own-dosbase`, [markjfisher/fujinet-nio-driver#5](https://github.com/markjfisher/fujinet-nio-driver/pull/5)): the broker must define `DOSBase` rather than
   let our toolchain link libnix's, whose `-1` sentinel crashes the broker's
   load line with Exception 3. See the contract's "Minimum driver revision".
 
