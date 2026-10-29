@@ -10,8 +10,8 @@ Kickstart 1.3 needs three things the ROM does not supply:
 
 1. **`Devs/serial.device`**, because KS 1.3 does not have it in ROM.
 2. **`Devs/fujinet-nio.device`**, the broker.
-3. **`C/fujinet-load-resident`**, plus startup-sequence lines that make
-   *both* devices resident before the app runs.
+3. **`C/fujinet-load-resident`**, plus a startup-sequence line that makes
+   the broker resident before the app runs.
 
 `emu/scripts/build-adf.sh` does all of this by default. Offline harnesses that
 never touch the network opt out with `ADF_NO_BROKER=1` (see below).
@@ -43,7 +43,7 @@ files, but the release ADFs contain them.
     serial.device                 5292 bytes  ← from WB 1.3.4
     fujinet-nio.device            ~13 KB      ← fujinet-nio-driver
   c/                              DIR
-    fujinet-load-resident         ~12 KB      ← built by make/amiga.mk
+    fujinet-load-resident         ~12 KB      ← fujinet-nio-driver
     Makedir, Assign, Echo                     ← from WB 1.3.4 (for prefixes)
   <appname>                       binary
   s/                              DIR
@@ -57,25 +57,23 @@ is not bootable.
 
 ## Startup-sequence
 
-The broker lines always come first, in this order:
+The broker line always comes first:
 
 ```
-C:fujinet-load-resident DEVS:serial.device serial.device
 C:fujinet-load-resident DEVS:fujinet-nio.device fujinet-nio.device
 <EMU_STARTUP_PREFIX lines, if any>
 <appname> <EMU_STARTUP_ARGS>
 ```
 
-**Why `serial.device` is made resident first (required on KS 1.3).** The
-broker's worker is a plain Exec Task created with `AddTask`, and it calls
-`OpenDevice("serial.device")` lazily on the first exchange. On KS 1.3 that
-device is disk-based, so opening it makes ramlib load it from `DEVS:` and
-reply to the caller's `pr_MsgPort`. A Task has no `pr_MsgPort`, so the reply
-goes through garbage and the machine gurus with **#00000003** on the first
-exchange. Loading `serial.device` resident from a Process (the Shell running
-the startup-sequence) means the worker's later `OpenDevice` finds it in the
-device list and never touches ramlib. The durable fix is upstream
-([markjfisher/fujinet-nio-driver#2](https://github.com/markjfisher/fujinet-nio-driver/issues/2)); until it lands this line is mandatory.
+**No `serial.device` line.** Until the October 2026 sync the broker's worker
+was a plain Task, which gurus #00000003 opening the disk-based `serial.device`
+on KS 1.3, so disks loaded `serial.device` resident first. Upstream now runs
+the worker as a Process on 1.3
+([markjfisher/fujinet-nio-driver#2](https://github.com/markjfisher/fujinet-nio-driver/issues/2),
+closed), which opens it from `DEVS:` itself. The line is now harmful as well
+as unneeded: the current `fujinet-load-resident` checks that the device
+registered itself, stock `serial.device` does not, and the load fails with
+return code 20.
 
 **Why the broker is loaded explicitly.** `fujinet-nio.device` is not
 auto-loaded from `DEVS:`; nio-lib's `OpenDevice` only finds it once it is in
@@ -97,23 +95,34 @@ Rules that still hold:
 
 | File | Built by | Notes |
 |------|----------|-------|
-| `fujinet-nio.device` | `make -C fujinet-nio-driver/amiga ../build/amiga/fujinet-nio.device` | Uses `-nostartfiles`; builds with our amiga-gcc. |
-| `fujinet-load-resident` | `make/amiga.mk` rule `$(LOAD_RESIDENT)` → `build/amiga/` | Built from the driver's `tools/fujinet-load-resident.c` with `-mcrt=nix13`. The driver's own rule hardcodes `-mcrt=clib2`, which our toolchain does not ship. |
+| `fujinet-nio.device`, `fujinet-load-resident`, `fujinet-disk.device` | `make -C fujinet-nio-driver amiga AMIGA_PROFILE=wb13` → `fujinet-nio-driver/build/amiga/wb13/` | The driver only builds into a named Workbench profile. `wb13` builds its tools with `-mcrt=nix13`, so they run on KS 1.3 and need no clib2. |
 
-`make/amiga.mk` exposes both as `$(BROKER_DEVICE)` and `$(LOAD_RESIDENT)`,
-and `emu/template/emu.mk`'s `emu-adf` target lists them as prerequisites and
-passes them to `build-adf.sh`.
+`make/amiga.mk` exposes them as `$(BROKER_DEVICE)`, `$(LOAD_RESIDENT)` and
+`$(DISK_DEVICE)`, and `emu/template/emu.mk`'s `emu-adf` target lists the
+first two as prerequisites and passes them to `build-adf.sh`.
 
-**Minimum driver revision.** Two driver bugs made the broker unloadable on
-KS 1.3. Both are fixed on `jeffpiep/fujinet-nio-driver`
-`feature/resident-endskip-in-code-hunk`, which is the pinned revision until
-upstream merges them ([markjfisher/fujinet-nio-driver#1](https://github.com/markjfisher/fujinet-nio-driver/pull/1)):
+**Minimum driver revision.** Three driver bugs made the broker unusable on
+KS 1.3. The first two are upstream
+([markjfisher/fujinet-nio-driver#1](https://github.com/markjfisher/fujinet-nio-driver/pull/1),
+merged 2026-09-27):
 
 - `rt_EndSkip` must point past the ROMTag, inside the first hunk
   (otherwise "No matching resident tag").
 - `device_init` must set `ln_Name`, `ln_Type`, the version and the ID string,
   because KS 1.3's `InitResident` does not copy them from the ROMTag
   (otherwise the device is added unnamed and cannot be opened).
+
+The third is on `jeffpiep/fujinet-nio-driver` `feature/wb13-own-dosbase`,
+the pinned revision until upstream takes it ([markjfisher/fujinet-nio-driver#5](https://github.com/markjfisher/fujinet-nio-driver/pull/5)):
+
+- The broker must *define* `DOSBase`, not leave it a tentative (common)
+  symbol. Our amiga-gcc satisfies a common `DOSBase` from libnix's
+  `__dosbase.o`, whose initial value is the auto-open sentinel `-1`. Under
+  `-nostartfiles` nothing replaces it, so the 1.3 worker-process path skips
+  `OpenLibrary("dos.library")` and dereferences `-1`: Exception 3 inside
+  `InitResident`, on the broker's load line. Check with
+  `grep __dosbase fujinet-nio-driver/build/amiga/wb13/fujinet-nio.device.map`,
+  which should print nothing.
 
 ---
 
@@ -149,8 +158,8 @@ Rules:
 - **Mount the media client-side before the first access to `DN0:`.** The
   driver keeps its own per-unit mounted flag. It never adopts the server's
   restored runtime mounts, so pre-mounting on the server does nothing.
-  `fujinet-mount` cannot be used on 1.3: it calls `CreateNewProcTags`.
-  `apps/disk_test` has a 1.3-safe mount step.
+  `apps/disk_test` has a 1.3-safe mount step. The `wb13` driver profile now
+  builds `fujinet-mount` for 1.3 too, but it has not been booted here.
 - **`DEVS:MountList` is 1.3 syntax:** one entry per name, terminated by `#`.
   Mark's `config/DN0` keywords are all accepted, including `DosType`,
   `StackSize` and `BufMemType`.
@@ -241,7 +250,8 @@ floppy_drive_0 = <appname>.adf
 | "Please insert Workbench" | Missing or bad bootblock | `xdftool boot install` |
 | `fn_init()` → "Device not found" | Broker not resident, or driver older than the minimum revision (unnamed device node) | Check the startup-sequence load line; rebuild the device from the pinned driver |
 | `fujinet-load-resident`: "No matching resident tag" | Driver older than the `rt_EndSkip` fix | Rebuild the device from the pinned driver |
-| Guru #00000003 on the first exchange | `serial.device` not made resident before the broker's first open | Add the `serial.device` load line, first |
+| "Resident initialized but not registered in DeviceList: serial.device", return code 20 | A pre-October-2026 `serial.device` load line | Remove it (see "Startup-sequence") |
+| "Software error — task held" on the broker's load line; FS-UAE logs `Exception 3` | Broker linked libnix's `DOSBase` | Use a driver with the `DOSBase` fix (see "Minimum driver revision") |
 | `fn_test` prints "FujiNet is ready." but nothing reaches the server | `fn_is_ready()` sends no traffic; the broker opens serial lazily | `fn_test` now also calls `fn_clock_get()`; judge by `fujibus: receive:` |
 | "Software error — task held" on boot | V36+ exec API used, or binary built without `-mcrt=nix13` | See `contracts/amiga-coding-conventions.md` |
 | CLI error on startup-sequence line | Redirect to `SER:` or unsupported shell syntax | Remove redirects |

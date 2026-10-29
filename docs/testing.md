@@ -141,7 +141,7 @@ gate.
 2. From the base, the segment list at base+34 gives the code's load address.
 3. Walk the task's stack for return addresses that fall inside that code, and
    resolve them against the device's link map
-   (`fujinet-nio-driver/build/amiga/*.map`). One sat directly after
+   (`fujinet-nio-driver/build/amiga/wb13/*.map`). One sat directly after
    `jsr -444(a6)`, i.e. `OpenDevice` in `backend_open`.
 4. Cross-check the FS-UAE log's `Exception N` PCs against the ROM. There,
    `fc1b9c` was `PutMsg`'s `move.l a1,(a0)`, writing through a Task's missing

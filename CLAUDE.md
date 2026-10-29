@@ -298,9 +298,9 @@ make -C apps
 make -C apps/http_get
 make -C apps/battleship/amiga battleship   # note: explicit target; bare `make` builds the ADF
 
-# Build the Amiga disk driver (fujinet-disk.device); needs amiga-gcc on PATH
+# Build the Amiga drivers (broker, disk device) for KS 1.3; needs amiga-gcc on PATH
 export PATH=/opt/amiga/bin:$PATH
-make -C fujinet-nio-driver amiga     # bare `make` also builds MS-DOS (needs Watcom)
+make -C fujinet-nio-driver amiga AMIGA_PROFILE=wb13   # bare `make` also builds MS-DOS (needs Watcom)
 
 # Game-port one-time extra deps (game sources; not initialized by default)
 git submodule update --init apps/battleship/upstream
@@ -318,45 +318,31 @@ why it is pinned at the repo root rather than under `apps/`; override with
 `make amiga LIB_ROOT=/path/to/fujinet-nio-lib`. Pin it and `fujinet-nio-lib`
 together — the driver README records the minimum compatible library revision.
 
-**Known toolchain difference (upstream, not ours).** `make amiga` builds
-`fujinet-disk.device` cleanly, then fails to link every tool under
-`amiga/tools/` (`fujinet-mount`, `fujinet-load-resident`, `fujinet-td-probe`,
-`fujinet-nio-exchange`) with `ld: cannot find ncrt0.o`.
-
-The cause is a **C runtime that our amiga-gcc does not ship**. Those four rules
-in `fujinet-nio-driver/amiga/Makefile` hardcode `-mcrt=clib2`; our install has
-libnix (`/opt/amiga/m68k-amigaos/libnix/lib/`) and no clib2 at all, so the
-driver's own `fujinet-disk.device` link — which uses `-nostartfiles` and never
-asks for a crt — is unaffected. Dropping the flag builds all four cleanly here
-(the default libnix crt is fine; `-mcrt=nix13` is *not* — it lacks
-`CreateNewProcTags`/`TAG_USER`).
-
-The fix belongs upstream as `TOOL_CRT ?= -mcrt=clib2` so the flag is
-overridable, not as a local edit sitting on a pinned commit. Re-verified
-2026-09-26: dropping the flag still builds `fujinet-load-resident`,
-`fujinet-unload-resident` and `fujinet-td-probe` cleanly against libnix.
-
-**It does not block the apps.** Installing the broker (see below) needs
-`fujinet-load-resident`, but `make/amiga.mk` builds that one tool itself, from
-the driver's source with `-mcrt=nix13`, into `build/amiga/`. It uses only
-`LoadSeg`, `InitResident` and stdio, so it runs on KS 1.3. The `TOOL_CRT` ask
-upstream is a nice-to-have.
-
-Build the three devices individually — they use `-nostartfiles` and all link
-cleanly (`emu-adf` builds the broker for you):
+**The driver builds only into a named Workbench profile** (upstream
+`f62db55`, 2026-10-01). Bare `make -C fujinet-nio-driver/amiga
+../build/amiga/<file>` now stops with an error on purpose; outputs land in
+`build/amiga/wb13/`, `wb31/` or `wb32/`. Ours is **`wb13`** (the KS 1.3
+floor), and `make/amiga.mk` builds it for you. `emu-adf` takes the broker and
+`fujinet-load-resident` from there, and `disk_test` takes the disk device.
 
 ```bash
-cd fujinet-nio-driver/amiga
-make ../build/amiga/fujinet-disk.device      # 24 KB
-make ../build/amiga/fujinet-nio.device       # 13 KB — the broker
-make ../build/amiga/fujinet-serial.device    # 7 KB — Paula UART driver
+make -C fujinet-nio-driver amiga AMIGA_PROFILE=wb13
+ls fujinet-nio-driver/build/amiga/wb13/
+#   fujinet-nio.device (13 KB, the broker)   fujinet-disk.device (24 KB)
+#   fujinet-serial.device (7 KB, Paula UART)  fujinet-load-resident
+#   fujinet-mount   fujinet-nio-exchange
 ```
 
-The **earlier** `-Werror=format` failure on `fujinet-mount` is resolved: it came
-from an NDK header skew (Hyperion NDK 3.2 types `ULONG` as `uint32_t` under
-`-std=c99`, where NDK 3.9 says `unsigned long`), and Mark applied the portable
-cast-at-call-site fix upstream in `4c65402`. Don't reintroduce it as a local
-patch.
+`wb13` builds every tool with `-mcrt=nix13`, so the old `ld: cannot find
+ncrt0.o` failure (rules hardcoding `-mcrt=clib2`, which our amiga-gcc does not
+ship) no longer arises on our profile, and `make/amiga.mk` no longer builds
+its own `fujinet-load-resident`. The `wb31`/`wb32` profiles still ask for
+clib2, so a bare `make amiga` (all three profiles) fails on them here. That
+only matters if we ever target 2.x+.
+
+The driver's own host tests (`make -C fujinet-nio-driver/amiga tests`) fail at
+`test_fujinet_nio_packet_backend` line 361 on the October 2026 pin, with or
+without our patch. The broker's tests pass. Not ours to fix.
 
 ### The Amiga transport goes through a resident broker
 
@@ -376,16 +362,16 @@ Two consequences that bite:
   root. Don't vendor a second copy of that header; upstream says not to.
 - **Every networked ADF must install the broker.** `Devs/serial.device` is no
   longer enough: the disk also needs `fujinet-nio.device` in `DEVS:`,
-  `fujinet-load-resident` in `C:`, and Startup-Sequence lines making *both*
-  `serial.device` and the broker resident, `serial.device` first.
-  `emu/scripts/build-adf.sh` does this by default; the spec is
-  `contracts/amiga-adf-bootstrap.md`. Leaving out the `serial.device` line
-  gurus KS 1.3 with #00000003 on the first exchange, because the broker's
-  worker is a Task that cannot load a disk-based device.
-- **The pinned driver carries two KS 1.3 fixes not yet upstream.** Without
-  them the broker either fails to load ("No matching resident tag") or loads
-  unnamed and `fn_init()` says "Device not found". See the contract's
-  "Minimum driver revision".
+  `fujinet-load-resident` in `C:`, and a Startup-Sequence line making the
+  broker resident. `emu/scripts/build-adf.sh` does this by default; the spec
+  is `contracts/amiga-adf-bootstrap.md`. Since the October 2026 sync there is
+  **no `serial.device` line** — the broker's worker is a Process on 1.3 and
+  loads it itself, and the current loader rejects that line with return
+  code 20.
+- **The pinned driver carries one KS 1.3 fix not yet upstream**
+  (`feature/wb13-own-dosbase`, [markjfisher/fujinet-nio-driver#5](https://github.com/markjfisher/fujinet-nio-driver/pull/5)): the broker must define `DOSBase` rather than
+  let our toolchain link libnix's, whose `-1` sentinel crashes the broker's
+  load line with Exception 3. See the contract's "Minimum driver revision".
 
 Optionally the broker can also drive **`fujinet-serial.device`**, Mark's Paula
 UART driver (8N1, exclusive open, RX-full interrupt into a ring, polled TBE),
@@ -400,6 +386,8 @@ C:fujinet-nio-baud 38400
 
 Never rename stock `serial.device` to install it — select it instead. Range is
 300–230400, and the setting only affects the RS-232 byte-stream backend.
+`fujinet-nio-serial` and `fujinet-nio-baud` are built only by the WB2+
+profiles; the `wb13` profile leaves them out.
 
 **Do not run `C:fujinet-nio-exchange` with no arguments on PiStorm or real
 hardware.** That bare form is Mark's Amiberry isolation suite: it forces a
