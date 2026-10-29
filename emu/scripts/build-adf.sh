@@ -98,10 +98,8 @@ fi
 # Write startup-sequence
 {
     if [ "$ADF_NO_BROKER" != 1 ]; then
-        # serial.device first, from this Process: the broker's worker is a
-        # plain Task, and on KS 1.3 a disk-based OpenDevice from a Task
-        # gurus #00000003 (contracts/amiga-adf-bootstrap.md).
-        printf 'C:fujinet-load-resident DEVS:serial.device serial.device\n'
+        # The broker's worker is a Process, so it opens the disk-based
+        # serial.device itself (contracts/amiga-adf-bootstrap.md).
         printf 'C:fujinet-load-resident DEVS:fujinet-nio.device fujinet-nio.device\n'
     fi
     [ -n "$EMU_STARTUP_PREFIX" ] && printf '%s\n' "$EMU_STARTUP_PREFIX"

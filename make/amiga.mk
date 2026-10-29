@@ -45,27 +45,23 @@ GAMEKIT_LIB = $(GAMEKIT)/libamiga_gamekit.a
 # The resident broker nio-lib's transport opens, and the tool that loads it.
 # Every ADF that reaches FujiNet carries both; see
 # contracts/amiga-adf-bootstrap.md.
-DRIVER        = $(_AMIGA_ROOT)/fujinet-nio-driver
-BROKER_DEVICE = $(DRIVER)/build/amiga/fujinet-nio.device
-LOAD_RESIDENT = $(_AMIGA_ROOT)/build/amiga/fujinet-load-resident
+# The driver builds only into a named Workbench profile; wb13 is ours (KS 1.3
+# floor) and builds every tool with libnix's 1.3 crt.
+DRIVER         = $(_AMIGA_ROOT)/fujinet-nio-driver
+DRIVER_PROFILE = wb13
+DRIVER_OUT     = $(DRIVER)/build/amiga/$(DRIVER_PROFILE)
+BROKER_DEVICE  = $(DRIVER_OUT)/fujinet-nio.device
+LOAD_RESIDENT  = $(DRIVER_OUT)/fujinet-load-resident
 # The disk device, for ADFs that mount FujiNet media as DN0: (apps/disk_test).
-DISK_DEVICE   = $(DRIVER)/build/amiga/fujinet-disk.device
+DISK_DEVICE    = $(DRIVER_OUT)/fujinet-disk.device
 
-# The device is the driver's own target; its Makefile tracks the sources, so
-# always ask it rather than second-guessing staleness from here.
-$(BROKER_DEVICE): FORCE
-	$(MAKE) -C $(DRIVER)/amiga ../build/amiga/fujinet-nio.device
+# All three are the driver's own profile build; its Makefile tracks the
+# sources, so always ask it rather than second-guessing staleness from here.
+$(BROKER_DEVICE) $(LOAD_RESIDENT) $(DISK_DEVICE): driver-profile ;
 
-$(DISK_DEVICE): FORCE
-	$(MAKE) -C $(DRIVER)/amiga ../build/amiga/fujinet-disk.device
-
-# The driver's rule for this tool hardcodes -mcrt=clib2, which our amiga-gcc
-# does not ship. It uses only LoadSeg/InitResident and stdio, so libnix's
-# 1.3 crt builds it and it runs on KS 1.3.
-$(LOAD_RESIDENT): $(DRIVER)/amiga/tools/fujinet-load-resident.c
-	@mkdir -p $(dir $@)
-	$(CC) -std=c99 -Wall -Wextra -Werror -O2 -mcpu=68000 -msoft-float \
-	    -mcrt=nix13 -I$(DRIVER)/amiga/include -o $@ $< -lamiga
+.PHONY: driver-profile
+driver-profile:
+	$(MAKE) -C $(DRIVER) amiga AMIGA_PROFILE=$(DRIVER_PROFILE)
 
 .PHONY: FORCE
 FORCE:
