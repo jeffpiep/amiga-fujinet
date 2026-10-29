@@ -174,6 +174,8 @@ Each run creates `emu/logs/<appname>/<timestamp>/`:
 | `KICKSTART_ROM` error at startup | ROM path wrong or file absent | Edit `emu/config/paths.env` |
 | App crashes ("Software error — task held") | V36+ API called on KS 1.3 | Avoid `CreateMsgPort`/`CreateIORequest`; use `CreatePort`/`CreateExtIO` |
 | `OpenDevice rc=-1` visible on screen | `serial.device` missing from ADF | `build-adf.sh` extracts it from `WB_ADF` automatically — check WB_ADF path |
+| `fn_init()` → "Device not found" | Broker `fujinet-nio.device` not resident, or built from a driver without the KS 1.3 fixes | Check the two `fujinet-load-resident` lines in the startup-sequence; see `contracts/amiga-adf-bootstrap.md` |
+| Guru #00000003 on the first exchange | `serial.device` not made resident before the broker opened it | `build-adf.sh` adds that line first unless `ADF_NO_BROKER=1` |
 
 ---
 

@@ -9,10 +9,12 @@
 # NOT driven from here (submodule boundary: referenced, never modified).
 
 # Modules that expose a `test-host` target (T1). Add apps/* as they gain one.
-HOST_TEST_DIRS = libs/fujinet-compat-amiga apps/battleship/amiga
+HOST_TEST_DIRS = libs/fujinet-compat-amiga libs/amiga-gamekit apps/battleship/amiga \
+                 apps/fujitzee/amiga
 
 # Apps with a T2 emulator smoke test.
-EMU_TEST_DIRS = apps/fn_test apps/compat_test apps/http_get apps/battleship/amiga
+EMU_TEST_DIRS = apps/fn_test apps/compat_test apps/http_get apps/disk_test apps/battleship/amiga \
+                apps/fujitzee/amiga
 
 .PHONY: test test-host emu-test
 

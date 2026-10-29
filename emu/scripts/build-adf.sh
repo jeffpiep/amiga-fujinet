@@ -5,10 +5,20 @@
 #   APP_NAME      — app name; used as the ADF volume label and binary name on disk
 #   APP_BINARY    — path to the compiled AmigaOS binary
 #
+# Broker (contracts/amiga-adf-bootstrap.md) — required unless ADF_NO_BROKER=1:
+#   BROKER_DEVICE — path to fujinet-nio.device (the resident broker)
+#   LOAD_RESIDENT — path to the fujinet-load-resident tool
+#
 # Optional env vars:
+#   ADF_NO_BROKER      — 1 omits the broker; only for harnesses that never
+#                        open FujiNet (gallery-adf, preview-adf)
 #   EMU_STARTUP_ARGS   — extra args appended to the app in startup-sequence
-#   EMU_STARTUP_PREFIX — AmigaDOS commands to run before the app (multi-line OK)
+#   EMU_STARTUP_PREFIX — AmigaDOS commands to run after the broker is
+#                        loaded, before the app (multi-line OK)
+#   ADF_WB_FILES       — extra files copied from WB_ADF to the same path,
+#                        space-separated (e.g. "C/Mount"); missing = error
 #   ADF_OUT            — output path (default: <dir of APP_BINARY>/<APP_NAME>.adf)
+#   ADF_LABEL          — volume label (default: APP_NAME uppercased)
 #
 # Reads from emu/config/paths.env:
 #   WB_ADF        — path to a Workbench 1.3.x ADF (source of serial.device)
@@ -34,16 +44,36 @@ if [ ! -f "$WB_ADF" ]; then
     exit 1
 fi
 
+ADF_NO_BROKER="${ADF_NO_BROKER:-}"
+if [ "$ADF_NO_BROKER" != 1 ]; then
+    # Hard error, not a silent omission: a broker-less ADF boots fine and
+    # then cannot reach FujiNet.
+    : "${BROKER_DEVICE:?BROKER_DEVICE required (or ADF_NO_BROKER=1)}"
+    : "${LOAD_RESIDENT:?LOAD_RESIDENT required (or ADF_NO_BROKER=1)}"
+    for f in "$BROKER_DEVICE" "$LOAD_RESIDENT"; do
+        if [ ! -f "$f" ]; then
+            echo "ERROR: broker file not found: $f" >&2
+            exit 1
+        fi
+    done
+fi
+
 EMU_STARTUP_ARGS="${EMU_STARTUP_ARGS:-}"
 EMU_STARTUP_PREFIX="${EMU_STARTUP_PREFIX:-}"
 ADF_STATIC_DIR="${ADF_STATIC_DIR:-}"
+ADF_WB_FILES="${ADF_WB_FILES:-}"
 ADF_OUT="${ADF_OUT:-$(dirname "$APP_BINARY")/$APP_NAME.adf}"
-# Volume label: uppercase, max 30 chars
-ADF_LABEL="${APP_NAME^^}"
+# Volume label: max 30 chars; defaults to the app name, uppercased
+ADF_LABEL="${ADF_LABEL:-${APP_NAME^^}}"
 
 echo "Building ADF: $ADF_OUT"
 echo "  binary:   $APP_BINARY"
 echo "  startup:  $APP_NAME ${EMU_STARTUP_ARGS:-(no args)}"
+if [ "$ADF_NO_BROKER" = 1 ]; then
+    echo "  broker:   omitted (ADF_NO_BROKER=1)"
+else
+    echo "  broker:   $BROKER_DEVICE"
+fi
 
 # Temp dir for intermediate files; cleaned up on exit
 TMPWORK=$(mktemp -d)
@@ -61,8 +91,17 @@ for CMD in Makedir Assign Echo; do
         echo "  note: $CMD not found in WB_ADF (skipping)"
 done
 
+if [ "$ADF_NO_BROKER" != 1 ]; then
+    cp "$LOAD_RESIDENT" "$TMPWORK/c/fujinet-load-resident"
+fi
+
 # Write startup-sequence
 {
+    if [ "$ADF_NO_BROKER" != 1 ]; then
+        # The broker's worker is a Process, so it opens the disk-based
+        # serial.device itself (contracts/amiga-adf-bootstrap.md).
+        printf 'C:fujinet-load-resident DEVS:fujinet-nio.device fujinet-nio.device\n'
+    fi
     [ -n "$EMU_STARTUP_PREFIX" ] && printf '%s\n' "$EMU_STARTUP_PREFIX"
     if [ -n "$EMU_STARTUP_ARGS" ]; then
         printf '%s %s\n' "$APP_NAME" "$EMU_STARTUP_ARGS"
@@ -78,14 +117,27 @@ xdftool "$ADF_OUT" makedir s
 xdftool "$ADF_OUT" write "$TMPWORK/startup-sequence" s/startup-sequence
 xdftool "$ADF_OUT" makedir Devs
 xdftool "$ADF_OUT" write "$TMPWORK/serial.device" Devs/serial.device
+if [ "$ADF_NO_BROKER" != 1 ]; then
+    xdftool "$ADF_OUT" write "$BROKER_DEVICE" Devs/fujinet-nio.device
+fi
 xdftool "$ADF_OUT" write "$APP_BINARY" "$APP_NAME"
-# Include external commands so EMU_STARTUP_PREFIX scripts can use MakDir/Assign/Echo
+# Include external commands: MakDir/Assign/Echo for EMU_STARTUP_PREFIX
+# scripts, and the broker loader
 if [ -d "$TMPWORK/c" ] && [ "$(ls -A "$TMPWORK/c" 2>/dev/null)" ]; then
     xdftool "$ADF_OUT" makedir c
     for f in "$TMPWORK/c"/*; do
         xdftool "$ADF_OUT" write "$f" "c/$(basename "$f")"
     done
 fi
+
+# Optional: extra Workbench files (e.g. C/Mount for a disk-device ADF).
+# A missing one is an error: the startup-sequence would fail on it silently.
+for WBF in $ADF_WB_FILES; do
+    mkdir -p "$TMPWORK/wb/$(dirname "$WBF")"
+    xdftool "$WB_ADF" read "$WBF" "$TMPWORK/wb/$WBF"
+    xdftool "$ADF_OUT" makedir "$(dirname "$WBF")" 2>/dev/null || true
+    xdftool "$ADF_OUT" write "$TMPWORK/wb/$WBF" "$WBF"
+done
 
 # Optional: add a static directory tree to the ADF root.
 # Files are placed at their path relative to ADF_STATIC_DIR.

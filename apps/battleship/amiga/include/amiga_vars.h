@@ -1,6 +1,11 @@
 #ifndef AMIGA_VARS_H
 #define AMIGA_VARS_H
 
+/* The key values kt_decode() emits and the bit layout joyDecode() returns
+ * are the gamekit's published contract — name them here, never restate the
+ * literals (libs/amiga-gamekit/include/gkinput.h). */
+#include "gkinput.h"
+
 /* Cell grid of the graphical renderer: 40x25 cells of 8x8 pixels on a
  * 320x200 custom screen (Phase 3c). Mirrors the Atari port's 40-column
  * layout squeezed by one row (Atari is 40x26) — see src/cellmap.c. */
@@ -18,40 +23,40 @@
 #define ICON_SPEC        '#'
 
 /* Keyboard mappings — WASD + standard keys for Phase 1 */
-#define KEY_LEFT_ARROW   'a'
+#define KEY_LEFT_ARROW   GK_KEY_LEFT
 #define KEY_LEFT_ARROW_2 '<'
 #define KEY_LEFT_ARROW_3 ','
 
-#define KEY_RIGHT_ARROW  'd'
+#define KEY_RIGHT_ARROW  GK_KEY_RIGHT
 #define KEY_RIGHT_ARROW_2 '>'
 #define KEY_RIGHT_ARROW_3 '.'
 
-#define KEY_UP_ARROW     'w'
+#define KEY_UP_ARROW     GK_KEY_UP
 #define KEY_UP_ARROW_2   '-'
 #define KEY_UP_ARROW_3   1   /* Ctrl-A — distinct non-conflicting alternate */
 
-#define KEY_DOWN_ARROW   's'
+#define KEY_DOWN_ARROW   GK_KEY_DOWN
 #define KEY_DOWN_ARROW_2 '='
 #define KEY_DOWN_ARROW_3 2   /* Ctrl-B — distinct non-conflicting alternate */
 
-#define KEY_ESCAPE       27
+#define KEY_ESCAPE       GK_KEY_ESCAPE
 #define KEY_ESCAPE_ALT   'q'
 
-#define KEY_SPACEBAR     ' '
-#define KEY_BACKSPACE    8
-#define KEY_RETURN       '\r'
+#define KEY_SPACEBAR     GK_KEY_SPACEBAR
+#define KEY_BACKSPACE    GK_KEY_BACKSPACE
+#define KEY_RETURN       GK_KEY_RETURN
 
 /* Server query suffix appended to API URLs (empty — server handles defaults) */
 #define QUERY_SUFFIX ""
 
-/* Joystick bit-field macros (match readJoystick() bit layout) */
-#define JOY_UP(v)    ((v) & 0x01)
-#define JOY_DOWN(v)  ((v) & 0x02)
-#define JOY_LEFT(v)  ((v) & 0x04)
-#define JOY_RIGHT(v) ((v) & 0x08)
-#define JOY_BTN_1(v) ((v) & 0x10)
-#define JOY_BTN_2(v) ((v) & 0x20)
-#define JOY_BTN_1_MASK 0x10
+/* Joystick bit-field macros (the layout joyDecode() produces) */
+#define JOY_UP(v)    GK_JOY_UP(v)
+#define JOY_DOWN(v)  GK_JOY_DOWN(v)
+#define JOY_LEFT(v)  GK_JOY_LEFT(v)
+#define JOY_RIGHT(v) GK_JOY_RIGHT(v)
+#define JOY_BTN_1(v) GK_JOY_BTN_1(v)
+#define JOY_BTN_2(v) GK_JOY_BTN_2(v)
+#define JOY_BTN_1_MASK GK_JOY_BTN_1_MASK
 
 /* Layout constants (40-column grid — values follow the Atari port) */
 #define BOTTOM_HEIGHT 4

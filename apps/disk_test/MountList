@@ -1,0 +1,19 @@
+/* DN0: for KS 1.3 — see contracts/amiga-adf-bootstrap.md.
+   No GlobVec: the 1.3 ROM handler is BCPL, and GlobVec = -1 gurus it. */
+
+DN0:
+    Device = fujinet-disk.device
+    Unit = 0
+    Flags = 0
+    Surfaces = 2
+    BlocksPerTrack = 11
+    Reserved = 2
+    Interleave = 0
+    LowCyl = 0
+    HighCyl = 79
+    Buffers = 30
+    BufMemType = 1
+    DosType = 0x444F5300
+    StackSize = 32768
+    Priority = 5
+#

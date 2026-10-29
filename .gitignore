@@ -6,8 +6,19 @@ fujinet-data/
 apps/*/fn_test
 apps/*/http_get
 apps/*/compat_test
+apps/disk_test/disk_test
+apps/disk_test/build/
 apps/**/*.adf
 
 # T1 host unit-test binaries (native cc)
 libs/**/test/host/*.test
 apps/**/test/host/*.test
+emu/.venv/
+
+# Generated art previews (apps/fujitzee/amiga/tools/dicepreview.py)
+apps/**/dice-preview.png
+apps/**/dice-stamps.png
+__pycache__/
+
+# Parent-repo Amiga build output (make/amiga.mk: the broker loader)
+/build/

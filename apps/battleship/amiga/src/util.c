@@ -1,72 +1,43 @@
+/*
+ * util.c - upstream/src/platform-specific/util.h on the gamekit clock
+ *
+ * The clock and PRNG themselves live in libs/amiga-gamekit (gktimer.h,
+ * gkrandom.h); this file is the thin adapter that gives them the names
+ * upstream's platform API expects, plus the two things that are genuinely
+ * battleship's: the stack size and the itoa() gamelogic.c wants.
+ */
 #include "misc.h"
-#include <proto/exec.h>
-#include <proto/dos.h>
-#include <dos/dos.h>
-#include <devices/timer.h>
+
+#include "gktimer.h"
+#include "gkrandom.h"
 
 unsigned long __stack = 32768;
 
-/*
- * Move timer, expressed in 1/50-second jiffies (matches getJiffiesPerSecond()).
- *
- * We use DateStamp() (dos.library) rather than timer.device: it is KS 1.3 (V33)
- * safe, needs no device to open/close, and dos.library is already linked. Its
- * ds_Tick field is in TICKS_PER_SECOND (== 50) units and ds_Minute is
- * minutes-since-midnight, so total jiffies = ds_Minute * 3000 + ds_Tick
- * (3000 = 60 * 50). This gives exactly the 50Hz base the game logic assumes.
- */
-#define JIFFIES_PER_MINUTE  (60UL * TICKS_PER_SECOND) /* 3000 */
-#define JIFFIES_PER_DAY     (1440UL * JIFFIES_PER_MINUTE)
-
-/* Jiffies-since-midnight at the last resetTimer(). */
-static uint32_t timer_base = 0;
-
-static uint32_t nowJiffies(void)
-{
-    struct DateStamp ds;
-    DateStamp(&ds);
-    /* ds_Days is ignored on purpose: a move timer spans at most minutes, and
-       the ds_Minute/ds_Tick pair already covers a full day; the midnight wrap
-       is handled in getTime(). */
-    return (uint32_t)ds.ds_Minute * JIFFIES_PER_MINUTE + (uint32_t)ds.ds_Tick;
-}
-
 void resetTimer(void)
 {
-    timer_base = nowJiffies();
+    gk_timer_reset();
 }
 
 uint16_t getTime(void)
 {
-    uint32_t now = nowJiffies();
-    uint32_t elapsed;
-
-    if (now >= timer_base)
-        elapsed = now - timer_base;
-    else
-        elapsed = now + JIFFIES_PER_DAY - timer_base; /* crossed midnight */
-
-    /* A move timer is at most a few hundred seconds; saturate so a very long
-       wait can't wrap the uint16_t and read back as a small value. */
-    if (elapsed > 0xFFFFUL)
-        elapsed = 0xFFFFUL;
-
-    return (uint16_t)elapsed;
+    return gk_timer_elapsed();
 }
 
+/*
+ * Must match the unit getTime() counts in — gamelogic.c only ever computes
+ * (maxJifs - getTime()) / getJiffiesPerSecond(). The gamekit clock is
+ * DateStamp-based, so that unit is 50/s of real time on PAL and NTSC alike;
+ * see the note in libs/amiga-gamekit/src/gktimer.c about why display-mode
+ * detection does NOT belong here.
+ */
 uint8_t getJiffiesPerSecond(void)
 {
-    return 50; /* PAL default */
+    return GK_JIFFIES_PER_SECOND;
 }
 
 uint8_t getRandomNumber(uint8_t maxExclusive)
 {
-    static uint16_t lfsr = 0xACE1;
-    lfsr ^= lfsr >> 7;
-    lfsr ^= lfsr << 9;
-    lfsr ^= lfsr >> 13;
-    if (maxExclusive == 0) return 0;
-    return (uint8_t)(lfsr % maxExclusive);
+    return gk_random(maxExclusive);
 }
 
 void quit(void)

@@ -137,11 +137,29 @@ The port-surface audit is already done: fujitzee uses exactly the same six
 FujiNet functions Battleship does, all covered by Track 1A. No compat-layer work
 is expected.
 
-The headline change is **Phase 0: extract `libs/amiga-gamekit`** — pull the
+The headline change was **Phase 0: extract `libs/amiga-gamekit`** — pull the
 reusable screen/tile engine, key translation, joystick decode, waveform
 generation and timer out of `apps/battleship/amiga/src/` into a shared library,
-proven by Battleship still passing its T1 and T2 suites. Everything after that
-is fujitzee-specific renderer, sound, and art.
+proven by Battleship still passing its T1 and T2 suites. Done 2026-08-05.
+Everything after that is fujitzee-specific renderer, sound, and art. Phase 1
+(2026-08-05) scaffolded `apps/fujitzee/amiga/` and got the upstream sources
+compiling and linking on stubs — the cheap-second-port thesis is holding so
+far: no compat-layer work was needed, and the only real obstacle was the
+server wire format's struct packing — which produced the port's one upstream
+PR, a two-line opt-in. Phase 2 (2026-08-06) replaced the stubs with the real
+renderer and keyboard, and made the thesis pay twice: the port needed two
+things battleship already had (the IDCMP key pump, the tile-art composers),
+and both were extracted into the gamekit rather than copied — battleship got
+shorter, not forked. Phase 3b (2026-08-06) did the same for the joystick, and
+the third extraction was the cheapest yet: two register reads and a pure
+decode, leaving battleship's genuinely game-specific mouse aiming behind.
+Phase 3a (2026-08-06) closed the port with sound, and the fourth extraction
+was the one Phase 0 flagged as the genuinely hard call — battleship's
+`sound.c` mixed effect definitions with `audio.device` playback. The seam
+held anyway: playback became `libs/amiga-gamekit/src/gksound.c`, the effect
+tables stayed per game, and battleship's `sound.c` halved. Four for four on
+extract-rather-than-copy, and each one has left battleship smaller, which is
+the cheap-second-port thesis paying out about as clearly as it can.
 
 Full plan, including the five other process changes from 1B:
 `docs/plan-track1c-fujitzee.md`.
@@ -175,13 +193,15 @@ not a refactor.
 
 | Track | Status | Notes |
 |---|---|---|
-| Serial transport | ✅ Done | 19200 baud, SLIP, FujiBus |
+| Serial transport | ✅ Done — **upstreamed 2026-08-08** | 19200 baud, SLIP, FujiBus. Merged into `markjfisher/fujinet-nio-lib` as [#1](https://github.com/markjfisher/fujinet-nio-lib/pull/1) (`c69eadd`, a real merge commit — our `381b883` is preserved in upstream history). `fujinet-nio-lib` therefore left *Riding a PR* and now Tracks `master`, which makes every submodule Tracking for the first time. **Superseded 2026-08-22:** the transport was cut over to a resident `fujinet-nio.device` broker (nio-lib `6e0b3d9`) and SLIP moved into it; above 19200 it also wants Mark's `fujinet-serial.device` Paula UART driver. Our contributed code is still in upstream history, but the `serial.device`-facing shape of it is gone — see CLAUDE.md |
 | fn_* API (`fn_open`, `fn_read`, `fn_write`) | ✅ Done | HTTP + HTTPS GET/POST working |
 | `http_get` demo app | ✅ Done | HTTPS auto-detect, NTSC mode, weather demo |
 | `fn_test` smoke test | ✅ Done | Validates serial transport end-to-end |
 | Track 1A — compat layer | ✅ Done (2026-07-01) | `libs/fujinet-compat-amiga`; header-sync procedure in `docs/updating-fujinet-compat-headers.md` |
 | Track 1B — Battleship port | 🚧 Phase 4 complete (2026-07-28) — awaiting real hardware | 3a joystick ✅, 3b sound ✅, 3c graphical renderer ✅. Tile engine on a custom 320×200×4 screen, playable end-to-end in emulator (lobby → placement → gameplay → menu); mouse aiming (#21) and mouse ship placement (#23) merged; tile art pass done (`tiles.h` — multicolor sea/ships/markers/explosion, previewed via the `tilegallery` harness). Phase 4 ADF boot test ✅ (2026-07-28: full game in FS-UAE off the ADF, 6706 FujiBus frames, no errors). Remaining: real Amiga 500 + PiStorm. Also unblocks the upstream port PR |
-| Track 1C — Fujitzee port | 🚧 Setup complete (2026-08-05) | Upstream pinned at `apps/fujitzee/upstream`; port surface audited (same six FujiNet functions as Battleship — no compat-layer work expected); phases agreed in `docs/plan-track1c-fujitzee.md`. Next: Phase 0 — extract `libs/amiga-gamekit` from `apps/battleship/amiga/` |
+| Track 1C — Fujitzee port | ✅ Complete (2026-08-06) | Upstream pinned at `apps/fujitzee/upstream`; port surface audited (same six FujiNet functions as Battleship — no compat-layer work needed); phases in `docs/plan-track1c-fujitzee.md`. Phase 0 ✅: `libs/amiga-gamekit` extracted (screen/tile/sprite core, key + joystick decode, waveform bakers, jiffy clock, PRNG); Battleship rebuilt against it and passes T1 + T2. Phase 1 ✅: scaffold links under m68k; server wire format needed packed structs, fixed by upstream PR [fujinet-fujitzee#9](https://github.com/FujiNetWIFI/fujinet-fujitzee/pull/9) (`FUJITZEE_PACK_STRUCTS`), merged 2026-08-06. Phase 2 ✅: real renderer on the gamekit screen — 40x25 cells, six player columns, the DOS layout (the Atari's is one row taller and does not fit); dice as 16 tiles x 3 face colours; keyboard via a new shared gamekit key queue, with arrows decoded as control codes because fujitzee's menus and name entry already use W/A/S/D. Boots and talks to `fujinet-nio` (T2 PASS); the scorecard is verified by a `boardpreview` ADF since it only renders in a live game. Phase 3b ✅: real joystick on game port 2 — the read extracted to the gamekit (`gkjoy.c` + a T1-tested `joyDecodePort2()` pinning the active-low fire line), and verified headlessly by `emu/drive.sh`'s new `JOYSTICK=1` mode, which puts FS-UAE's keyboard controller in the game port so a scripted run can move the stick. Phase 3c ✅: the art pass — bevelled multicolor dice, a five-cell mountain+TZEE wordmark on the game's own score row, and tiles for the turn marker and score cursor, all data in `tiles.h`. It also closed a real defect it uncovered: a four-digit score is right-aligned by upstream into a three-cell column and starts on the board divider, so the renderer now squeezes it into the 30 px that are actually free (`fj_score_spill()`, T1-tested, plus one new gamekit primitive `gfx_text_tight()`). Phase 3a ✅: sound — 13 effects at the pitches upstream's DOS port back-derived from the Atari POKEY, and the `audio.device` playback extracted to the gamekit (`gksound.c`) so battleship shares it, halving its `sound.c`. Verified by capturing the emulator's audio (`AUDIO_WAV=` in `drive.sh`, `emu/checkaudio.py`) rather than by ear, which found two defects nothing else would have: every effect that did not decay to zero left a DC offset on the channel, and FS-UAE drops the `AUDxPER` write the same way it drops `AUDxVOL`, so everything played ~4x too fast. Both fixed at the gamekit level, so battleship gets them too. Phase 3d ✅ (2026-08-07): opponent scores arrive big-endian — `QUERY_SUFFIX "&be=1"` in `amiga_vars.h` asks the server for it, after upstream merged and then reverted a client-side swap ([#10](https://github.com/FujiNetWIFI/fujinet-fujitzee/pull/10) → [#12](https://github.com/FujiNetWIFI/fujinet-fujitzee/pull/12)) in favour of the flag the CoCo port already used; `apps/fujitzee/upstream` tracks upstream `main` again. No stubs remain |
+| Track 1D — FujiNet Lobby port | 📋 Planned (2026-08-07), not started | `docs/plan-track1d-lobby.md`. Upstream [`FujiNetWIFI/fujinet-lobby`](https://github.com/FujiNetWIFI/fujinet-lobby) `clients/`; port surface audited — only four `platform.h` functions and a ~5 KB platform layer, the smallest port yet. Compat layer covers `network_*` + appkeys; the `fuji_mount_*` trio does **not** exist and is blocked on the disk device, so the launch is exit-and-relaunch from a single ADF (measured: lobby + both games ≈ 212 KB of ~880 KB) rather than mount-and-boot. Two known risks carried from 1C: the `?bin=1` response is a memcpy'd packed struct, and the gamekit screen is 40 columns. Q1 (is there a registered `amiga` platform id server-side?) is a dependency on the Lobby maintainers, not on us |
+| Amiga disk device (`fujinet-disk.device`) | 🚧 Alive again upstream (2026-09-26) — Mark has a working device; our side is the blocker | Superseded the 2026-08-07 "deferred, blocked on parallel-port PHY" call twice over. **The PHY answer is Zorro/RP2350, not the parallel port** — `fujinet-nio/bridges/rp2350-zorro/` now holds a reviewed L0–L10 SPI link feasibility ledger (~105 KB/s at the RP2350's actual 6.818 MHz divider rate for 240-byte payloads; intermittent returned-frame checksum failures at 7.5 MHz on a Dupont/breadboard fixture; polling and DMA indistinguishable, so FIFO servicing is not the bottleneck) plus a draft Story 2.4 packet ABI. Board work lives in the unpinned `markjfisher/fujinet-nio-hardware`. **And the block endpoint this row called "not yet written" exists** — `fujinet-disk.device` mounts `DN0:`/`DN1:`, serves `Dir` and `Type`, and does writes with `CMD_UPDATE` and flush. Read `fujinet-nio-driver/amiga/README.md`, `fujinet-nio/docs/amiga/zorro-autoboot.md` and `docs/amiga/amiga-floppy-channel.md` before touching `docs/plan-amiga-disk-device.md` or reviving `feature/floppy-planning`. Review answered 2026-09-26 in `docs/response-to-mark-disk-device-review.md` (worker-task init, list locking, KS 1.3 `serial.device`/`GlobVec` beliefs, `TOOL_CRT` ask). **ADF broker rework done 2026-09-26:** every networked ADF now installs `fujinet-nio.device`, and `make emu-test` reaches FujiNet on KS 1.3 again. The broker needed two driver fixes (ROMTag `rt_EndSkip`, unnamed device node on 1.3; pinned on our fork, so the driver is *Riding a PR*: [markjfisher/fujinet-nio-driver#1](https://github.com/markjfisher/fujinet-nio-driver/pull/1)) and a Startup-Sequence workaround for a #00000003 Guru (worker Task opening disk-based `serial.device`; fix is Mark's, [markjfisher/fujinet-nio-driver#2](https://github.com/markjfisher/fujinet-nio-driver/issues/2)). **`DN0:` mounted on KS 1.3 2026-09-26:** `Dir`/`Type`/`Info` work once `GlobVec = -1` is dropped. With it, the ROM (BCPL) handler gurus #00000003 on first access. That confirms the belief. Our suggested `FileSystem = L:FastFileSystem` alternative is retracted: 1.3 FFS mounts `DOS\1` only. `Buffers = 30` cuts a repeat `Dir` from 9 s to 2 s. `fujinet-mount` cannot build for 1.3 (`CreateNewProcTags`), so a 1.3 mount tool is an open gap. Details in the review response's latest update. Filed upstream as [markjfisher/fujinet-nio-driver#3](https://github.com/markjfisher/fujinet-nio-driver/issues/3). `apps/disk_test` is now a T2 `emu-test` for `DN0:` on 1.3, with the 1.3 rules in `contracts/amiga-adf-bootstrap.md` **October 2026 sync:** upstream merged #1 and closed #2 and #3 — the broker worker is now a Process on 1.3, so the `serial.device` Startup-Sequence workaround is gone, and the driver builds only into named Workbench profiles (we use `wb13`, which also builds `fujinet-mount` for 1.3). The new broker crashed on load here (Exception 3, libnix's `DOSBase` sentinel linked into a `-nostartfiles` device); fixed on our fork, so the driver is *Riding a PR* again ([markjfisher/fujinet-nio-driver#5](https://github.com/markjfisher/fujinet-nio-driver/pull/5)). All six `emu-test`s pass |
 | Track 2 Phase 1 — BSD sockets | 🔲 Not started | |
 | Track 2 Phase 2 — DNS | 🔲 Not started | |
 | Track 2 Phase 3 — TLS | 🔲 Not started | |
@@ -194,6 +214,32 @@ not a refactor.
 
 > Add entries here as the project progresses. Date each entry.
 
+- **2026-10-28** — A device that boots on its author's machine can still
+  crash on ours, from a link difference rather than a source difference.
+  Upstream's broker left `DOSBase` as a tentative definition, and our amiga-gcc
+  satisfied that from libnix's `__dosbase.o`, whose initial value is the
+  auto-open sentinel `-1`. With `-nostartfiles` nothing ever replaces it, so a
+  `DOSBase == NULL` guard silently passes. The map file showed it at once
+  (`libc.a(lib_a-__dosbase.o) … (DOSBase)`); for any `-nostartfiles` binary,
+  read which archive members got pulled in before suspecting the code.
+  Bisecting with `Echo` markers wide enough to clear the Guru requester, and
+  swapping the old loader in, put the fault on the broker's load line in
+  three boots.
+
+- **2026-09-26** — Six weeks away let a *breaking* upstream change land
+  unnoticed: `fujinet-nio-lib` moved the Amiga transport off `serial.device`
+  onto a resident `fujinet-nio.device` broker. Everything in `apps/` still
+  **compiles** — the change is behind the archive — so T1 and a build sweep both
+  stay green while no ADF can reach FujiNet. Two lessons. (a) *Compiling is not
+  coverage across a submodule boundary*; a transport swap is exactly the class
+  of change a link test cannot see, and only T2 would have caught it. (b) The
+  drift check in `docs/syncing-upstream-submodules.md` is cheap and we skipped
+  it for six weeks — Mark landed 255 commits across three repos in that window.
+  Run it when starting work, not when something breaks. A corollary worth
+  keeping: the same sync turned the known `-mcrt=clib2` tool-link failure from
+  cosmetic into blocking, because installing the broker needs
+  `fujinet-load-resident`. A tolerated upstream papercut can become
+  load-bearing without changing at all.
 - **2026-06-28** — FS-UAE `serial_port = tcp:…` mode causes `IOERR_OPENFAIL` in
   `serial.device`. Always use a PTY pair (`socat` + `ser2net` or similar) for
   emulator testing. See `contracts/` and emulator config docs.
@@ -201,6 +247,37 @@ not a refactor.
   built ADF, causing stale boots that look like build failures. `emu/run.sh`
   now deletes them before every run; if a boot ever shows old behavior, check
   for stray `.sdf` files first.
+- **2026-08-06** — FS-UAE drops the **`AUDxPER`** write audio.device performs
+  at `CMD_WRITE`, exactly as it drops `AUDxVOL` (2026-07-08). Effects then
+  play at whatever rate the channel was last left at — measured ~4x fast, two
+  octaves high and a quarter as long. The tell that it is a dropped write and
+  not a mis-set value: the output is byte-identical whether `ioa_Period` is
+  447 or 1788. `gk_snd_play()` now re-pokes period and volume together
+  (`pokePerVol()`), a no-op on real hardware. **The general lesson is the
+  second one:** this shipped undetected in battleship because "is there
+  sound?" was checked by ear on a screenshot-driven run, and wrong-pitch
+  audio is still audio. `AUDIO_WAV=… bash emu/drive.sh` + `emu/checkaudio.py`
+  now capture and measure it — FS-UAE plays through OpenAL, whose "wave"
+  backend writes a .wav instead of opening a device.
+- **2026-08-06** — A sample that ends on a non-zero amplitude leaves Paula
+  holding that value as a **DC offset** on the channel until the next effect.
+  Silent on its own, so it survives casual listening, but it thumps on the
+  next transition. Bake every effect down to `vol_end 0`; the rule is stated
+  in `libs/amiga-gamekit/include/sndgen.h`. Found by the same audio capture,
+  as a burst whose zero-crossing rate was 0 while its mean amplitude was
+  thousands — the signature of DC rather than sound.
+- **2026-08-07** — A merged upstream PR can still be reverted. Fujitzee's
+  client-side score byte-swap (fujinet-fujitzee#10) merged on 2026-08-06 and
+  was reverted the next day (#11, #12): the server already accepted a `&be=1`
+  query parameter that makes it emit big-endian, which the CoCo port had been
+  using all along. Two lessons. **Before writing a client-side fix for a wire
+  format, check whether the server can just send what you want** — the
+  server-side flag has no call sites to get wrong, while the client swap had
+  to be invoked only where the union was known to hold a `Game`. And
+  **`Riding a PR` does not end at "merged"** — re-read the upstream repo on
+  each routine sync, because a revert removes something the port depends on
+  and it will not break the build, only the display. Procedure for the exit:
+  `docs/syncing-upstream-submodules.md` ("If the PR was reverted").
 - **2026-07-05** — Upstream squash-merges invalidate contributed submodule
   branches; never rebase them post-merge — drop the branch and re-track
   upstream master. Procedure: `docs/syncing-upstream-submodules.md`.
@@ -237,3 +314,17 @@ not a refactor.
   `.claude/commands/emu-build-and-boot.md`; the system default font may be
   10 px-wide 60-column topaz rather than topaz 8 → documented in
   `contracts/amiga-coding-conventions.md` (Custom screens / rendering).
+- **2026-08-22** — **A serial loopback test is blind to pin 2/3 orientation.**
+  Shorting pins 2–3 at the far end of a cable proves the two data conductors
+  reach that connector and come back — it does *not* prove which is TXD and
+  which is RXD, because the jumper ties them together either way. A cable that
+  lands the host's TX on the Amiga's TX pin passes loopback perfectly and is
+  dead in both directions once connected. Root cause here: **two null-modem
+  adapters stacked in the run**, whose crossings cancel to straight-through.
+  When loopback passes but a real link is dead both ways, suspect orientation
+  and ring out DB-9 pin 3 → DB-25 pin 3 with a meter rather than re-running
+  the loopback. Second lesson from the same session: deterministic garbage is
+  worth *simulating* before it is worth guessing at — decoding the transmitted
+  waveform at every rate from 300 to 120000 baud matched the observed bytes no
+  better than chance, which ruled out a baud mismatch outright and redirected
+  the search to hardware. Full record: `docs/debug-amiga-serial-port.md`.

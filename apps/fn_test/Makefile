@@ -22,10 +22,11 @@ SRCS    = fn_test.c
 # ── Emulator test config ──────────────────────────────────────────────────
 APP_NAME         = fn_test
 APP_BINARY       = $(TARGET)
-# fn_test only opens and configures serial.device (fn_init + fn_is_ready).
-# It never sends FujiBus data. The observable signal is FS-UAE's own log
-# line confirming it applied the baud-rate change from SDCMD_SETPARAMS.
-EMU_PASS_PATTERN = serial: setbaud: 19200
+# fn_init() and fn_is_ready() send nothing: the broker opens serial.device
+# lazily on the first exchange. So fn_test also reads the clock, a local
+# round trip that needs no internet, and the server logging the request is
+# the proof the link works.
+EMU_PASS_PATTERN = fujibus: receive:
 EMU_TIMEOUT      = 60
 
 include ../../emu/template/emu.mk

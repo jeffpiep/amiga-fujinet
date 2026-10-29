@@ -37,6 +37,9 @@ hardware that doesn't exist yet. Everything not listed as decided is
   until a board is chosen; upstream's developer onboarding covers its own
   ESP32 build.
 - Parallel-port electrical/timing spec — needs the PHY decision first.
+  Note this now **blocks remote disk/ADF mounting**: RS-232's ≈1.9 KB/s was
+  judged disqualifying for block service on 2026-08-07, so
+  `docs/plan-amiga-disk-device.md` waits on this PHY.
 - Any `emu/`-style automation for ESP32-in-the-loop testing.
 
 When the PHY decision is made or hardware arrives, replace the relevant
